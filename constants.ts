@@ -1,0 +1,92 @@
+import { Generator, GeneratorStatus, MaintenanceLog, User, UserRole, Alarm } from './types';
+
+export const MOCK_USERS: User[] = [
+  { id: '1', name: 'Administrador Ciklo', role: UserRole.ADMIN, email: 'admin@ciklo.com', password: '123456', assignedGeneratorIds: [] },
+  { id: '2', name: 'Técnico Operacional', role: UserRole.TECHNICIAN, email: 'tech@ciklo.com', password: '123456', assignedGeneratorIds: ['GEN-001', 'GEN-003'] },
+  { id: '3', name: 'Cliente Final', role: UserRole.CLIENT, email: 'client@company.com', password: '123456', assignedGeneratorIds: ['GEN-002'] },
+];
+
+export const MOCK_GENERATORS: Generator[] = [
+  {
+    id: 'GEN-001',
+    name: 'Gerador Principal - Sede',
+    location: 'São Paulo, SP - Térreo',
+    model: 'Ciklo Power 500',
+    powerKVA: 500,
+    status: GeneratorStatus.RUNNING,
+    fuelLevel: 78,
+    engineTemp: 88,
+    oilPressure: 4.5,
+    batteryVoltage: 27.4,
+    rpm: 1802,
+    totalHours: 12450,
+    lastMaintenance: '2023-10-15',
+    voltageL1: 220,
+    voltageL2: 219,
+    voltageL3: 221,
+    currentL1: 150,
+    currentL2: 148,
+    currentL3: 152,
+    frequency: 60.1,
+    powerFactor: 0.92,
+    activePower: 380,
+  },
+  {
+    id: 'GEN-002',
+    name: 'Gerador Backup - Datacenter',
+    location: 'Barueri, SP - Bloco B',
+    model: 'Ciklo Silent 250',
+    powerKVA: 250,
+    status: GeneratorStatus.STOPPED,
+    fuelLevel: 45,
+    engineTemp: 25,
+    oilPressure: 0,
+    batteryVoltage: 26.8,
+    rpm: 0,
+    totalHours: 450,
+    lastMaintenance: '2024-01-10',
+    voltageL1: 0,
+    voltageL2: 0,
+    voltageL3: 0,
+    currentL1: 0,
+    currentL2: 0,
+    currentL3: 0,
+    frequency: 0,
+    powerFactor: 0,
+    activePower: 0,
+  },
+  {
+    id: 'GEN-003',
+    name: 'Unidade Móvel 04',
+    location: 'Obra Rodoanel',
+    model: 'Ciklo Heavy 100',
+    powerKVA: 100,
+    status: GeneratorStatus.ALARM,
+    fuelLevel: 12,
+    engineTemp: 98,
+    oilPressure: 2.1,
+    batteryVoltage: 24.1,
+    rpm: 1750,
+    totalHours: 3200,
+    lastMaintenance: '2023-11-20',
+    voltageL1: 215,
+    voltageL2: 210,
+    voltageL3: 212,
+    currentL1: 80,
+    currentL2: 85,
+    currentL3: 82,
+    frequency: 59.5,
+    powerFactor: 0.85,
+    activePower: 75,
+  }
+];
+
+export const MOCK_LOGS: MaintenanceLog[] = [
+  { id: 'LOG-1', generatorId: 'GEN-001', date: '2023-10-15', technician: 'Carlos Silva', type: 'PREVENTIVE', description: 'Troca de óleo e filtros', completed: true },
+  { id: 'LOG-2', generatorId: 'GEN-003', date: '2024-02-01', technician: 'João Souza', type: 'CORRECTIVE', description: 'Ajuste de correia do alternador', completed: false },
+];
+
+export const MOCK_ALARMS: Alarm[] = [
+  { id: 'ALM-1', generatorId: 'GEN-003', message: 'Baixo Nível de Combustível', severity: 'WARNING', timestamp: '2024-05-20 14:30:00', active: true },
+  { id: 'ALM-2', generatorId: 'GEN-003', message: 'Alta Temperatura do Motor', severity: 'CRITICAL', timestamp: '2024-05-20 15:00:00', active: true },
+];
