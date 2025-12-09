@@ -1,9 +1,12 @@
+
 import { Generator, GeneratorStatus, MaintenanceLog, User, UserRole, Alarm } from './types';
 
 export const MOCK_USERS: User[] = [
   { id: '1', name: 'Administrador Ciklo', role: UserRole.ADMIN, email: 'admin@ciklo.com', password: '123456', assignedGeneratorIds: [] },
   { id: '2', name: 'Técnico Operacional', role: UserRole.TECHNICIAN, email: 'tech@ciklo.com', password: '123456', assignedGeneratorIds: ['GEN-001', 'GEN-003'] },
-  { id: '3', name: 'Cliente Final', role: UserRole.CLIENT, email: 'client@company.com', password: '123456', assignedGeneratorIds: ['GEN-002'] },
+  { id: '3', name: 'Cliente Final', role: UserRole.CLIENT, email: 'client@company.com', password: '123456', assignedGeneratorIds: ['GEN-002'], credits: 50 },
+  { id: '4', name: 'Cliente Sem Saldo', role: UserRole.CLIENT, email: 'zerado@company.com', password: '123456', assignedGeneratorIds: ['GEN-002'], credits: 0 },
+  { id: '5', name: 'Visitante Monitor', role: UserRole.MONITOR, email: 'monitor@ciklo.com', password: '123456', assignedGeneratorIds: ['GEN-001', 'GEN-002'] },
 ];
 
 export const MOCK_GENERATORS: Generator[] = [
@@ -30,6 +33,16 @@ export const MOCK_GENERATORS: Generator[] = [
     frequency: 60.1,
     powerFactor: 0.92,
     activePower: 380,
+    mainsVoltageL1: 0, 
+    mainsVoltageL2: 0,
+    mainsVoltageL3: 0,
+    mainsFrequency: 0,
+    mainsCurrentL1: 0,
+    mainsCurrentL2: 0,
+    mainsCurrentL3: 0,
+    operationMode: 'AUTO',
+    breakerMains: 'OPEN',
+    breakerGen: 'CLOSED'
   },
   {
     id: 'GEN-002',
@@ -54,6 +67,16 @@ export const MOCK_GENERATORS: Generator[] = [
     frequency: 0,
     powerFactor: 0,
     activePower: 0,
+    mainsVoltageL1: 220,
+    mainsVoltageL2: 221,
+    mainsVoltageL3: 219,
+    mainsFrequency: 60.0,
+    mainsCurrentL1: 80,
+    mainsCurrentL2: 82,
+    mainsCurrentL3: 79,
+    operationMode: 'AUTO',
+    breakerMains: 'CLOSED',
+    breakerGen: 'OPEN'
   },
   {
     id: 'GEN-003',
@@ -78,6 +101,16 @@ export const MOCK_GENERATORS: Generator[] = [
     frequency: 59.5,
     powerFactor: 0.85,
     activePower: 75,
+    mainsVoltageL1: 0,
+    mainsVoltageL2: 0,
+    mainsVoltageL3: 0,
+    mainsFrequency: 0,
+    mainsCurrentL1: 0,
+    mainsCurrentL2: 0,
+    mainsCurrentL3: 0,
+    operationMode: 'MANUAL',
+    breakerMains: 'OPEN',
+    breakerGen: 'CLOSED'
   }
 ];
 

@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Zap, LogOut, Settings2, Users, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, Zap, LogOut, Settings2, Users, MessageCircle, Wallet, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
 
@@ -9,6 +10,7 @@ const Sidebar: React.FC = () => {
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/' },
+    { icon: AlertTriangle, label: 'Central de Alarmes', path: '/alarms' },
   ];
 
   return (
@@ -28,11 +30,24 @@ const Sidebar: React.FC = () => {
           <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-white">
             {user?.name.charAt(0)}
           </div>
-          <div className="overflow-hidden">
+          <div className="overflow-hidden flex-1">
             <p className="text-sm font-medium text-white truncate">{user?.name}</p>
             <p className="text-xs text-gray-400 truncate capitalize">{user?.role.toLowerCase()}</p>
           </div>
         </div>
+        
+        {/* Credit Balance for Clients */}
+        {user?.role === UserRole.CLIENT && (
+          <div className="mt-3 px-3 py-2 bg-gray-800/50 rounded-lg border border-gray-700 flex items-center justify-between">
+             <div className="flex items-center gap-2 text-gray-400">
+                <Wallet size={14} />
+                <span className="text-xs font-medium">Dias Restantes</span>
+             </div>
+             <span className={`text-sm font-bold ${ (user.credits || 0) > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {user.credits || 0} dias
+             </span>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

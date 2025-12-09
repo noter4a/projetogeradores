@@ -24,7 +24,11 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
   const [generators, setGenerators] = useState<Generator[]>(() => {
     try {
       const savedGenerators = localStorage.getItem('ciklo_generators');
-      return savedGenerators ? JSON.parse(savedGenerators) : MOCK_GENERATORS;
+      if (savedGenerators) {
+          const parsed = JSON.parse(savedGenerators);
+          if (Array.isArray(parsed)) return parsed;
+      }
+      return MOCK_GENERATORS;
     } catch (error) {
       console.error("Failed to load generators from storage", error);
       return MOCK_GENERATORS;

@@ -1,16 +1,23 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { UserRole } from './types';
-import Login from './pages/LoginPage';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import GeneratorDetail from './pages/GeneratorDetail';
 import FleetManagement from './pages/FleetManagement';
 import AddGenerator from './pages/AddGenerator';
 import UserManagement from './pages/UserManagement';
+import Reports from './pages/Reports';
+import Maintenance from './pages/Maintenance';
+import Alarms from './pages/Alarms';
 import Sidebar from './components/Sidebar';
+import NoCredits from './pages/NoCredits';
+import AlarmPopup from './components/AlarmPopup';
 import { GeneratorProvider } from './context/GeneratorContext';
 import { UserProvider } from './context/UserContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AlarmProvider } from './context/AlarmContext';
 import { Menu, X } from 'lucide-react';
 
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
@@ -18,6 +25,15 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  // Check for credits if user is a CLIENT
+  if (user.role === UserRole.CLIENT) {
+     const credits = user.credits ?? 0;
+     if (credits <= 0) {
+       return <Navigate to="/no-credits" replace />;
+     }
+  }
+
   return <>{children}</>;
 };
 
@@ -46,6 +62,9 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   return (
     <div className="flex h-screen bg-ciklo-black overflow-hidden">
+      {/* Global Alarm Popup */}
+      <AlarmPopup />
+
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -88,6 +107,10 @@ const AppContent: React.FC = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
         
+        <Route path="/no-credits" element={
+            <NoCredits />
+        } />
+
         <Route path="/" element={
           <ProtectedRoute>
             <Layout><Dashboard /></Layout>
@@ -97,6 +120,24 @@ const AppContent: React.FC = () => {
         <Route path="/generator/:id" element={
           <ProtectedRoute>
             <Layout><GeneratorDetail /></Layout>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/maintenance" element={
+          <ProtectedRoute>
+            <Layout><Maintenance /></Layout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/reports" element={
+          <ProtectedRoute>
+            <Layout><Reports /></Layout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/alarms" element={
+          <ProtectedRoute>
+            <Layout><Alarms /></Layout>
           </ProtectedRoute>
         } />
 
@@ -135,7 +176,9 @@ const App: React.FC = () => {
     <AuthProvider>
       <UserProvider>
         <GeneratorProvider>
-          <AppContent />
+          <AlarmProvider>
+            <AppContent />
+          </AlarmProvider>
         </GeneratorProvider>
       </UserProvider>
     </AuthProvider>

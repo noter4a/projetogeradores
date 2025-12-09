@@ -3,6 +3,7 @@ export enum UserRole {
   ADMIN = 'ADMIN',
   TECHNICIAN = 'TECHNICIAN',
   CLIENT = 'CLIENT',
+  MONITOR = 'MONITOR',
 }
 
 export interface User {
@@ -12,6 +13,7 @@ export interface User {
   email: string;
   password?: string;
   assignedGeneratorIds?: string[];
+  credits?: number; // New field for credit system
 }
 
 export enum GeneratorStatus {
@@ -46,6 +48,15 @@ export interface Generator {
   powerFactor: number;
   activePower: number; // kW
   
+  // Mains / Grid Fields
+  mainsVoltageL1?: number;
+  mainsVoltageL2?: number;
+  mainsVoltageL3?: number;
+  mainsFrequency?: number;
+  mainsCurrentL1?: number;
+  mainsCurrentL2?: number;
+  mainsCurrentL3?: number;
+
   // Connectivity Fields
   connectionName?: string;
   controller?: string;
@@ -53,6 +64,11 @@ export interface Generator {
   ip?: string;
   port?: string;
   slaveId?: string;
+
+  // New Control Fields
+  operationMode?: 'AUTO' | 'MANUAL' | 'INHIBITED';
+  breakerMains?: 'OPEN' | 'CLOSED'; // Disjuntor Rede
+  breakerGen?: 'OPEN' | 'CLOSED';   // Disjuntor Gerador
 }
 
 export interface MaintenanceLog {

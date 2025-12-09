@@ -1,14 +1,18 @@
+
 import React, { useState } from 'react';
 import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { UserRole, User } from '../types';
-import { Trash2, UserPlus, Mail, Shield, User as UserIcon, X, Check, Pencil, Server, Lock } from 'lucide-react';
+import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Wallet, Plus, Minus, Calendar, Eye } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
   const { users, addUser, removeUser, updateUser } = useUsers();
   const { generators } = useGenerators();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isRechargeOpen, setIsRechargeOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [rechargeUserId, setRechargeUserId] = useState<string | null>(null);
+  const [rechargeAmount, setRechargeAmount] = useState<number>(0);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -16,12 +20,13 @@ const UserManagement: React.FC = () => {
     email: '',
     password: '',
     role: UserRole.TECHNICIAN,
-    assignedGeneratorIds: [] as string[]
+    assignedGeneratorIds: [] as string[],
+    credits: 0
   });
 
   const handleOpenAdd = () => {
     setEditingId(null);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [] });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [], credits: 0 });
     setIsFormOpen(true);
   };
 
@@ -32,9 +37,16 @@ const UserManagement: React.FC = () => {
       email: user.email, 
       password: '', // Don't show existing password
       role: user.role,
-      assignedGeneratorIds: user.assignedGeneratorIds || []
+      assignedGeneratorIds: user.assignedGeneratorIds || [],
+      credits: user.credits || 0
     });
     setIsFormOpen(true);
+  };
+
+  const handleOpenRecharge = (user: User) => {
+    setRechargeUserId(user.id);
+    setRechargeAmount(user.credits || 0); // Start with current amount or 0
+    setIsRechargeOpen(true);
   };
 
   const toggleGeneratorAssignment = (genId: string) => {
@@ -61,7 +73,8 @@ const UserManagement: React.FC = () => {
         // Only update password if provided, otherwise keep existing
         password: formData.password || existingUser?.password || '123456',
         role: formData.role as UserRole,
-        assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds
+        assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds,
+        credits: existingUser?.credits // Preserve existing credits during standard edit
       });
     } else {
       // Add new user
@@ -71,14 +84,30 @@ const UserManagement: React.FC = () => {
         email: formData.email,
         password: formData.password || '123456',
         role: formData.role as UserRole,
-        assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds
+        assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds,
+        credits: formData.role === UserRole.CLIENT ? 0 : undefined // Initialize credits for clients
       };
       addUser(user);
     }
 
     setIsFormOpen(false);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [] });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [], credits: 0 });
     setEditingId(null);
+  };
+
+  const handleRechargeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (rechargeUserId) {
+        const user = users.find(u => u.id === rechargeUserId);
+        if (user) {
+            updateUser({
+                ...user,
+                credits: rechargeAmount
+            });
+        }
+    }
+    setIsRechargeOpen(false);
+    setRechargeUserId(null);
   };
 
   return (
@@ -86,7 +115,7 @@ const UserManagement: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white">Controle de Contas</h2>
-          <p className="text-gray-400 text-sm">Gerencie o acesso e permissões dos usuários do sistema</p>
+          <p className="text-gray-400 text-sm">Gerencie o acesso, permissões e créditos dos usuários</p>
         </div>
         {!isFormOpen && (
           <button 
@@ -155,6 +184,7 @@ const UserManagement: React.FC = () => {
                   <option value={UserRole.ADMIN}>Administrador</option>
                   <option value={UserRole.TECHNICIAN}>Técnico</option>
                   <option value={UserRole.CLIENT}>Cliente</option>
+                  <option value={UserRole.MONITOR}>Monitoramento</option>
                 </select>
               </div>
             </div>
@@ -216,6 +246,70 @@ const UserManagement: React.FC = () => {
         </div>
       )}
 
+      {/* Recharge Modal */}
+      {isRechargeOpen && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-ciklo-card w-full max-w-sm rounded-xl border border-gray-700 shadow-2xl overflow-hidden animate-in zoom-in duration-200">
+               <div className="p-6 bg-gradient-to-r from-ciklo-dark to-gray-900 border-b border-gray-800">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Calendar className="text-green-500" /> Recarga de Dias
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Atualizar saldo para <span className="text-white font-medium">{users.find(u => u.id === rechargeUserId)?.name}</span>
+                  </p>
+               </div>
+               
+               <form onSubmit={handleRechargeSubmit} className="p-6 space-y-6">
+                  <div className="flex flex-col items-center gap-4">
+                     <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Dias Restantes</span>
+                     <div className="flex items-center gap-4">
+                       <button 
+                         type="button" 
+                         onClick={() => setRechargeAmount(prev => Math.max(0, prev - 1))}
+                         className="p-3 rounded-full bg-gray-800 hover:bg-gray-700 text-white transition-colors"
+                       >
+                         <Minus size={20} />
+                       </button>
+                       <div className="w-32 text-center">
+                          <input 
+                            type="number" 
+                            min="0"
+                            value={rechargeAmount}
+                            onChange={(e) => setRechargeAmount(Number(e.target.value))}
+                            className="w-full bg-transparent text-4xl font-bold text-white text-center outline-none border-b border-gray-700 focus:border-ciklo-orange pb-2"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">dias</p>
+                       </div>
+                       <button 
+                         type="button" 
+                         onClick={() => setRechargeAmount(prev => prev + 1)}
+                         className="p-3 rounded-full bg-ciklo-orange hover:bg-orange-500 text-black transition-colors"
+                       >
+                         <Plus size={20} />
+                       </button>
+                     </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                     <button 
+                       type="button" 
+                       onClick={() => { setIsRechargeOpen(false); setRechargeUserId(null); }}
+                       className="flex-1 py-3 text-gray-400 hover:bg-gray-800 rounded-lg transition-colors font-medium"
+                     >
+                       Cancelar
+                     </button>
+                     <button 
+                       type="submit" 
+                       className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-bold transition-colors"
+                     >
+                       Confirmar
+                     </button>
+                  </div>
+               </form>
+            </div>
+         </div>
+      )}
+
       {/* Users List */}
       <div className="bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
@@ -225,7 +319,7 @@ const UserManagement: React.FC = () => {
                 <th className="p-4 pl-6">Usuário</th>
                 <th className="p-4">Contato</th>
                 <th className="p-4">Perfil</th>
-                <th className="p-4">Acesso</th>
+                <th className="p-4">Acesso / Saldo</th>
                 <th className="p-4 text-center">Ações</th>
               </tr>
             </thead>
@@ -253,47 +347,81 @@ const UserManagement: React.FC = () => {
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${
                       u.role === UserRole.ADMIN ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
                       u.role === UserRole.TECHNICIAN ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                      'bg-gray-700/30 text-gray-400 border-gray-700'
+                      u.role === UserRole.CLIENT ? 'bg-gray-700/30 text-gray-400 border-gray-700' :
+                      'bg-teal-500/10 text-teal-400 border-teal-500/20'
                     }`}>
-                      <Shield size={10} />
+                      {u.role === UserRole.MONITOR ? <Eye size={10} /> : <Shield size={10} />}
                       {u.role === UserRole.ADMIN ? 'Administrador' : 
-                       u.role === UserRole.TECHNICIAN ? 'Técnico' : 'Cliente'}
+                       u.role === UserRole.TECHNICIAN ? 'Técnico' : 
+                       u.role === UserRole.CLIENT ? 'Cliente' : 'Monitoramento'}
                     </span>
                   </td>
                   <td className="p-4">
-                    {u.role === UserRole.ADMIN ? (
-                      <span className="text-xs text-green-500 font-medium">Acesso Total</span>
-                    ) : (
-                      <span className="text-xs text-gray-400">
-                        {u.assignedGeneratorIds && u.assignedGeneratorIds.length > 0 
-                          ? `${u.assignedGeneratorIds.length} Gerador(es)` 
-                          : 'Nenhum acesso'}
-                      </span>
-                    )}
+                    <div className="flex flex-col gap-1">
+                      {u.role === UserRole.ADMIN ? (
+                        <span className="text-xs text-green-500 font-medium">Acesso Total</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">
+                          {u.assignedGeneratorIds && u.assignedGeneratorIds.length > 0 
+                            ? `${u.assignedGeneratorIds.length} Gerador(es)` 
+                            : 'Nenhum gerador atribuído'}
+                        </span>
+                      )}
+                      
+                      {/* Credit Display for Clients */}
+                      {u.role === UserRole.CLIENT && (
+                         <div className="flex items-center gap-2 mt-1">
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded border ${
+                               (u.credits || 0) > 0 
+                               ? 'bg-green-500/10 text-green-400 border-green-500/20' 
+                               : 'bg-red-500/10 text-red-400 border-red-500/20'
+                            }`}>
+                               Saldo: {u.credits || 0} dias
+                            </span>
+                         </div>
+                      )}
+                    </div>
                   </td>
                   <td className="p-4 text-center">
-                    <button 
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenEdit(u);
-                      }}
-                      className="p-2 text-gray-500 hover:text-ciklo-orange hover:bg-orange-500/10 rounded-lg transition-all mr-2"
-                      title="Editar Usuário"
-                    >
-                      <Pencil size={18} />
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeUser(u.id);
-                      }}
-                      className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                      title="Remover Usuário"
-                    >
-                      <Trash2 size={18} className="pointer-events-none" />
-                    </button>
+                    <div className="flex items-center justify-center gap-1">
+                      {/* Recharge Button for Clients */}
+                      {u.role === UserRole.CLIENT && (
+                        <button 
+                          type="button"
+                          onClick={(e) => {
+                             e.stopPropagation();
+                             handleOpenRecharge(u);
+                          }}
+                          className="p-2 text-green-500 hover:bg-green-500/10 rounded-lg transition-all"
+                          title="Recarregar Dias"
+                        >
+                          <Wallet size={18} />
+                        </button>
+                      )}
+                      
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEdit(u);
+                        }}
+                        className="p-2 text-gray-500 hover:text-ciklo-orange hover:bg-orange-500/10 rounded-lg transition-all"
+                        title="Editar Usuário"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeUser(u.id);
+                        }}
+                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                        title="Remover Usuário"
+                      >
+                        <Trash2 size={18} className="pointer-events-none" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

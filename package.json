@@ -10,10 +10,11 @@
   },
   "dependencies": {
     "react": "^19.2.0",
-    "lucide-react": "^0.555.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.6",
-    "recharts": "^3.5.0"
+    "react-router-dom": "6.23.0",
+    "lucide-react": "0.378.0",
+    "recharts": "2.12.7",
+    "date-fns": "^4.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

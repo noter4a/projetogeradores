@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useCallback, PropsWithChildren } from 'react';
 import { User, UserRole } from '../types';
 import { MOCK_USERS } from '../constants';
@@ -26,11 +27,18 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
       const savedUsers = localStorage.getItem('ciklo_users');
       if (savedUsers) {
         const parsed = JSON.parse(savedUsers);
-        // Migration: ensure every user has a password and assignedGeneratorIds array
+        // Safety check: ensure parsed data is actually an array
+        if (!Array.isArray(parsed)) {
+            console.warn("Corrupt user data in storage, resetting to defaults.");
+            return MOCK_USERS;
+        }
+
+        // Migration: ensure every user has a password, assignedGeneratorIds and credits
         return parsed.map((u: User) => ({
           ...u,
           password: u.password || '123456',
-          assignedGeneratorIds: Array.isArray(u.assignedGeneratorIds) ? u.assignedGeneratorIds : []
+          assignedGeneratorIds: Array.isArray(u.assignedGeneratorIds) ? u.assignedGeneratorIds : [],
+          credits: u.credits !== undefined ? u.credits : (u.role === UserRole.CLIENT ? 0 : undefined)
         }));
       }
       return MOCK_USERS;
