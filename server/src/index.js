@@ -14,8 +14,10 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+const router = express.Router();
+
 // Basic health check
-app.get('/', (req, res) => {
+router.get('/', (req, res) => {
     res.send('Ciklo Geradores API is running');
 });
 
@@ -73,13 +75,15 @@ const initDb = async () => {
 };
 
 // Auth Routes
-app.post('/auth/login', async (req, res) => {
+router.post('/auth/login', async (req, res) => {
+    console.log('Login request received:', req.body.email);
     const { email, password } = req.body;
 
     try {
         // 1. Check if user exists
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
         if (result.rows.length === 0) {
+            console.log('User not found:', email);
             return res.status(401).json({ message: 'Credenciais inválidas' });
         }
 
@@ -88,6 +92,7 @@ app.post('/auth/login', async (req, res) => {
         // 2. Validate Password
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
+            console.log('Invalid password for:', email);
             return res.status(401).json({ message: 'Credenciais inválidas' });
         }
 
@@ -111,9 +116,16 @@ app.post('/auth/login', async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err);
+        console.error('Login error:', err);
         res.status(500).json({ message: 'Erro interno do servidor' });
     }
+});
+
+app.use('/api', router);
+
+// Catch all for API 404
+app.use('/api/*', (req, res) => {
+    res.status(404).json({ message: 'API Route not found' });
 });
 
 // Start Server
