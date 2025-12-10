@@ -2,8 +2,12 @@ version: '3.8'
 
 services:
   app:
+    image: projetogeradores_app
     build: .
     container_name: ciklo-geradores
     restart: always
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
