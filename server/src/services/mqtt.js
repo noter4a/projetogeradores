@@ -55,6 +55,7 @@ export const initMqttService = (io) => {
                     const updatePayload = {
                         id: deviceId,
                         timestamp: new Date().toISOString(),
+                        rawHex: hex,
                         data: data
                     };
 
