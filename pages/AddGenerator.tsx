@@ -129,17 +129,17 @@ const AddGenerator: React.FC = () => {
           <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
             <Cpu className="text-ciklo-yellow" size={20} /> Informações Gerais
           </h3>
-          
+
           <div>
             <label className="block text-sm text-gray-400 mb-1">Nome do Gerador</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
               required
               className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
-              placeholder="Ex: Gerador Principal - Sede" 
+              placeholder="Ex: Gerador Principal - Sede"
             />
           </div>
 
@@ -147,14 +147,14 @@ const AddGenerator: React.FC = () => {
             <label className="block text-sm text-gray-400 mb-1">Localização</label>
             <div className="relative">
               <MapPin className="absolute left-3 top-2.5 text-gray-600" size={18} />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
                 required
                 className="w-full bg-ciklo-black border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-white focus:border-ciklo-orange outline-none transition-colors"
-                placeholder="Ex: São Paulo, SP" 
+                placeholder="Ex: São Paulo, SP"
               />
             </div>
           </div>
@@ -162,28 +162,28 @@ const AddGenerator: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">Modelo / Fabricante</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 name="model"
                 value={formData.model}
                 onChange={handleChange}
                 required
                 className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
-                placeholder="Ex: Ciklo Power 500" 
+                placeholder="Ex: Ciklo Power 500"
               />
             </div>
             <div>
               <label className="block text-sm text-gray-400 mb-1">Potência (kVA)</label>
               <div className="relative">
                 <Zap className="absolute left-3 top-2.5 text-gray-600" size={18} />
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   name="power"
                   value={formData.power}
                   onChange={handleChange}
                   required
                   className="w-full bg-ciklo-black border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-white focus:border-ciklo-orange outline-none transition-colors"
-                  placeholder="500" 
+                  placeholder="500"
                 />
               </div>
             </div>
@@ -198,19 +198,19 @@ const AddGenerator: React.FC = () => {
 
           <div>
             <label className="block text-sm text-gray-400 mb-1">Nome da Conectividade</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               name="connectionName"
               value={formData.connectionName}
               onChange={handleChange}
               className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
-              placeholder="Ex: Modbus Local" 
+              placeholder="Ex: Modbus Local"
             />
           </div>
 
           <div>
             <label className="block text-sm text-gray-400 mb-1">Tipo de Controlador</label>
-            <select 
+            <select
               name="controller"
               value={formData.controller}
               onChange={handleChange}
@@ -225,7 +225,7 @@ const AddGenerator: React.FC = () => {
 
           <div>
             <label className="block text-sm text-gray-400 mb-1">Protocolo de Comunicação</label>
-            <select 
+            <select
               name="protocol"
               value={formData.protocol}
               onChange={handleChange}
@@ -240,64 +240,66 @@ const AddGenerator: React.FC = () => {
 
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2">
-              <label className="block text-sm text-gray-400 mb-1">Endereço IP / Host</label>
-              <input 
-                type="text" 
+              <label className="block text-sm text-gray-400 mb-1">
+                {formData.protocol === 'mqtt' ? 'ID do Dispositivo (Tópico)' : 'Endereço IP / Host'}
+              </label>
+              <input
+                type="text"
                 name="ip"
                 value={formData.ip}
                 onChange={handleChange}
                 className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
-                placeholder="192.168.1.100" 
+                placeholder={formData.protocol === 'mqtt' ? "Ex: Ciklo0" : "192.168.1.100"}
               />
             </div>
             <div>
               <label className="block text-sm text-gray-400 mb-1">Porta</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 name="port"
                 value={formData.port}
                 onChange={handleChange}
                 className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
-                placeholder="502" 
+                placeholder="502"
               />
             </div>
           </div>
 
           <div>
             <label className="block text-sm text-gray-400 mb-1">ID Escravo (Slave ID)</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               name="slaveId"
               value={formData.slaveId}
               onChange={handleChange}
               className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
-              placeholder="1" 
+              placeholder="1"
             />
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="lg:col-span-2 flex justify-end pt-4">
-           <button 
-             type="button" 
-             onClick={() => navigate('/fleet')}
-             className="mr-4 px-6 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-           >
-             Cancelar
-           </button>
-           <button 
-             type="submit" 
-             disabled={loading}
-             className="px-8 py-3 bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold rounded-lg shadow-lg shadow-orange-900/20 transform hover:-translate-y-0.5 transition-all flex items-center gap-2"
-           >
-             {loading ? (
-               <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-             ) : (
-               <>
-                 <Save size={20} /> {id ? 'Atualizar Gerador' : 'Salvar Gerador'}
-               </>
-             )}
-           </button>
+          <button
+            type="button"
+            onClick={() => navigate('/fleet')}
+            className="mr-4 px-6 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-8 py-3 bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold rounded-lg shadow-lg shadow-orange-900/20 transform hover:-translate-y-0.5 transition-all flex items-center gap-2"
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <Save size={20} /> {id ? 'Atualizar Gerador' : 'Salvar Gerador'}
+              </>
+            )}
+          </button>
         </div>
       </form>
     </div>

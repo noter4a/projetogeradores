@@ -12,6 +12,7 @@ import {
   Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { io } from 'socket.io-client';
 
 const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", size = 120 }: any) => {
   const radius = 40;
@@ -105,6 +106,34 @@ const GeneratorDetail: React.FC = () => {
       setGen(foundGen);
     }
   }, [foundGen]);
+
+  // Socket.io Real-Time Updates
+  useEffect(() => {
+    const socket = io('http://localhost:5000');
+
+    socket.on('connect', () => {
+      console.log('Connected to WebSocket');
+    });
+
+    socket.on('generator:update', (data: any) => {
+      // Match against ID (if hardcoded) OR the stored IP/DeviceID field (Ciklo0)
+      if (data.id === id || (gen && data.id === gen.ip) || (gen && data.id === gen.connectionName)) {
+        console.log('Received Real-Time Data:', data);
+        setGen(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            ...data.data, // Merge decoded modbus data
+            status: GeneratorStatus.RUNNING // Assume running if we get data
+          };
+        });
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [id]);
 
   // Generate Mock History Data (Last 24 Hours) for Load Chart
   const historyData = useMemo(() => {
@@ -439,8 +468,8 @@ const GeneratorDetail: React.FC = () => {
                       <button
                         onClick={() => handleControl('auto')}
                         className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
-                            ? 'bg-ciklo-orange text-black shadow-lg'
-                            : 'text-gray-400 hover:text-white'
+                          ? 'bg-ciklo-orange text-black shadow-lg'
+                          : 'text-gray-400 hover:text-white'
                           }`}
                       >
                         <RefreshCw size={14} className={gen.operationMode === 'AUTO' ? 'animate-spin-slow' : ''} /> AUTOMÁTICO
@@ -448,8 +477,8 @@ const GeneratorDetail: React.FC = () => {
                       <button
                         onClick={() => handleControl('manual')}
                         className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
-                            ? 'bg-ciklo-orange text-black shadow-lg'
-                            : 'text-gray-400 hover:text-white'
+                          ? 'bg-ciklo-orange text-black shadow-lg'
+                          : 'text-gray-400 hover:text-white'
                           }`}
                       >
                         <Settings size={14} /> MANUAL
@@ -457,8 +486,8 @@ const GeneratorDetail: React.FC = () => {
                       <button
                         onClick={() => handleControl('inhibited')}
                         className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'INHIBITED'
-                            ? 'bg-red-500 text-white shadow-lg'
-                            : 'text-gray-400 hover:text-white'
+                          ? 'bg-red-500 text-white shadow-lg'
+                          : 'text-gray-400 hover:text-white'
                           }`}
                       >
                         <Ban size={14} /> INIBIDO
@@ -480,8 +509,8 @@ const GeneratorDetail: React.FC = () => {
                         disabled={gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'INHIBITED'}
                         onClick={() => handleControl('start')}
                         className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.RUNNING
-                            ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
-                            : 'bg-green-600 hover:bg-green-500 text-white border-green-500 hover:shadow-green-900/20'
+                          ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
+                          : 'bg-green-600 hover:bg-green-500 text-white border-green-500 hover:shadow-green-900/20'
                           }`}
                       >
                         <Play size={18} fill="currentColor" /> PARTIDA
@@ -490,8 +519,8 @@ const GeneratorDetail: React.FC = () => {
                         disabled={gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'INHIBITED'}
                         onClick={() => handleControl('stop')}
                         className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.STOPPED
-                            ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
-                            : 'bg-red-600 hover:bg-red-500 text-white border-red-500 hover:shadow-red-900/20'
+                          ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
+                          : 'bg-red-600 hover:bg-red-500 text-white border-red-500 hover:shadow-red-900/20'
                           }`}
                       >
                         <Square size={18} fill="currentColor" /> PARAR
@@ -526,8 +555,8 @@ const GeneratorDetail: React.FC = () => {
                         onClick={() => handleControl('toggleMains')}
                         disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
                         className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.breakerMains === 'CLOSED'
-                            ? 'bg-green-900/30 text-green-400 border-green-500'
-                            : 'bg-gray-800 text-gray-500 border-gray-600 hover:border-gray-500'
+                          ? 'bg-green-900/30 text-green-400 border-green-500'
+                          : 'bg-gray-800 text-gray-500 border-gray-600 hover:border-gray-500'
                           } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
                       >
                         {gen.breakerMains === 'CLOSED' ? 'REDE FECHADA' : 'REDE ABERTA'}
@@ -537,8 +566,8 @@ const GeneratorDetail: React.FC = () => {
                     {/* Load Center */}
                     <div className="relative z-10 flex flex-col items-center">
                       <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg border-4 transition-all duration-500 ${(gen.breakerMains === 'CLOSED' || gen.breakerGen === 'CLOSED')
-                          ? 'bg-ciklo-orange border-ciklo-orange text-black shadow-orange-500/20'
-                          : 'bg-gray-800 border-gray-700 text-gray-500'
+                        ? 'bg-ciklo-orange border-ciklo-orange text-black shadow-orange-500/20'
+                        : 'bg-gray-800 border-gray-700 text-gray-500'
                         }`}>
                         <Zap size={20} className={`md:w-7 md:h-7 ${(gen.breakerMains === 'CLOSED' || gen.breakerGen === 'CLOSED') ? 'fill-current' : ''}`} />
                       </div>
@@ -554,8 +583,8 @@ const GeneratorDetail: React.FC = () => {
                         onClick={() => handleControl('toggleGen')}
                         disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
                         className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.breakerGen === 'CLOSED'
-                            ? 'bg-green-900/30 text-green-400 border-green-500'
-                            : 'bg-gray-800 text-gray-500 border-gray-600 hover:border-gray-500'
+                          ? 'bg-green-900/30 text-green-400 border-green-500'
+                          : 'bg-gray-800 text-gray-500 border-gray-600 hover:border-gray-500'
                           } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
                       >
                         {gen.breakerGen === 'CLOSED' ? 'GER. FECHADO' : 'GER. ABERTO'}

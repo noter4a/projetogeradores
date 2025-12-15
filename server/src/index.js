@@ -5,10 +5,24 @@ import dotenv from 'dotenv';
 import pool from './db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { initMqttService } from './services/mqtt.js';
 
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
+// Start MQTT Service
+initMqttService(io);
+
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
@@ -129,7 +143,7 @@ app.use('/api/*', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, async () => {
+httpServer.listen(PORT, async () => {
     await initDb();
     console.log(`Server running on port ${PORT}`);
 });
