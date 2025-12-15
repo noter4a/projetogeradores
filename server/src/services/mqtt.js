@@ -1,4 +1,17 @@
 import mqtt from 'mqtt';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const LOG_FILE = path.join(__dirname, '../../logs/mqtt_data.json');
+
+// Ensure log directory exists
+const logDir = path.dirname(LOG_FILE);
+if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+}
 
 let client;
 
@@ -46,6 +59,14 @@ export const initMqttService = (io) => {
                     };
 
                     console.log(`[MQTT] Received data for ${deviceId}`);
+
+                    // Log to JSON file
+                    try {
+                        const logEntry = JSON.stringify(updatePayload) + '\n';
+                        fs.appendFileSync(LOG_FILE, logEntry);
+                    } catch (err) {
+                        console.error('[MQTT] File Log Error:', err.message);
+                    }
 
                     // Broadcast to ALL connected clients
                     io.emit('generator:update', updatePayload);
