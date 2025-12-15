@@ -28,6 +28,8 @@ services:
       - JWT_SECRET=super_secret_jwt_key_change_me
     ports:
       - "5000:5000"
+    volumes:
+      - ./server/logs:/app/logs
     depends_on:
       - database
 
