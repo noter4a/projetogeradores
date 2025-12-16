@@ -31,6 +31,17 @@ const TOPIC = 'devices/data/#';
  */
 export const initMqttService = (io) => {
     console.log(`[MQTT] Connecting to ${BROKER_URL}...`);
+
+    // Force create file log on startup to verify volume mapping
+    try {
+        if (!fs.existsSync(LOG_FILE)) {
+            fs.appendFileSync(LOG_FILE, `{"timestamp": "${new Date().toISOString()}", "event": "MQTT_SERVICE_STARTED"}\n`);
+            console.log('[MQTT] Log file initialized.');
+        }
+    } catch (err) {
+        console.error('[MQTT] FAILED TO WRITE LOG FILE:', err.message);
+    }
+
     client = mqtt.connect(BROKER_URL, OPTIONS);
 
     client.on('connect', () => {
