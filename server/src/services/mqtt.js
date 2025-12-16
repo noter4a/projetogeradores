@@ -61,15 +61,38 @@ export const initMqttService = (io) => {
 
                     console.log(`[MQTT] Received data for ${deviceId}`);
 
-                    // Log to JSON file
+                    // 1. Append valid data to History Log
                     try {
                         const logEntry = JSON.stringify(updatePayload) + '\n';
                         fs.appendFileSync(LOG_FILE, logEntry);
                     } catch (err) {
-                        console.error('[MQTT] File Log Error:', err.message);
+                        console.error('[MQTT] History Log Error:', err.message);
                     }
 
-                    // Broadcast to ALL connected clients
+                    // 2. Update Current State (generators_state.json)
+                    try {
+                        const stateFile = path.join(__dirname, '../../logs/generators_state.json');
+                        let currentState = {};
+
+                        if (fs.existsSync(stateFile)) {
+                            try {
+                                currentState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+                            } catch (e) {
+                                console.error('[MQTT] State File Read Error (Resetting):', e.message);
+                                currentState = {};
+                            }
+                        }
+
+                        // Update or add the device data
+                        currentState[deviceId] = updatePayload;
+
+                        // Write back ensuring atomic-like behavior (sync)
+                        fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
+                    } catch (err) {
+                        console.error('[MQTT] State Update Error:', err.message);
+                    }
+
+                    // 3. Broadcast to Real-Time Clients
                     io.emit('generator:update', updatePayload);
                 }
             }
