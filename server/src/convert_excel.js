@@ -37,19 +37,29 @@ function processFile(fileName) {
         const rows = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
         rows.forEach((row) => {
-            // Heuristic based on inspection:
-            // Col 1: Register Address (Number)
-            // Col 4: Name (String)
-            // We ensure row has enough length and Col 1 is a valid number
-            if (row.length >= 5 && typeof row[1] === 'number' && typeof row[4] === 'string') {
-                processedData[fileKey].push({
-                    sheet: sheetName,
-                    register: row[1],
-                    name: row[4],
-                    category: typeof row[0] === 'string' ? row[0] : null,
-                    function: row[3] || null,
-                    unit: row[5] || null // Sometimes units are in col 5 or 6? Just explicitly capturing for safety, though inspection showed null often
-                });
+            // Column mapping varies by sheet type
+            let nameIndex = 4; // Default for Coils usually
+            let unitIndex = 5;
+
+            if (sheetName.toLowerCase().includes('input register')) {
+                nameIndex = 6;
+                unitIndex = 7; // Assuming unit is after name
+            }
+
+            // Additional check for "Holding register" if needed, but let's stick to observed
+
+            if (row.length >= 5 && typeof row[1] === 'number') {
+                const extractedName = row[nameIndex];
+                if (typeof extractedName === 'string') {
+                    processedData[fileKey].push({
+                        sheet: sheetName,
+                        register: row[1],
+                        name: extractedName,
+                        category: typeof row[0] === 'string' ? row[0] : null,
+                        function: row[3] || null,
+                        unit: row[unitIndex] || null
+                    });
+                }
             }
         });
     });

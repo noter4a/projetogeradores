@@ -122,10 +122,9 @@ function decodeModbus(hex) {
     const buffer = Buffer.from(hex, 'hex');
     if (buffer.length < 3) return null;
 
-    // Mapping based on "Ciklo Power 500" logic roughly observed
-    // This is a naive mapping - in production we would match registers to specific generator models
-
-    // We saw Reg 3 and 4 were similar (230, 231) -> Voltages?
+    // Mapping based on "AGC-150 / Ciklo Power" Input Registers (Function 04)
+    // Packet likely starts at Reg 501.
+    // Index 0 = Reg 501.
 
     const readUInt16 = (idx) => {
         const offset = 3 + (idx * 2);
@@ -135,32 +134,45 @@ function decodeModbus(hex) {
         return 0;
     };
 
-    return {
-        // Assuming the order based on standard DEIF/Comap tables usually starting with basic electricals
-        // This mapping will need refinement by the user later
+    const readUInt32 = (idx) => {
+        const offset = 3 + (idx * 2);
+        if (offset + 3 < buffer.length) {
+            return buffer.readUInt32BE(offset);
+        }
+        return 0;
+    }
 
-        // Voltage (V)
+    return {
+        // Voltage (V) - Reg 504, 505, 506 (L-N)
+        // Packet Index 3, 4, 5
         voltageL1: readUInt16(3),
         voltageL2: readUInt16(4),
         voltageL3: readUInt16(5),
 
-        // Current (A) - Guessing positions after Voltages
-        currentL1: readUInt16(6),
-        currentL2: readUInt16(7),
-        currentL3: readUInt16(8),
+        // Frequency (Hz) - Reg 507, 508, 509
+        // Packet Index 6, 7, 8 (Scaled x100)
+        frequency: readUInt16(6) / 100,
 
-        // Frequency (Hz) - Often scaled x10 or x100, checking raw for now
-        frequency: readUInt16(0) / 10, // Attempting scale, Reg 0 was 399 -> 39.9Hz? Or maybe it's not Freq.
+        // Current (A) - Reg 513, 514, 515
+        // Packet Index 12, 13, 14
+        currentL1: readUInt16(12),
+        currentL2: readUInt16(13),
+        currentL3: readUInt16(14),
 
-        // Power (kW)
-        activePower: readUInt16(10),
+        // Active Power (kW)
+        // Hypothesis: Reg 516 (Total) or 517+?
+        // Packet Index 15 = Reg 516?
+        // Let's try reading Index 15 as Total Power or Index 16 if 32-bit
+        activePower: readUInt16(15),
 
-        // RPM
-        rpm: readUInt16(1), // Reg 1 was 401. Too low for RPM? Maybe scaled? 
+        // RPM - Reg 576
+        // Packet Index 75 (Likely out of bounds in 60-reg packet)
+        // Check if buffer has enough bytes
+        rpm: readUInt16(75),
 
-        // Engine
-        fuelLevel: readUInt16(20), // Placeholder index
-        oilPressure: readUInt16(21) / 10,
-        engineTemp: readUInt16(22),
+        // Engine - Placeholder / To Be Found
+        fuelLevel: 0,
+        oilPressure: 0,
+        engineTemp: 0,
     };
 }
