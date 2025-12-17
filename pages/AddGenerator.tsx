@@ -109,11 +109,9 @@ const AddGenerator: React.FC = () => {
       addGenerator(newGen);
     }
 
-    // Simulate API delay for UX
-    setTimeout(() => {
-      setLoading(false);
-      navigate(id ? '/fleet' : '/');
-    }, 1000);
+    // TODO: Wait for real API success response
+    setLoading(false);
+    navigate(id ? '/fleet' : '/');
   };
 
   return (

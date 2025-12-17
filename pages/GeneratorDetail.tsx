@@ -109,12 +109,7 @@ const GeneratorDetail: React.FC = () => {
 
   // Socket.io Real-Time Updates
   useEffect(() => {
-    // Connect to the same host as the frontend (via Nginx proxy)
-    const socketUrl = import.meta.env.PROD ? '/' : 'http://localhost:5000';
-    const socket = io(socketUrl, {
-      path: '/socket.io',
-      transports: ['websocket', 'polling']
-    });
+    const socket = io('http://localhost:5000');
 
     socket.on('connect', () => {
       console.log('Connected to WebSocket');
@@ -141,81 +136,12 @@ const GeneratorDetail: React.FC = () => {
   }, [id]);
 
   // Generate Mock History Data (Last 24 Hours) for Load Chart
+  // Placeholder for real history data (DB integration needed later)
   const historyData = useMemo(() => {
-    const data = [];
-    const now = new Date();
-    for (let i = 24; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 60 * 60 * 1000); // Hourly points
-
-      // Simulate somewhat realistic load curve
-      const basePower = gen?.powerKVA ? gen.powerKVA * 0.6 : 300;
-      // Peak hours simulation (e.g., 18:00 - 21:00)
-      const hour = d.getHours();
-      let loadFactor = 1;
-      if (hour >= 18 && hour <= 21) loadFactor = 1.3;
-      if (hour >= 0 && hour <= 5) loadFactor = 0.4;
-
-      const randomPower = Math.max(0, (basePower * loadFactor) + (Math.random() * 30 - 15));
-
-      data.push({
-        time: d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        power: gen?.status === GeneratorStatus.RUNNING || i > 12 ? randomPower : 0, // Simulate running in past or present
-      });
-    }
-    return data;
+    return []; // No mock history displayed
   }, [gen?.id]);
 
-  // Simulate real-time fluctuations
-  useEffect(() => {
-    // Both gen and mains jitter
-    const interval = setInterval(() => {
-      setGen(prev => {
-        if (!prev) return prev;
-        const jitter = (base: number, amount: number) => base > 0 ? base + (Math.random() * amount * 2 - amount) : 0;
 
-        return {
-          ...prev,
-          voltageL1: prev.status === GeneratorStatus.RUNNING ? jitter(220, 2) : 0,
-          voltageL2: prev.status === GeneratorStatus.RUNNING ? jitter(220, 2) : 0,
-          voltageL3: prev.status === GeneratorStatus.RUNNING ? jitter(220, 2) : 0,
-          frequency: prev.status === GeneratorStatus.RUNNING ? jitter(60, 0.1) : 0,
-          rpm: prev.status === GeneratorStatus.RUNNING ? jitter(1800, 5) : 0,
-          oilPressure: prev.status === GeneratorStatus.RUNNING ? jitter(4.5, 0.1) : 0,
-          activePower: prev.status === GeneratorStatus.RUNNING ? jitter(prev.activePower, 2) : 0,
-
-          // Mains simulation (always present unless simulating failure)
-          mainsVoltageL1: jitter(220, 1),
-          mainsVoltageL2: jitter(220, 1),
-          mainsVoltageL3: jitter(220, 1),
-          mainsFrequency: jitter(60, 0.05),
-          // Simulate mains current if mains breaker is closed (meaning mains is feeding load)
-          mainsCurrentL1: prev.breakerMains === 'CLOSED' ? jitter(150, 5) : 0,
-          mainsCurrentL2: prev.breakerMains === 'CLOSED' ? jitter(150, 5) : 0,
-          mainsCurrentL3: prev.breakerMains === 'CLOSED' ? jitter(150, 5) : 0,
-        };
-      });
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Simulate Modbus Reading Fluctuations
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setModbusRegisters(prev => prev.map(reg => {
-        if (reg.type === 'READ') {
-          // Parse value, jitter it slightly if it's a number
-          const val = parseFloat(reg.value);
-          if (!isNaN(val)) {
-            const noise = (Math.random() - 0.5) * (val * 0.02); // 2% noise
-            return { ...reg, value: (val + noise).toFixed(reg.address === '40001' ? 0 : 1) };
-          }
-        }
-        return reg;
-      }));
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
 
   if (!hasAccess) {
     return (
@@ -247,55 +173,9 @@ const GeneratorDetail: React.FC = () => {
     if (!canControl) return;
     setControlLoading(action);
 
-    setTimeout(() => {
-      let updatedGen = { ...gen };
+  }
 
-      switch (action) {
-        case 'start':
-          if (gen.operationMode !== 'INHIBITED') {
-            updatedGen = { ...updatedGen, status: GeneratorStatus.RUNNING, rpm: 1800, voltageL1: 220, voltageL2: 220, voltageL3: 220, activePower: 380 };
-          }
-          break;
-        case 'stop':
-          if (gen.operationMode !== 'INHIBITED') {
-            updatedGen = { ...updatedGen, status: GeneratorStatus.STOPPED, rpm: 0, voltageL1: 0, voltageL2: 0, voltageL3: 0, activePower: 0 };
-          }
-          break;
-        case 'auto':
-          updatedGen = { ...updatedGen, operationMode: 'AUTO' };
-          break;
-        case 'manual':
-          updatedGen = { ...updatedGen, operationMode: 'MANUAL' };
-          break;
-        case 'inhibited':
-          updatedGen = { ...updatedGen, operationMode: 'INHIBITED', status: GeneratorStatus.STOPPED, rpm: 0, voltageL1: 0, voltageL2: 0, voltageL3: 0, activePower: 0 };
-          break;
-        case 'toggleMains':
-          const newMainsState = gen.breakerMains === 'CLOSED' ? 'OPEN' : 'CLOSED';
-          updatedGen = {
-            ...updatedGen,
-            breakerMains: newMainsState,
-            breakerGen: newMainsState === 'CLOSED' ? 'OPEN' : updatedGen.breakerGen
-          };
-          break;
-        case 'toggleGen':
-          const newGenState = gen.breakerGen === 'CLOSED' ? 'OPEN' : 'CLOSED';
-          updatedGen = {
-            ...updatedGen,
-            breakerGen: newGenState,
-            breakerMains: newGenState === 'CLOSED' ? 'OPEN' : updatedGen.breakerMains
-          };
-          break;
-        case 'reset':
-          // Reset logic simulation
-          break;
-      }
 
-      setGen(updatedGen);
-      updateGenerator(updatedGen);
-      setControlLoading(null);
-    }, 1000);
-  };
 
   const handleAddReadParameter = () => {
     if (!readAddress || !readName) return;
@@ -337,10 +217,8 @@ const GeneratorDetail: React.FC = () => {
   };
 
   const handleWriteRegister = (id: string, newValue: string) => {
-    // Simulate write delay
-    setTimeout(() => {
-      setModbusRegisters(prev => prev.map(r => r.id === id ? { ...r, value: newValue } : r));
-    }, 500);
+    // TODO: Implement Real Modbus Write Command
+    console.log(`[Real Write] Register ${id} -> ${newValue}`);
   };
 
   const activeAlarms = alarms.filter(a => a.generatorId === gen.id && a.active);

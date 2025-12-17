@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, PropsWithChildren } from 'react';
 import { Generator } from '../types';
-import { MOCK_GENERATORS } from '../constants';
 
 interface GeneratorContextType {
   generators: Generator[];
@@ -20,18 +19,21 @@ export const useGenerators = () => {
 };
 
 export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
-  // Initialize state from localStorage if available, otherwise use MOCK_GENERATORS
+  // Initialize state from localStorage if available
   const [generators, setGenerators] = useState<Generator[]>(() => {
     try {
       const savedGenerators = localStorage.getItem('ciklo_generators');
       if (savedGenerators) {
-          const parsed = JSON.parse(savedGenerators);
-          if (Array.isArray(parsed)) return parsed;
+        const parsed = JSON.parse(savedGenerators);
+        if (Array.isArray(parsed)) {
+          // Hotfix: Filter out legacy mock data that persists in user's localStorage
+          return parsed.filter(g => !['GEN-001', 'GEN-002', 'GEN-003'].includes(g.id));
+        }
       }
-      return MOCK_GENERATORS;
+      return [];
     } catch (error) {
       console.error("Failed to load generators from storage", error);
-      return MOCK_GENERATORS;
+      return [];
     }
   });
 
