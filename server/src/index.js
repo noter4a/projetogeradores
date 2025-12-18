@@ -35,56 +35,66 @@ router.get('/', (req, res) => {
     res.send('Ciklo Geradores API is running');
 });
 
-// Initialize Database Tables
-const initDb = async () => {
-    try {
-        const client = await pool.connect();
+// Initialize Database Tables with Retry
+const initDb = async (retries = 5, delay = 5000) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const client = await pool.connect();
 
-        // Create Users Table
-        await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        role VARCHAR(50) NOT NULL,
-        assigned_generators TEXT[], -- Storing allowed IDs as JSON or Array
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+            // Create Users Table
+            await client.query(`
+          CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            role VARCHAR(50) NOT NULL,
+            assigned_generators TEXT[], 
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
 
-        // Check if admin exists, if not seed default users
-        const adminCheck = await client.query("SELECT * FROM users WHERE email = 'admin@ciklo.com'");
-        if (adminCheck.rows.length === 0) {
-            console.log('Seeding default users...');
+            // Check if admin exists, if not seed default users
+            const adminCheck = await client.query("SELECT * FROM users WHERE email = 'admin@ciklo.com'");
+            if (adminCheck.rows.length === 0) {
+                console.log('Seeding default users...');
 
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash('123456', salt);
+                const salt = await bcrypt.genSalt(10);
+                const hashedPassword = await bcrypt.hash('123456', salt);
 
-            // Admin
-            await client.query(
-                "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
-                ['Administrador Ciklo', 'admin@ciklo.com', hashedPassword, 'ADMIN', []]
-            );
+                // Admin
+                await client.query(
+                    "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
+                    ['Administrador Ciklo', 'admin@ciklo.com', hashedPassword, 'ADMIN', []]
+                );
 
-            // Technician
-            await client.query(
-                "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
-                ['Técnico Operacional', 'tech@ciklo.com', hashedPassword, 'TECHNICIAN', ['GEN-001', 'GEN-003']]
-            );
+                // Technician
+                await client.query(
+                    "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
+                    ['Técnico Operacional', 'tech@ciklo.com', hashedPassword, 'TECHNICIAN', ['GEN-001', 'GEN-003']]
+                );
 
-            // Client
-            await client.query(
-                "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
-                ['Cliente Final', 'client@company.com', hashedPassword, 'CLIENT', ['GEN-002']]
-            );
+                // Client
+                await client.query(
+                    "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
+                    ['Cliente Final', 'client@company.com', hashedPassword, 'CLIENT', ['GEN-002']]
+                );
 
-            console.log('Default users created.');
+                console.log('Default users created.');
+            }
+
+            client.release();
+            console.log('Database initialized successfully.');
+            return; // Success, exit loop
+        } catch (err) {
+            console.error(`Failed to initialize database (Attempt ${i + 1}/${retries}):`, err.message);
+            if (i < retries - 1) {
+                console.log(`Retrying in ${delay / 1000}s...`);
+                await new Promise(res => setTimeout(res, delay));
+            } else {
+                console.error('Max retries reached. Database initialization failed.');
+            }
         }
-
-        client.release();
-    } catch (err) {
-        console.error('Failed to initialize database:', err);
     }
 };
 
