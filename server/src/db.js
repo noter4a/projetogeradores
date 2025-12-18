@@ -21,7 +21,7 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
     console.error('Unexpected error on idle client', err);
-    process.exit(-1);
+    // Do not exit, let retry logic handle it or just log it
 });
 
 export const query = (text, params) => pool.query(text, params);
