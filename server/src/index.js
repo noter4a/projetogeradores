@@ -36,7 +36,7 @@ router.get('/', (req, res) => {
 });
 
 // Initialize Database Tables with Retry
-const initDb = async (retries = 5, delay = 5000) => {
+const initDb = async (retries = 15, delay = 5000) => {
     for (let i = 0; i < retries; i++) {
         try {
             const client = await pool.connect();
