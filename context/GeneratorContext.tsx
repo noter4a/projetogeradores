@@ -26,8 +26,32 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
       if (savedGenerators) {
         const parsed = JSON.parse(savedGenerators);
         if (Array.isArray(parsed)) {
-          // Hotfix: Filter out legacy mock data that persists in user's localStorage
-          return parsed.filter(g => !['GEN-001', 'GEN-002', 'GEN-003'].includes(g.id));
+          // Hotfix: Filter out legacy mock data AND reset metrics to zero
+          return parsed
+            .filter(g => !['GEN-001', 'GEN-002', 'GEN-003'].includes(g.id))
+            .map(g => ({
+              ...g,
+              // Resetting all real-time metrics to 0 so no "ghost" data appears
+              rpm: 0,
+              avgVoltage: 0,
+              voltageL1: 0,
+              voltageL2: 0,
+              voltageL3: 0,
+              totalCurrent: 0,
+              currentL1: 0,
+              currentL2: 0,
+              currentL3: 0,
+              frequency: 0,
+              activePower: 0,
+              powerFactor: 0,
+              oilPressure: 0,
+              engineTemp: 0,
+              fuelLevel: 0,
+              batteryVoltage: 0,
+              runHours: 0,
+              energyTotal: 0,
+              status: 'STOPPED' // Assume stopped until told otherwise
+            }));
         }
       }
       return [];
