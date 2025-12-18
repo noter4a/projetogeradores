@@ -79,13 +79,13 @@ const GeneratorDetail: React.FC = () => {
   // Tab State
   const [activeTab, setActiveTab] = useState<'operational' | 'modbus'>('operational');
 
-  // Modbus Mock State
+  // Modbus State (Starts Empty/Zero)
   const [modbusRegisters, setModbusRegisters] = useState<ModbusRegister[]>([
-    { id: '1', address: '40001', name: 'Rotação do Motor', value: '1800', unit: 'RPM', type: 'READ' },
-    { id: '2', address: '40002', name: 'Pressão de Óleo', value: '4.5', unit: 'Bar', type: 'READ' },
-    { id: '3', address: '40003', name: 'Temperatura Água', value: '88', unit: '°C', type: 'READ' },
+    { id: '1', address: '40001', name: 'Rotação do Motor', value: '0', unit: 'RPM', type: 'READ' },
+    { id: '2', address: '40002', name: 'Pressão de Óleo', value: '0', unit: 'Bar', type: 'READ' },
+    { id: '3', address: '40003', name: 'Temperatura Água', value: '0', unit: '°C', type: 'READ' },
     { id: '4', address: '40100', name: 'Comando Partida', value: '0', unit: 'Bool', type: 'WRITE' },
-    { id: '5', address: '40101', name: 'Set Point Carga', value: '450', unit: 'kW', type: 'WRITE' },
+    { id: '5', address: '40101', name: 'Set Point Carga', value: '0', unit: 'kW', type: 'WRITE' },
   ]);
 
   // Inputs for adding new READ registers
