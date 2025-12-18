@@ -20,46 +20,39 @@ export const useGenerators = () => {
 
 export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
   // Initialize state from localStorage if available
-  const [generators, setGenerators] = useState<Generator[]>(() => {
-    try {
-      const savedGenerators = localStorage.getItem('ciklo_generators');
-      if (savedGenerators) {
-        const parsed = JSON.parse(savedGenerators);
-        if (Array.isArray(parsed)) {
-          // Hotfix: Filter out legacy mock data AND reset metrics to zero
-          return parsed
-            .filter(g => !['GEN-001', 'GEN-002', 'GEN-003'].includes(g.id))
-            .map(g => ({
-              ...g,
-              // Resetting all real-time metrics to 0 so no "ghost" data appears
-              rpm: 0,
-              avgVoltage: 0,
-              voltageL1: 0,
-              voltageL2: 0,
-              voltageL3: 0,
-              totalCurrent: 0,
-              currentL1: 0,
-              currentL2: 0,
-              currentL3: 0,
-              frequency: 0,
-              activePower: 0,
-              powerFactor: 0,
-              oilPressure: 0,
-              engineTemp: 0,
-              fuelLevel: 0,
-              batteryVoltage: 0,
-              runHours: 0,
-              energyTotal: 0,
-              status: 'STOPPED' // Assume stopped until told otherwise
-            }));
-        }
-      }
-      return [];
-    } catch (error) {
-      console.error("Failed to load generators from storage", error);
-      return [];
+  // Force-Reset to a single clean state (Removes all past localStorage ghosts)
+  const [generators, setGenerators] = useState<Generator[]>([
+    {
+      id: 'GEN-REAL-01',
+      name: 'Gerador Conectado (Real)',
+      location: 'Monitoramento Remoto',
+      model: 'Ciklo Power',
+      powerKVA: 500,
+      status: 'OFFLINE', // Will turn RUNNING when socket receives data
+      fuelLevel: 0,
+      engineTemp: 0,
+      oilPressure: 0,
+      batteryVoltage: 0,
+      rpm: 0,
+      totalHours: 0,
+      lastMaintenance: new Date().toISOString().split('T')[0],
+      voltageL1: 0,
+      voltageL2: 0,
+      voltageL3: 0,
+      currentL1: 0,
+      currentL2: 0,
+      currentL3: 0,
+      frequency: 0,
+      powerFactor: 0,
+      activePower: 0,
+      connectionName: 'Modbus TCP',
+      controller: 'dse',
+      protocol: 'modbus_tcp',
+      ip: 'Ciklo0', // Matches the MQTT ID usually
+      port: '502',
+      slaveId: '1'
     }
-  });
+  ]);
 
   // Save to localStorage whenever generators state changes
   useEffect(() => {
