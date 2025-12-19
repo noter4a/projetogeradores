@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload } from '../utils/sgc120-parser.js';
+import pool from '../db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -152,6 +153,58 @@ export const initMqttService = (io) => {
 
                     // 3. Broadcast to Real-Time Clients
                     io.emit('generator:update', updatePayload);
+
+                    // 4. Persist to Database (So it survives refresh)
+                    (async () => {
+                        try {
+                            const query = `
+                                UPDATE generators SET 
+                                    voltage_l1 = COALESCE($1, voltage_l1),
+                                    voltage_l2 = COALESCE($2, voltage_l2),
+                                    voltage_l3 = COALESCE($3, voltage_l3),
+                                    current_l1 = COALESCE($4, current_l1),
+                                    current_l2 = COALESCE($5, current_l2),
+                                    current_l3 = COALESCE($6, current_l3),
+                                    frequency = COALESCE($7, frequency),
+                                    oil_pressure = COALESCE($8, oil_pressure),
+                                    engine_temp = COALESCE($9, engine_temp),
+                                    fuel_level = COALESCE($10, fuel_level),
+                                    rpm = COALESCE($11, rpm),
+                                    battery_voltage = COALESCE($12, battery_voltage),
+                                    mains_voltage_l1 = COALESCE($13, mains_voltage_l1),
+                                    mains_voltage_l2 = COALESCE($14, mains_voltage_l2),
+                                    mains_voltage_l3 = COALESCE($15, mains_voltage_l3),
+                                    mains_frequency = COALESCE($16, mains_frequency)
+                                WHERE id = $17
+                            `;
+
+                            const values = [
+                                unifiedData.voltageL1,
+                                unifiedData.voltageL2,
+                                unifiedData.voltageL3,
+                                unifiedData.currentL1,
+                                unifiedData.currentL2,
+                                unifiedData.currentL3,
+                                unifiedData.frequency,
+                                unifiedData.oilPressure,
+                                unifiedData.engineTemp,
+                                unifiedData.fuelLevel,
+                                unifiedData.rpm,
+                                unifiedData.batteryVoltage,
+                                unifiedData.mainsVoltageL1,
+                                unifiedData.mainsVoltageL2,
+                                unifiedData.mainsVoltageL3,
+                                unifiedData.mainsFrequency,
+                                // ID to match
+                                deviceId
+                            ];
+
+                            await pool.query(query, values);
+                            console.log(`[MQTT] Persisted data for ${deviceId} to DB.`);
+                        } catch (dbErr) {
+                            console.error('[MQTT] DB Persistence Error:', dbErr.message);
+                        }
+                    })();
                 }
             }
 

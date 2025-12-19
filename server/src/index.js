@@ -97,6 +97,42 @@ const initDb = async (retries = 15, delay = 5000) => {
                 );
             `);
 
+            // Add Real-Time Columns if they don't exist (Migration)
+            const columnsToAdd = [
+                "avg_voltage INTEGER DEFAULT 0",
+                "voltage_l1 INTEGER DEFAULT 0",
+                "voltage_l2 INTEGER DEFAULT 0",
+                "voltage_l3 INTEGER DEFAULT 0",
+                "current_l1 INTEGER DEFAULT 0",
+                "current_l2 INTEGER DEFAULT 0",
+                "current_l3 INTEGER DEFAULT 0",
+                "frequency NUMERIC(5,2) DEFAULT 0",
+                "power_factor NUMERIC(4,2) DEFAULT 0",
+                "active_power NUMERIC(10,2) DEFAULT 0",
+                "rpm INTEGER DEFAULT 0",
+                "oil_pressure NUMERIC(5,2) DEFAULT 0",
+                "engine_temp INTEGER DEFAULT 0",
+                "fuel_level INTEGER DEFAULT 0",
+                "battery_voltage NUMERIC(5,2) DEFAULT 0",
+                "total_hours INTEGER DEFAULT 0",
+                "mains_voltage_l1 INTEGER DEFAULT 0",
+                "mains_voltage_l2 INTEGER DEFAULT 0",
+                "mains_voltage_l3 INTEGER DEFAULT 0",
+                "mains_frequency NUMERIC(5,2) DEFAULT 0"
+            ];
+
+            for (const col of columnsToAdd) {
+                try {
+                    // Extract column name for "IF NOT EXISTS" check isn't trivial in one line for all PG versions in raw query,
+                    // but PG 9.6+ supports ADD COLUMN IF NOT EXISTS.
+                    const colName = col.split(' ')[0];
+                    const colDef = col.substring(col.indexOf(' ') + 1);
+                    await client.query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS ${colName} ${colDef}`);
+                } catch (e) {
+                    console.log(`Column migration check for ${col} ignored or failed:`, e.message);
+                }
+            }
+
             // Seed Default Generator
             const genCheck = await client.query("SELECT * FROM generators WHERE id = 'GEN-REAL-01'");
             if (genCheck.rows.length === 0) {
@@ -196,23 +232,31 @@ router.get('/generators', async (req, res) => {
             ip: row.connection_info.ip,
             port: row.connection_info.port,
             slaveId: row.connection_info.slaveId,
-            // Default realtime values (will be overwritten by MQTT/Frontend state)
-            fuelLevel: 0,
-            engineTemp: 0,
-            oilPressure: 0,
-            batteryVoltage: 0,
-            rpm: 0,
-            totalHours: 0,
+
+            // Map Persistent Real-Time Values
+            fuelLevel: row.fuel_level || 0,
+            engineTemp: row.engine_temp || 0,
+            oilPressure: parseFloat(row.oil_pressure || 0),
+            batteryVoltage: parseFloat(row.battery_voltage || 0),
+            rpm: row.rpm || 0,
+            totalHours: row.total_hours || 0,
             lastMaintenance: new Date().toISOString().split('T')[0],
-            voltageL1: 0,
-            voltageL2: 0,
-            voltageL3: 0,
-            currentL1: 0,
-            currentL2: 0,
-            currentL3: 0,
-            frequency: 0,
-            powerFactor: 0,
-            activePower: 0
+
+            voltageL1: row.voltage_l1 || 0,
+            voltageL2: row.voltage_l2 || 0,
+            voltageL3: row.voltage_l3 || 0,
+            currentL1: row.current_l1 || 0,
+            currentL2: row.current_l2 || 0,
+            currentL3: row.current_l3 || 0,
+
+            mainsVoltageL1: row.mains_voltage_l1 || 0,
+            mainsVoltageL2: row.mains_voltage_l2 || 0,
+            mainsVoltageL3: row.mains_voltage_l3 || 0,
+            mainsFrequency: parseFloat(row.mains_frequency || 0),
+
+            frequency: parseFloat(row.frequency || 0),
+            powerFactor: parseFloat(row.power_factor || 0),
+            activePower: parseFloat(row.active_power || 0)
         }));
         res.json(generators);
     } catch (err) {
