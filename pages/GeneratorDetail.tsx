@@ -124,8 +124,7 @@ const GeneratorDetail: React.FC = () => {
           if (!prev) return prev;
           return {
             ...prev,
-            ...data.data, // Merge decoded modbus data
-            status: GeneratorStatus.RUNNING // Assume running if we get data
+            ...data.data, // Merge decoded modbus data (including status if sent)
           };
         });
       }

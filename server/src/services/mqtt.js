@@ -109,6 +109,16 @@ export const initMqttService = (io) => {
 
                 // Only emit if we actually decoded something useful
                 if (Object.keys(unifiedData).length > 0) {
+
+                    // DERIVE STATUS for Real-Time UI (and DB)
+                    // If we have RPM, use it. If not, preserve previous? 
+                    // For now, if RPM is 0 or undefined, effectively STOPPED unless we have other logic.
+                    // But if it's a MAINS packet (no RPM), we shouldn't overwrite status to STOPPED if it was RUNNING.
+                    // Safest: Only set status if RPM is present in this packet.
+                    if (unifiedData.rpm !== undefined) {
+                        unifiedData.status = (unifiedData.rpm > 100) ? 'RUNNING' : 'STOPPED';
+                    }
+
                     const updatePayload = {
                         id: deviceId,
                         timestamp: new Date().toISOString(),
@@ -175,7 +185,7 @@ export const initMqttService = (io) => {
                                     mains_voltage_l2 = COALESCE($14, mains_voltage_l2),
                                     mains_voltage_l3 = COALESCE($15, mains_voltage_l3),
                                     mains_frequency = COALESCE($16, mains_frequency),
-                                    status = $17
+                                    status = COALESCE($17, status)
                                 WHERE id = $18
                             `;
 
@@ -196,7 +206,7 @@ export const initMqttService = (io) => {
                                 unifiedData.mainsVoltageL2,
                                 unifiedData.mainsVoltageL3,
                                 unifiedData.mainsFrequency,
-                                (unifiedData.rpm > 100 ? 'RUNNING' : 'STOPPED'),
+                                unifiedData.status, // Can be undefined (Coalesce handles it)
                                 // ID to match
                                 deviceId
                             ];
