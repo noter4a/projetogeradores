@@ -174,8 +174,9 @@ export const initMqttService = (io) => {
                                     mains_voltage_l1 = COALESCE($13, mains_voltage_l1),
                                     mains_voltage_l2 = COALESCE($14, mains_voltage_l2),
                                     mains_voltage_l3 = COALESCE($15, mains_voltage_l3),
-                                    mains_frequency = COALESCE($16, mains_frequency)
-                                WHERE id = $17
+                                    mains_frequency = COALESCE($16, mains_frequency),
+                                    status = $17
+                                WHERE id = $18
                             `;
 
                             const values = [
@@ -195,6 +196,7 @@ export const initMqttService = (io) => {
                                 unifiedData.mainsVoltageL2,
                                 unifiedData.mainsVoltageL3,
                                 unifiedData.mainsFrequency,
+                                (unifiedData.rpm > 100 ? 'RUNNING' : 'STOPPED'),
                                 // ID to match
                                 deviceId
                             ];
