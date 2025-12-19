@@ -90,6 +90,19 @@ export const initMqttService = (io) => {
                             unifiedData.batteryVoltage = d.batteryVoltage_v;
                             unifiedData.runHours = 0; // Not in this block
                         }
+
+                        // Map MAINS_29 (Standard) or MAINS_504 (Variant)
+                        if (d.block === 'MAINS_29' || d.block === 'MAINS_504') {
+                            unifiedData.mainsVoltageL1 = d.l1n_v;
+                            unifiedData.mainsVoltageL2 = d.l2n_v;
+                            unifiedData.mainsVoltageL3 = d.l3n_v;
+                            unifiedData.mainsFrequency = d.freq_r_hz;
+                            // Frontend Table Expects mainsCurrent too, but SGC120 basic block might not have it.
+                            // Default to 0 or check registers 38+ for current?
+                            unifiedData.mainsCurrentL1 = 0;
+                            unifiedData.mainsCurrentL2 = 0;
+                            unifiedData.mainsCurrentL3 = 0;
+                        }
                     }
                 });
 

@@ -128,6 +128,34 @@ export function decodeSgc120ByBlock(startAddress, regs) {
     };
   }
 
+  // Bloco 29–37 (9 regs): Mains Voltages (Standard SGC 120/420)
+  if (startAddress === 29 && regs.length >= 9) {
+    return {
+      block: "MAINS_29",
+      l1n_v: u16(regs, 0),
+      l2n_v: u16(regs, 1),
+      l3n_v: u16(regs, 2),
+      l12_v: u16(regs, 3),
+      l23_v: u16(regs, 4),
+      l31_v: u16(regs, 5),
+      freq_r_hz: scale01(u16(regs, 6) * 0.1), // Mains Freq
+      freq_y_hz: scale01(u16(regs, 7) * 0.1),
+      freq_b_hz: scale01(u16(regs, 8) * 0.1),
+    };
+  }
+
+  // Bloco 504 (Variant AGC-150 / Alternate Map)
+  // Check modbus_maps.json: 504=L1-N, 505=L2-N, 506=L3-N ... 507=Freq L1
+  if (startAddress === 504 && regs.length >= 4) {
+    return {
+      block: "MAINS_504",
+      l1n_v: u16(regs, 0),
+      l2n_v: u16(regs, 1),
+      l3n_v: u16(regs, 2),
+      freq_r_hz: scale01(u16(regs, 3) * 0.1), // Usually Freq is next
+    };
+  }
+
   // Se cair aqui, é um bloco que você ainda não mapeou
   return {
     block: "UNKNOWN",
