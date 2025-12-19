@@ -2,6 +2,7 @@ import mqtt from 'mqtt';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { decodeSgc120Payload } from '../utils/sgc120-parser.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,20 +58,50 @@ export const initMqttService = (io) => {
             const payload = JSON.parse(message.toString());
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
-            // Check if it's the Modbus Response
-            if (payload.modbusResponse && Array.isArray(payload.modbusResponse)) {
-                const hex = payload.modbusResponse[0];
-                const data = decodeModbus(hex);
+            // New SGC-120 Decoding Logic
+            const results = decodeSgc120Payload(payload);
 
-                if (data) {
+            // If we have valid decoded blocks, merge them into a unified status object
+            if (results.length > 0) {
+                // We might receive multiple blocks (Voltages + Engine), so we start with a base object
+                // and merge all decoded fields.
+                let unifiedData = {};
+
+                results.forEach(res => {
+                    if (res.ok && res.decoded) {
+                        const d = res.decoded;
+
+                        // Map GEN_VOLT_FREQ_1_9
+                        if (d.block === 'GEN_VOLT_FREQ_1_9') {
+                            unifiedData.voltageL1 = d.l1n_v;
+                            unifiedData.voltageL2 = d.l2n_v;
+                            unifiedData.voltageL3 = d.l3n_v;
+                            unifiedData.frequency = d.freq_r_hz; // Assuming Gen Freq L1
+                            // Calculate average voltage if needed
+                            unifiedData.avgVoltage = Math.round((d.l1n_v + d.l2n_v + d.l3n_v) / 3);
+                        }
+
+                        // Map ENGINE_51_59
+                        if (d.block === 'ENGINE_51_59') {
+                            unifiedData.oilPressure = d.oilPressure_bar;
+                            unifiedData.engineTemp = d.coolantTemp_c;
+                            unifiedData.fuelLevel = d.fuelLevel_pct;
+                            unifiedData.rpm = d.rpm;
+                            unifiedData.batteryVoltage = d.batteryVoltage_v;
+                            unifiedData.runHours = 0; // Not in this block
+                        }
+                    }
+                });
+
+                // Only emit if we actually decoded something useful
+                if (Object.keys(unifiedData).length > 0) {
                     const updatePayload = {
                         id: deviceId,
                         timestamp: new Date().toISOString(),
-                        rawHex: hex,
-                        data: data
+                        data: unifiedData
                     };
 
-                    console.log(`[MQTT] Received data for ${deviceId}`);
+                    console.log(`[MQTT] Decoded SGC-120 data for ${deviceId}:`, JSON.stringify(unifiedData));
 
                     // 1. Append valid data to History Log
                     try {
@@ -94,10 +125,13 @@ export const initMqttService = (io) => {
                             }
                         }
 
-                        // Update or add the device data
-                        currentState[deviceId] = updatePayload;
+                        // Merge new data with existing state for this device to preserve fields not in this packet
+                        const existingDeviceData = currentState[deviceId]?.data || {};
+                        currentState[deviceId] = {
+                            ...updatePayload,
+                            data: { ...existingDeviceData, ...unifiedData }
+                        };
 
-                        // Write back ensuring atomic-like behavior (sync)
                         fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
                     } catch (err) {
                         console.error('[MQTT] State Update Error:', err.message);
@@ -117,62 +151,3 @@ export const initMqttService = (io) => {
         console.error('[MQTT] Connection Error:', err.message);
     });
 };
-
-function decodeModbus(hex) {
-    const buffer = Buffer.from(hex, 'hex');
-    if (buffer.length < 3) return null;
-
-    // Mapping based on "AGC-150 / Ciklo Power" Input Registers (Function 04)
-    // Packet likely starts at Reg 501.
-    // Index 0 = Reg 501.
-
-    const readUInt16 = (idx) => {
-        const offset = 3 + (idx * 2);
-        if (offset + 1 < buffer.length) {
-            return buffer.readUInt16BE(offset);
-        }
-        return 0;
-    };
-
-    const readUInt32 = (idx) => {
-        const offset = 3 + (idx * 2);
-        if (offset + 3 < buffer.length) {
-            return buffer.readUInt32BE(offset);
-        }
-        return 0;
-    }
-
-    return {
-        // Voltage (V) - Reg 504, 505, 506 (L-N)
-        // Packet Index 3, 4, 5
-        voltageL1: readUInt16(3),
-        voltageL2: readUInt16(4),
-        voltageL3: readUInt16(5),
-
-        // Frequency (Hz) - Reg 507, 508, 509
-        // Packet Index 6, 7, 8 (Scaled x100)
-        frequency: readUInt16(6) / 100,
-
-        // Current (A) - Reg 513, 514, 515
-        // Packet Index 12, 13, 14
-        currentL1: readUInt16(12),
-        currentL2: readUInt16(13),
-        currentL3: readUInt16(14),
-
-        // Active Power (kW)
-        // Hypothesis: Reg 516 (Total) or 517+?
-        // Packet Index 15 = Reg 516?
-        // Let's try reading Index 15 as Total Power or Index 16 if 32-bit
-        activePower: readUInt16(15),
-
-        // RPM - Reg 576
-        // Packet Index 75 (Likely out of bounds in 60-reg packet)
-        // Check if buffer has enough bytes
-        rpm: readUInt16(75),
-
-        // Engine - Placeholder / To Be Found
-        fuelLevel: 0,
-        oilPressure: 0,
-        engineTemp: 0,
-    };
-}
