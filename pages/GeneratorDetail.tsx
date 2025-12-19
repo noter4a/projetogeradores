@@ -109,7 +109,8 @@ const GeneratorDetail: React.FC = () => {
 
   // Socket.io Real-Time Updates
   useEffect(() => {
-    const socket = io('http://localhost:5000');
+    // Connect to same host, Nginx will proxy /socket.io
+    const socket = io();
 
     socket.on('connect', () => {
       console.log('Connected to WebSocket');
