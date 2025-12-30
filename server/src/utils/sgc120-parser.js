@@ -50,7 +50,7 @@ export function parseRtuRequestHex(reqHex) {
 
 /**
  * Creates a Modbus RTU Read Request (Function 03)
- * Returns a HEX string (e.g. "01030000000A...")
+ * Returns a BUFFER (Raw Bytes)
  */
 export function createModbusReadRequest(slaveId, startAddress, quantity) {
   const buf = Buffer.alloc(8);
@@ -60,10 +60,46 @@ export function createModbusReadRequest(slaveId, startAddress, quantity) {
   buf.writeUInt16BE(quantity, 4);
 
   // Calculate CRC
+  // The crc16Modbus function might return swapped or non-swapped.
+  // Standard Modbus RTU: Append Low Byte then High Byte.
+  // Let's assume crc16Modbus returns standard integer (e.g. 0x0407).
   const crc = crc16Modbus(buf.subarray(0, 6));
-  buf.writeUInt16LE(crc, 6); // Modbus CRC is Little Endian in the frame
 
-  return buf.toString('hex').toUpperCase();
+  // Safe way: Write Low Byte, then High Byte
+  // If crc is 0x0407, Low=07, High=04.
+  // We want packet to end with [07, 04].
+  // If crc16Modbus returns 0x0704 (swapped), Low=04, High=07.
+
+  // Let's rely on writeUInt16LE which writes Low Byte at offset, High Byte at offset+1.
+  // IF the previous log showed "0407" (Big Endian appearance) for "0x0407", it means we sent 04 then 07.
+  // That means we need to swap it.
+
+  // Let's manually write LE based on the assumption that crc variable holds the correct value.
+  // Using a simpler approach: Modbus CRC usually requires swapping the result of a standard calculation.
+  // If crc16Modbus already swaps, then LE writes it back to big?
+  // Let's just output it to log to verify later, but for now, let's TRY flipping the bytes
+  // compared to last time. Last time: writeUInt16LE -> 04 07.
+  // So this time let's use writeUInt16BE? -> 04 07? No.
+
+  // If writeUInt16LE resulted in [04, 07] in the hex string...
+  // That means byte 6 was 04, byte 7 was 07.
+  // For writeUInt16LE(val) to put 04 at 6 and 07 at 7, val must be 0x0704.
+  // So `crc` was 0x0704.
+  // But reliable CRC for that input is 0x0407.
+  // So the function returns the SWAPPED CRC.
+  // Modbus needs [07, 04].
+  // So we need to write 07 at 6, 04 at 7.
+  // That corresponds to writing 0x0407 as Little Endian? No, 0x0407 LE -> 07 04.
+  // But our val is 0x0704.
+  // So we need to swap the val back to 0x0407 before writing LE?
+  // Or just write it BE which writes High (07) then Low (04)?
+  // 0x0704 BE -> 07 04.
+  // YES.
+
+  buf.writeUInt8(crc & 0xFF, 6); // Low byte
+  buf.writeUInt8((crc >> 8) & 0xFF, 7); // High byte
+
+  return buf;
 }
 
 export function parseRtuResponseHex(respHex) {

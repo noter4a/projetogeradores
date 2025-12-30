@@ -270,14 +270,15 @@ export const initMqttService = (io) => {
                     // Criar comando: Slave 1 (Confirmado pelo log), Func 03, Start 60, Qty 2 (Run Hours)
                     // O log mostrou "Rx Slave: 1", então PRECISA ser 1.
                     const slaveId = 1;
-                    const cmdHex = createModbusReadRequest(slaveId, 60, 2);
+                    const cmdBuffer = createModbusReadRequest(slaveId, 60, 2);
 
                     const topic = `devices/command/${deviceId}`;
-                    const payload = JSON.stringify({ request: cmdHex }); // Formato comum: { "request": "HEX" } ou apenas HEX
+                    // Enviar BUFFER puro (Raw Bytes), sem JSON.
+                    const payload = cmdBuffer;
 
                     // Enviando
                     client.publish(topic, payload);
-                    console.log(`[MQTT-POLL] Enviado request para ${deviceId}: ${cmdHex} -> ${topic}`);
+                    console.log(`[MQTT-POLL] Enviado request para ${deviceId}: ${cmdBuffer.toString('hex').toUpperCase()} -> ${topic}`);
                 } catch (err) {
                     console.error('[MQTT-POLL] Erro ao enviar comando:', err.message);
                 }
