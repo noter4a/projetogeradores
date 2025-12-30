@@ -111,9 +111,12 @@ const s16 = (regs, i) => {
 };
 const scale01 = (x) => Math.round(x * 10) / 10;
 
-export function decodeSgc120ByBlock(startAddress, regs) {
+export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // Aqui você adiciona os blocos que você usa.
   // O startAddress precisa bater com a requisição.
+
+  // LOG GENÉRICO PARA DEBUJAR TUDO QUE CHEGA
+  console.log(`[DEBUG-PARSER] Rx Slave: ${slaveId}, Fn: ${fn}, Addr: ${startAddress}, Len: ${regs.length}`);
 
   let result = {};
 
@@ -285,7 +288,7 @@ export function decodeSgc120Payload(payload) {
       continue;
     }
 
-    const decoded = decodeSgc120ByBlock(req.startAddress, resp.registers);
+    const decoded = decodeSgc120ByBlock(req.slaveId, req.fn, req.startAddress, resp.registers);
 
     out.push({
       request: req,
