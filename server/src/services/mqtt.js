@@ -56,6 +56,7 @@ export const initMqttService = (io) => {
 
     client.on('message', (topic, message) => {
         try {
+            console.log(`[MQTT] Message received on ${topic}`); // Debug log
             const payload = JSON.parse(message.toString());
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
@@ -92,7 +93,7 @@ export const initMqttService = (io) => {
                             unifiedData.fuelLevel = d.fuelLevel_pct;
                             unifiedData.rpm = d.rpm;
                             unifiedData.batteryVoltage = d.batteryVoltage_v;
-                            unifiedData.runHours = 0; // Not in this block
+                            // unifiedData.runHours = 0; // Removed to allow dynamic extraction
                         }
 
                         // Map MAINS_29 (Standard) or MAINS_504 (Variant)
