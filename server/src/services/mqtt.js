@@ -267,11 +267,9 @@ export const initMqttService = (io) => {
 
             devicesToPoll.forEach(deviceId => {
                 try {
-                    // Criar comando: Slave 3, Func 03, Start 60, Qty 2 (Run Hours)
-                    // Confirme se o Slave ID é 3 (padrão DEIF costuma ser 3 ou 1). 
-                    // Na dúvida, analise logs anteriores. O parser mostra SlaveId na resposta.
-                    // Assumindo Slave 3 por padrão.
-                    const slaveId = 3;
+                    // Criar comando: Slave 1 (Confirmado pelo log), Func 03, Start 60, Qty 2 (Run Hours)
+                    // O log mostrou "Rx Slave: 1", então PRECISA ser 1.
+                    const slaveId = 1;
                     const cmdHex = createModbusReadRequest(slaveId, 60, 2);
 
                     const topic = `devices/command/${deviceId}`;
