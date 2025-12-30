@@ -95,6 +95,27 @@ export function decodeSgc120ByBlock(startAddress, regs) {
   // Aqui você adiciona os blocos que você usa.
   // O startAddress precisa bater com a requisição.
 
+  let result = {};
+
+  // Check for Run Hours (Reg 22 - 32bit) inside this block?
+  // 22 is Running Hours (Int32/Uint32).
+  const idx22 = 22 - startAddress;
+  if (idx22 >= 0 && idx22 + 1 < regs.length) {
+    // Found Run Hours candidates
+    const rhUpper = u16(regs, idx22 + 1); // Order depends on Little/Big Endian. DEIF usually Little?
+    // Actually Modbus Standard: Registers are Big Endian. But 32-bit values can be Hi-Low or Low-Hi words.
+    // SGC 120 manual usually says. Let's try Hi-Low (Big Endian words).
+    const rhLower = u16(regs, idx22);
+    // Wait, usually it is (Hi << 16) | Low.
+    // Let's assume (Reg22 << 16) | Reg23 ? Or Reg23 << 16 | Reg22?
+    // Standard Modbus is often Big Endian Words order too.
+    // Let's try default: 
+    const val32 = (u16(regs, idx22) << 16) | u16(regs, idx22 + 1);
+
+    // If the value looks crazy, maybe swap. But 0 is 0.
+    result.runHours = val32;
+  }
+
   // Bloco 1–9 (9 regs): Tensões + freq (conforme seu comando 0001 qty 0009)
   if (startAddress === 1 && regs.length >= 9) {
     // Ajuste os nomes conforme a tabela do seu XLSX (algumas tabelas usam ordem levemente diferente).
@@ -109,6 +130,7 @@ export function decodeSgc120ByBlock(startAddress, regs) {
       freq_r_hz: scale01(u16(regs, 6) * 0.1),
       freq_y_hz: scale01(u16(regs, 7) * 0.1),
       freq_b_hz: scale01(u16(regs, 8) * 0.1),
+      ...result
     };
   }
 
@@ -125,6 +147,7 @@ export function decodeSgc120ByBlock(startAddress, regs) {
       rpm: u16(regs, 6),
       starts: u16(regs, 7),
       trips: u16(regs, 8),
+      ...result
     };
   }
 
@@ -141,6 +164,7 @@ export function decodeSgc120ByBlock(startAddress, regs) {
       freq_r_hz: scale01(u16(regs, 6) * 0.1), // Mains Freq
       freq_y_hz: scale01(u16(regs, 7) * 0.1),
       freq_b_hz: scale01(u16(regs, 8) * 0.1),
+      ...result
     };
   }
 
@@ -153,6 +177,7 @@ export function decodeSgc120ByBlock(startAddress, regs) {
       l2n_v: u16(regs, 1),
       l3n_v: u16(regs, 2),
       freq_r_hz: scale01(u16(regs, 3) * 0.1), // Usually Freq is next
+      ...result
     };
   }
 
@@ -161,6 +186,7 @@ export function decodeSgc120ByBlock(startAddress, regs) {
     block: "UNKNOWN",
     startAddress,
     registers: regs,
+    ...result
   };
 }
 

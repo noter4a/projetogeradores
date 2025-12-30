@@ -80,6 +80,9 @@ export const initMqttService = (io) => {
                             unifiedData.frequency = d.freq_r_hz; // Assuming Gen Freq L1
                             // Calculate average voltage if needed
                             unifiedData.avgVoltage = Math.round((d.l1n_v + d.l2n_v + d.l3n_v) / 3);
+                            unifiedData.voltageL12 = d.l12_v;
+                            unifiedData.voltageL23 = d.l23_v;
+                            unifiedData.voltageL31 = d.l31_v;
                         }
 
                         // Map ENGINE_51_59
@@ -104,10 +107,25 @@ export const initMqttService = (io) => {
                             unifiedData.mainsCurrentL2 = 0;
                             unifiedData.mainsCurrentL3 = 0;
                         }
+
+                        if (d.runHours !== undefined) {
+                            unifiedData.runHours = d.runHours;
+                        }
                     }
                 });
 
                 // Only emit if we actually decoded something useful
+                if (Object.keys(unifiedData).length > 0) {
+                    // ...
+                } else {
+                    // Check if we have results that were parsed but unknown block
+                    results.forEach(res => {
+                        if (res.ok && res.decoded && res.decoded.block === 'UNKNOWN') {
+                            console.log(`[MQTT] UNKNOWN BLOCK for ${deviceId}: Start ${res.decoded.startAddress}, Len ${res.decoded.registers.length}`);
+                        }
+                    });
+                }
+
                 if (Object.keys(unifiedData).length > 0) {
 
                     // DERIVE STATUS for Real-Time UI (and DB)
@@ -185,7 +203,11 @@ export const initMqttService = (io) => {
                                     mains_voltage_l2 = COALESCE($14, mains_voltage_l2),
                                     mains_voltage_l3 = COALESCE($15, mains_voltage_l3),
                                     mains_frequency = COALESCE($16, mains_frequency),
-                                    status = COALESCE($17, status)
+                                    status = COALESCE($17, status),
+                                    voltage_l12 = COALESCE($19, voltage_l12),
+                                    voltage_l23 = COALESCE($20, voltage_l23),
+                                    voltage_l31 = COALESCE($21, voltage_l31),
+                                    run_hours = COALESCE($22, run_hours)
                                 WHERE id = $18
                             `;
 
@@ -208,7 +230,11 @@ export const initMqttService = (io) => {
                                 unifiedData.mainsFrequency,
                                 unifiedData.status, // Can be undefined (Coalesce handles it)
                                 // ID to match
-                                deviceId
+                                deviceId,
+                                unifiedData.voltageL12,
+                                unifiedData.voltageL23,
+                                unifiedData.voltageL31,
+                                unifiedData.runHours
                             ];
 
                             await pool.query(query, values);
