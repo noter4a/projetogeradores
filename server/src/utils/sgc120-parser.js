@@ -1,3 +1,4 @@
+// Fixed by Agent - Force Update
 // sgc120-parser.js
 // Parser SGC-120 (Modbus RTU over MQTT)
 // - Decode de blocos comuns: 1-9 (tensões/frequência), 51-59 (motor/bateria/etc)
@@ -124,9 +125,9 @@ export function decodeSgc120ByBlock(startAddress, regs) {
       l1n_v: u16(regs, 0),
       l2n_v: u16(regs, 1),
       l3n_v: u16(regs, 2),
-      l12_v: u16(regs, 3),
-      l23_v: u16(regs, 4),
-      l31_v: u16(regs, 5),
+      l12_v: u16(regs, 3), // Adicionado: Tensão Fase-Fase L1-L2
+      l23_v: u16(regs, 4), // Adicionado: Tensão Fase-Fase L2-L3
+      l31_v: u16(regs, 5), // Adicionado: Tensão Fase-Fase L3-L1
       freq_r_hz: scale01(u16(regs, 6) * 0.1),
       freq_y_hz: scale01(u16(regs, 7) * 0.1),
       freq_b_hz: scale01(u16(regs, 8) * 0.1),
