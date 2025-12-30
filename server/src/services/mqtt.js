@@ -3,7 +3,7 @@ import mqtt from 'mqtt';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { decodeSgc120Payload } from '../utils/sgc120-parser.js';
+import { decodeSgc120Payload, createModbusReadRequest } from '../utils/sgc120-parser.js';
 import pool from '../db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -256,4 +256,34 @@ export const initMqttService = (io) => {
     client.on('error', (err) => {
         console.error('[MQTT] Connection Error:', err.message);
     });
+
+    // POLLING LOOP (Ativo)
+    // A cada 10 segundos, pede o Horímetro (Reg 60-61)
+    setInterval(() => {
+        if (client && client.connected) {
+            // Em um sistema real, iteraríamos por todos os geradores ativos no DB/Memória.
+            // Para este fix, vamos focar no ID que sabemos: Ciklo1
+            const devicesToPoll = ['Ciklo1'];
+
+            devicesToPoll.forEach(deviceId => {
+                try {
+                    // Criar comando: Slave 3, Func 03, Start 60, Qty 2 (Run Hours)
+                    // Confirme se o Slave ID é 3 (padrão DEIF costuma ser 3 ou 1). 
+                    // Na dúvida, analise logs anteriores. O parser mostra SlaveId na resposta.
+                    // Assumindo Slave 3 por padrão.
+                    const slaveId = 3;
+                    const cmdHex = createModbusReadRequest(slaveId, 60, 2);
+
+                    const topic = `devices/command/${deviceId}`;
+                    const payload = JSON.stringify({ request: cmdHex }); // Formato comum: { "request": "HEX" } ou apenas HEX
+
+                    // Enviando
+                    client.publish(topic, payload);
+                    console.log(`[MQTT-POLL] Enviado request para ${deviceId}: ${cmdHex} -> ${topic}`);
+                } catch (err) {
+                    console.error('[MQTT-POLL] Erro ao enviar comando:', err.message);
+                }
+            });
+        }
+    }, 10000); // 10 segundos
 };

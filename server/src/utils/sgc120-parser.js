@@ -43,8 +43,27 @@ export function parseRtuRequestHex(reqHex) {
     slaveId: b[0],
     fn: b[1],
     startAddress: (b[2] << 8) | b[3],
+    startAddress: (b[2] << 8) | b[3],
     quantity: (b[4] << 8) | b[5],
   };
+}
+
+/**
+ * Creates a Modbus RTU Read Request (Function 03)
+ * Returns a HEX string (e.g. "01030000000A...")
+ */
+export function createModbusReadRequest(slaveId, startAddress, quantity) {
+  const buf = Buffer.alloc(8);
+  buf.writeUInt8(slaveId, 0);
+  buf.writeUInt8(3, 1); // Function 03 (Read Holding Registers)
+  buf.writeUInt16BE(startAddress, 2);
+  buf.writeUInt16BE(quantity, 4);
+
+  // Calculate CRC
+  const crc = crc16Modbus(buf.subarray(0, 6));
+  buf.writeUInt16LE(crc, 6); // Modbus CRC is Little Endian in the frame
+
+  return buf.toString('hex').toUpperCase();
 }
 
 export function parseRtuResponseHex(respHex) {
@@ -135,8 +154,27 @@ export function decodeSgc120ByBlock(startAddress, regs) {
     };
   }
 
-  // Bloco 51–59 (9 regs): Motor / bateria etc (seu comando 0x0033 qty 9)
+  // Bloco 51–59 (9 regs) ... OR 51-61 (11 regs) for RunHours
+  if (startAddress === 51) {
+    console.log(`[DEBUG] Received BLOCK 51. Registers count: ${regs.length}`); // PROVA REAL
+  }
   if (startAddress === 51 && regs.length >= 9) {
+    // Check if we have registers 60 and 61 (indices 9 and 10)
+    if (regs.length >= 11) {
+      // Registers 60 and 61 are usually Run Hours (Unsigned 32-bit)
+      // Index 9 = Reg 60, Index 10 = Reg 61
+      const rhLo = u16(regs, 9);
+      const rhHi = u16(regs, 10);
+      const val32 = (rhHi << 16) | rhLo; // Assuming Little Endian Words or Big Endian? Standard strict is Big.
+      // Let's try standard (60=Hi, 61=Lo) first? User image says 60-61.
+      // Usually Modbus is Big Endian. so 60 is Hi, 61 is Lo.
+      // But DEIF SGC often follows Little Endian for 32-bit words sometimes.
+      // Let's stick to (Hi << 16) | Lo logic using the order they appear.
+      // If 60 is MSW and 61 is LSW:
+      const val32config1 = (u16(regs, 9) << 16) | u16(regs, 10);
+      result.runHours = val32config1;
+    }
+
     return {
       block: "ENGINE_51_59",
       oilPressure_bar: scale01(u16(regs, 0) * 0.1),
@@ -148,6 +186,19 @@ export function decodeSgc120ByBlock(startAddress, regs) {
       rpm: u16(regs, 6),
       starts: u16(regs, 7),
       trips: u16(regs, 8),
+      ...result
+    };
+  }
+
+  // Bloco isolado do Horímetro (caso o modem separe)
+  // Se o modem mandar 60 e 61 separados do 51:
+  if (startAddress === 60 && regs.length >= 2) {
+    const rhLo = u16(regs, 0);
+    const rhHi = u16(regs, 1);
+    const val32 = (rhHi << 16) | rhLo;
+    return {
+      block: "RUNHOURS_60",
+      runHours: val32,
       ...result
     };
   }
