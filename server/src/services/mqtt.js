@@ -197,16 +197,16 @@ export const initMqttService = (io) => {
                         };
 
                         fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
-                    } catch (err) {
-                        console.error('[MQTT] State Update Error:', err.message);
-                    }
 
-                    // 3. Broadcast to Real-Time Clients
-                    // FIX: Emit the MERGED state (from file/cache) instead of just the partial delta
-                    // This prevents the UI from clearing 'Voltage' when receiving 'RunHours'
-                    if (currentState[deviceId]) {
-                        io.emit('generator:update', currentState[deviceId]);
-                    } else {
+                        // 3. Broadcast to Real-Time Clients (Moved inside Try block to access currentState)
+                        if (currentState[deviceId]) {
+                            io.emit('generator:update', currentState[deviceId]);
+                        } else {
+                            io.emit('generator:update', updatePayload);
+                        }
+                    } catch (err) {
+                        console.error('[MQTT] State Update/Broadcast Error:', err.message);
+                        // Fallback: emit partial if state failed
                         io.emit('generator:update', updatePayload);
                     }
 
