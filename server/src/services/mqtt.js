@@ -132,6 +132,8 @@ export const initMqttService = (io) => {
                             const decimalHours = h + (m / 60.0);
                             // Format to 2 decimal places
                             unifiedData.runHours = parseFloat(decimalHours.toFixed(2));
+                            // FIX: Alias to 'totalHours' to match Frontend Interface
+                            unifiedData.totalHours = unifiedData.runHours;
                         }
                     }
                 });
