@@ -257,35 +257,48 @@ export const initMqttService = (io) => {
         console.error('[MQTT] Connection Error:', err.message);
     });
 
+    // Em um sistema real, iteraríamos por todos os geradores ativos no DB/Memória.
+    // Para este fix, vamos focar no ID que sabemos: Ciklo1
+    const devicesToPoll = ['Ciklo1'];
+
     // POLLING LOOP (Ativo)
-    // A cada 10 segundos, pede o Horímetro (Reg 60-61)
+    // Iniciar Polling Ativo Cíclico (Restaurando Tudo)
+    // Intervalo: 15s
     setInterval(() => {
         if (client && client.connected) {
-            // Em um sistema real, iteraríamos por todos os geradores ativos no DB/Memória.
-            // Para este fix, vamos focar no ID que sabemos: Ciklo1
-            const devicesToPoll = ['Ciklo1'];
+            if (devicesToPoll.length === 0) return;
 
             devicesToPoll.forEach(deviceId => {
-                try {
-                    // Poll Separado: 60-61 (Horas) e 62 (Minutos)
-                    // O dispositivo recusou ler o bloco de 5, mas aceitou leituras individuais.
-                    const slaveId = 1;
+                const slaveId = 1;
+                const topic = `devices/command/${deviceId}`;
 
-                    // 1. Horas (60, len 2)
-                    const cmdHours = createModbusReadRequest(slaveId, 60, 2);
-                    client.publish(`devices/command/${deviceId}`, cmdHours);
+                // Sequência de Comandos com delay para não engasgar o modem
+                // 1. Horímetro (60, 2 regs)
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 60, 2));
+                }, 0);
 
-                    // Pequeno delay para não atropelar (opcional, mas bom pra RS485)
-                    setTimeout(() => {
-                        // 2. Minutos (62, len 1)
-                        const cmdMin = createModbusReadRequest(slaveId, 62, 1);
-                        client.publish(`devices/command/${deviceId}`, cmdMin);
-                        console.log(`[MQTT-POLL] Enviado requests separados (60/62) para ${deviceId}`);
-                    }, 500);
-                } catch (err) {
-                    console.error('[MQTT-POLL] Erro ao enviar comando:', err.message);
-                }
+                // 2. Minutos (62, 1 reg)
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 62, 1));
+                }, 500);
+
+                // 3. Motor (51, 9 regs) - Pressão, Temp, Bateria
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 51, 9));
+                }, 1000);
+
+                // 4. Tensões Gerador (1, 9 regs) - Volt V1-V3, Freq
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 1, 9));
+                }, 1500);
+
+                // 5. Tensões Rede (29, 9 regs) - Volt L1-L3, Freq
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 29, 9));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 2000);
             });
         }
-    }, 10000); // 10 segundos
+    }, 15000);
 };
