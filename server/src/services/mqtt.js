@@ -202,7 +202,13 @@ export const initMqttService = (io) => {
                     }
 
                     // 3. Broadcast to Real-Time Clients
-                    io.emit('generator:update', updatePayload);
+                    // FIX: Emit the MERGED state (from file/cache) instead of just the partial delta
+                    // This prevents the UI from clearing 'Voltage' when receiving 'RunHours'
+                    if (currentState[deviceId]) {
+                        io.emit('generator:update', currentState[deviceId]);
+                    } else {
+                        io.emit('generator:update', updatePayload);
+                    }
 
                     // 4. Persist to Database (So it survives refresh)
                     (async () => {
