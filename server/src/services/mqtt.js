@@ -240,7 +240,7 @@ export const initMqttService = (io) => {
                                     run_hours = COALESCE($22, run_hours),
                                     active_power = COALESCE($23, active_power),
                                     power_factor = COALESCE($24, power_factor)
-                                WHERE id = $18
+                                WHERE id = $18 OR connection_info->>'ip' = $18
                             `;
 
                             const values = [
@@ -289,12 +289,32 @@ export const initMqttService = (io) => {
         console.error('[MQTT] Connection Error:', err.message);
     });
 
-    // Em um sistema real, iteraríamos por todos os geradores ativos no DB/Memória.
-    // Para este fix, vamos focar no ID que sabemos: Ciklo1
-    const devicesToPoll = ['Ciklo1'];
+    client.on('error', (err) => {
+        console.error('[MQTT] Connection Error:', err.message);
+    });
+
+    // Dynamic Polling List
+    let devicesToPoll = [];
+
+    const updatePollingList = async () => {
+        try {
+            const res = await pool.query("SELECT connection_info FROM generators");
+            devicesToPoll = res.rows
+                .map(row => row.connection_info?.ip) // Use 'ip' field as the MQTT ID
+                .filter(ip => ip); // Filter out null/undefined
+
+            // console.log('[MQTT] Updated Polling List:', devicesToPoll);
+        } catch (err) {
+            console.error('[MQTT] Failed to update polling list:', err.message);
+        }
+    };
+
+    // Initial fetch and periodic update
+    updatePollingList();
+    setInterval(updatePollingList, 30000); // Check for new configs every 30s
 
     // POLLING LOOP (Ativo)
-    // Iniciar Polling Ativo Cíclico (Restaurando Tudo)
+    // Iniciar Polling Ativo Cíclico
     // Intervalo: 15s
     setInterval(() => {
         if (client && client.connected) {
