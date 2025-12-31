@@ -122,7 +122,7 @@ const initDb = async (retries = 15, delay = 5000) => {
                 "voltage_l12 INTEGER DEFAULT 0",
                 "voltage_l23 INTEGER DEFAULT 0",
                 "voltage_l31 INTEGER DEFAULT 0",
-                "run_hours INTEGER DEFAULT 0"
+                "run_hours NUMERIC(10,2) DEFAULT 0"
             ];
 
             for (const col of columnsToAdd) {
@@ -135,6 +135,13 @@ const initDb = async (retries = 15, delay = 5000) => {
                 } catch (e) {
                     console.log(`Column migration check for ${col} ignored or failed:`, e.message);
                 }
+            }
+
+            // Fix: Ensure run_hours is NUMERIC (for legacy tables that created it as INTEGER)
+            try {
+                await client.query("ALTER TABLE generators ALTER COLUMN run_hours TYPE NUMERIC(10,2)");
+            } catch (e) {
+                console.log("Migration of run_hours type skipped:", e.message);
             }
 
             // Seed Default Generator
@@ -243,7 +250,8 @@ router.get('/generators', async (req, res) => {
             oilPressure: parseFloat(row.oil_pressure || 0),
             batteryVoltage: parseFloat(row.battery_voltage || 0),
             rpm: row.rpm || 0,
-            totalHours: row.total_hours || 0,
+            // Map 'totalHours' to the 'run_hours' column which we are actively updating
+            totalHours: parseFloat(row.run_hours || 0),
             lastMaintenance: new Date().toISOString().split('T')[0],
 
             voltageL1: row.voltage_l1 || 0,

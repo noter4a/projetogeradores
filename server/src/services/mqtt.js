@@ -237,7 +237,9 @@ export const initMqttService = (io) => {
                                     voltage_l12 = COALESCE($19, voltage_l12),
                                     voltage_l23 = COALESCE($20, voltage_l23),
                                     voltage_l31 = COALESCE($21, voltage_l31),
-                                    run_hours = COALESCE($22, run_hours)
+                                    run_hours = COALESCE($22, run_hours),
+                                    active_power = COALESCE($23, active_power),
+                                    power_factor = COALESCE($24, power_factor)
                                 WHERE id = $18
                             `;
 
@@ -264,7 +266,9 @@ export const initMqttService = (io) => {
                                 unifiedData.voltageL12,
                                 unifiedData.voltageL23,
                                 unifiedData.voltageL31,
-                                unifiedData.runHours
+                                unifiedData.runHours,
+                                unifiedData.activePower,
+                                unifiedData.powerFactor
                             ];
 
                             await pool.query(query, values);
