@@ -267,10 +267,10 @@ export const initMqttService = (io) => {
 
             devicesToPoll.forEach(deviceId => {
                 try {
-                    // Criar comando: Slave 1 (Confirmado pelo log), Func 03, Start 60, Qty 2 (Run Hours)
-                    // O log mostrou "Rx Slave: 1", então PRECISA ser 1.
+                    // Le a porra do Excel: 60 a 64 (5 registros).
+                    // 60-61: Horas, 62: Minutos, 63-64: Starts?
                     const slaveId = 1;
-                    const cmdBuffer = createModbusReadRequest(slaveId, 60, 2);
+                    const cmdBuffer = createModbusReadRequest(slaveId, 60, 5);
 
                     const topic = `devices/command/${deviceId}`;
                     // Enviar BUFFER puro (Raw Bytes), sem JSON.
