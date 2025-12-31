@@ -199,6 +199,26 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
+  // BLOCK: MAINS VOLTAGES (14 - 22) - NEW CORRECT ADDRESS
+  if (startAddress === 14 && regs.length >= 7) { // Need at least 7 registers for the specified fields
+    return {
+      block: 'MAINS_14',
+      // Phase-Neutral
+      l1n_v: scale01(u16(regs, 0) * 0.1), // 14
+      l2n_v: scale01(u16(regs, 1) * 0.1), // 15
+      l3n_v: scale01(u16(regs, 2) * 0.1), // 16
+
+      // Phase-Phase
+      l1l2_v: scale01(u16(regs, 3) * 0.1), // 17
+      l2l3_v: scale01(u16(regs, 4) * 0.1), // 18
+      l3l1_v: scale01(u16(regs, 5) * 0.1), // 19
+
+      // Frequency (Freq R)
+      freq_r_hz: scale01(u16(regs, 6) * 0.1), // 20
+      ...result
+    };
+  }
+
   // Bloco isolado do Horímetro (60)
   // Se recebermos apenas 2 regs (60/61 = Horas)
   if (startAddress === 60 && regs.length >= 2) {

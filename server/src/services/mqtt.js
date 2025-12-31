@@ -114,8 +114,8 @@ export const initMqttService = (io) => {
                             global.mqttDeviceCache[deviceId].runMinutes = d.runMinutes || 0;
                         }
 
-                        // Map MAINS_29 (Standard) or MAINS_504 (Variant)
-                        if (d.block === 'MAINS_29' || d.block === 'MAINS_504') {
+                        // Map MAINS_14 (Corrected), MAINS_29 (Legacy) or MAINS_504 (Variant)
+                        if (d.block === 'MAINS_14' || d.block === 'MAINS_29' || d.block === 'MAINS_504') {
                             unifiedData.mainsVoltageL1 = d.l1n_v;
                             unifiedData.mainsVoltageL2 = d.l2n_v;
                             unifiedData.mainsVoltageL3 = d.l3n_v;
@@ -345,9 +345,9 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 1, 9));
                 }, 5000); // +2s
 
-                // 5. Tensões Rede (29, 9 regs)
+                // 5. Tensões Rede (14, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 29, 9));
+                    client.publish(topic, createModbusReadRequest(slaveId, 14, 9));
                     console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 7000); // +2s
             });
