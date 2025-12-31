@@ -272,7 +272,7 @@ export const initMqttService = (io) => {
                 const slaveId = 1;
                 const topic = `devices/command/${deviceId}`;
 
-                // Sequência de Comandos com delay para não engasgar o modem
+                // Sequência de Comandos (Relaxada - 2s por request)
                 // 1. Horímetro (60, 2 regs)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 60, 2));
@@ -281,23 +281,23 @@ export const initMqttService = (io) => {
                 // 2. Minutos (62, 1 reg)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 62, 1));
-                }, 500);
+                }, 1000); // +1s
 
-                // 3. Motor (51, 9 regs) - Pressão, Temp, Bateria
+                // 3. Motor (51, 9 regs)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 51, 9));
-                }, 1000);
+                }, 3000); // +2s
 
-                // 4. Tensões Gerador (1, 9 regs) - Volt V1-V3, Freq
+                // 4. Tensões Gerador (1, 9 regs)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 1, 9));
-                }, 1500);
+                }, 5000); // +2s
 
-                // 5. Tensões Rede (29, 9 regs) - Volt L1-L3, Freq
+                // 5. Tensões Rede (29, 9 regs)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 29, 9));
                     console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
-                }, 2000);
+                }, 7000); // +2s
             });
         }
     }, 15000);
