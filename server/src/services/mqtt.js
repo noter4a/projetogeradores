@@ -70,9 +70,17 @@ export const initMqttService = (io) => {
                 // and merge all decoded fields.
                 let unifiedData = {};
 
+                // Global Cache for stateful aggregation (Hours + Minutes)
+                if (!global.mqttDeviceCache) global.mqttDeviceCache = {};
+
                 results.forEach(res => {
                     if (res.ok && res.decoded) {
                         const d = res.decoded;
+
+                        // Ensure cache entry exists
+                        if (!global.mqttDeviceCache[deviceId]) {
+                            global.mqttDeviceCache[deviceId] = { runHours: 0, runMinutes: 0 };
+                        }
 
                         // Map GEN_VOLT_FREQ_1_9
                         if (d.block === 'GEN_VOLT_FREQ_1_9') {
@@ -94,7 +102,16 @@ export const initMqttService = (io) => {
                             unifiedData.fuelLevel = d.fuelLevel_pct;
                             unifiedData.rpm = d.rpm;
                             unifiedData.batteryVoltage = d.batteryVoltage_v;
-                            // unifiedData.runHours = 0; // Removed to allow dynamic extraction
+                        }
+
+                        // Map RUNHOURS_60 (Hours Only)
+                        if (d.block === 'RUNHOURS_60') {
+                            global.mqttDeviceCache[deviceId].runHours = d.runHoursTotal || 0;
+                        }
+
+                        // Map RUNMINUTES_62 (Minutes Only)
+                        if (d.block === 'RUNMINUTES_62') {
+                            global.mqttDeviceCache[deviceId].runMinutes = d.runMinutes || 0;
                         }
 
                         // Map MAINS_29 (Standard) or MAINS_504 (Variant)
@@ -103,15 +120,18 @@ export const initMqttService = (io) => {
                             unifiedData.mainsVoltageL2 = d.l2n_v;
                             unifiedData.mainsVoltageL3 = d.l3n_v;
                             unifiedData.mainsFrequency = d.freq_r_hz;
-                            // Frontend Table Expects mainsCurrent too, but SGC120 basic block might not have it.
-                            // Default to 0 or check registers 38+ for current?
                             unifiedData.mainsCurrentL1 = 0;
                             unifiedData.mainsCurrentL2 = 0;
                             unifiedData.mainsCurrentL3 = 0;
                         }
 
-                        if (d.runHours !== undefined) {
-                            unifiedData.runHours = d.runHours;
+                        // Recalculate Combined Decimal Run Hours if cache has data
+                        if (global.mqttDeviceCache[deviceId]) {
+                            const h = global.mqttDeviceCache[deviceId].runHours;
+                            const m = global.mqttDeviceCache[deviceId].runMinutes;
+                            const decimalHours = h + (m / 60.0);
+                            // Format to 2 decimal places
+                            unifiedData.runHours = parseFloat(decimalHours.toFixed(2));
                         }
                     }
                 });
