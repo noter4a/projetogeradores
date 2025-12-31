@@ -199,42 +199,31 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // Bloco isolado do Horímetro (60 a 64 - 5 regs)
-  // Conforme Excel:
-  // 60-61: Eng run hrs (32-bit)
-  // 62:    Eng run min (16-bit)
-  // 63:    Mains run hrs (16-bit?) -> Assumindo 16-bit pelo offset
-  // 64:    Mains run min (16-bit)
+  // Bloco isolado do Horímetro (60)
+  // Se recebermos apenas 2 regs (60/61 = Horas)
   if (startAddress === 60 && regs.length >= 2) {
-    // Engine Run Hours
     const engHrsLo = u16(regs, 0);
     const engHrsHi = u16(regs, 1);
     const engHrs = (engHrsHi << 16) | engHrsLo;
 
-    let engMin = 0;
-    let mainsHrs = 0;
-    let mainsMin = 0;
+    console.log(`[PARSER] Engine Hours (60-61): ${engHrs}h`);
 
-    // Se tiver comprimento suficiente (5 registros), traz o resto
-    if (regs.length >= 5) {
-      engMin = u16(regs, 2);
-      mainsHrs = u16(regs, 3);
-      mainsMin = u16(regs, 4);
-    }
-
-    // Combina Horas + Minutos para precisão decimal (ex: 100.5h)
-    const totalEngHours = engHrs + (engMin / 60.0);
-    const totalMainsHours = mainsHrs + (mainsMin / 60.0);
-
-    console.log(`[PARSER] Engine: ${engHrs}h ${engMin}m (${scale01(totalEngHours)}h), Mains: ${mainsHrs}h ${mainsMin}m`);
-
+    // Retorna base. Minutos virão em outro pacote ou serão 0.
     return {
       block: "RUNHOURS_60",
-      runHours: scale01(totalEngHours), // Salva com decimal
+      runHours: engHrs, // Temporário, até chegar minutos
       runHoursTotal: engHrs,
+      ...result
+    };
+  }
+
+  // Bloco isolado de Minutos (62)
+  if (startAddress === 62 && regs.length >= 1) {
+    const engMin = u16(regs, 0);
+    console.log(`[PARSER] Engine Minutes (62): ${engMin}m`);
+    return {
+      block: "RUNMINUTES_62",
       runMinutes: engMin,
-      mainsRunHours: mainsHrs,
-      mainsRunMinutes: mainsMin,
       ...result
     };
   }

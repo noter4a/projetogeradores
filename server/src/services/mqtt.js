@@ -267,18 +267,21 @@ export const initMqttService = (io) => {
 
             devicesToPoll.forEach(deviceId => {
                 try {
-                    // Le a porra do Excel: 60 a 64 (5 registros).
-                    // 60-61: Horas, 62: Minutos, 63-64: Starts?
+                    // Poll Separado: 60-61 (Horas) e 62 (Minutos)
+                    // O dispositivo recusou ler o bloco de 5, mas aceitou leituras individuais.
                     const slaveId = 1;
-                    const cmdBuffer = createModbusReadRequest(slaveId, 60, 5);
 
-                    const topic = `devices/command/${deviceId}`;
-                    // Enviar BUFFER puro (Raw Bytes), sem JSON.
-                    const payload = cmdBuffer;
+                    // 1. Horas (60, len 2)
+                    const cmdHours = createModbusReadRequest(slaveId, 60, 2);
+                    client.publish(`devices/command/${deviceId}`, cmdHours);
 
-                    // Enviando
-                    client.publish(topic, payload);
-                    console.log(`[MQTT-POLL] Enviado request para ${deviceId}: ${cmdBuffer.toString('hex').toUpperCase()} -> ${topic}`);
+                    // Pequeno delay para não atropelar (opcional, mas bom pra RS485)
+                    setTimeout(() => {
+                        // 2. Minutos (62, len 1)
+                        const cmdMin = createModbusReadRequest(slaveId, 62, 1);
+                        client.publish(`devices/command/${deviceId}`, cmdMin);
+                        console.log(`[MQTT-POLL] Enviado requests separados (60/62) para ${deviceId}`);
+                    }, 500);
                 } catch (err) {
                     console.error('[MQTT-POLL] Erro ao enviar comando:', err.message);
                 }
