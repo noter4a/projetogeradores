@@ -119,6 +119,12 @@ export const initMqttService = (io) => {
                             unifiedData.mainsVoltageL1 = d.l1n_v;
                             unifiedData.mainsVoltageL2 = d.l2n_v;
                             unifiedData.mainsVoltageL3 = d.l3n_v;
+
+                            // Map Phase-Phase Voltages (Mains)
+                            unifiedData.mainsVoltageL12 = d.l1l2_v || 0;
+                            unifiedData.mainsVoltageL23 = d.l2l3_v || 0;
+                            unifiedData.mainsVoltageL31 = d.l3l1_v || 0;
+
                             unifiedData.mainsFrequency = d.freq_r_hz;
                             unifiedData.mainsCurrentL1 = 0;
                             unifiedData.mainsCurrentL2 = 0;
