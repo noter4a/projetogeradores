@@ -144,6 +144,17 @@ const initDb = async (retries = 15, delay = 5000) => {
                 console.log("Migration of run_hours type skipped:", e.message);
             }
 
+            // Fix: Widen other columns to prevent overflow (e.g. if raw value 2400 is sent to NUMERIC(5,2))
+            try {
+                await client.query("ALTER TABLE generators ALTER COLUMN battery_voltage TYPE NUMERIC(10,2)");
+                await client.query("ALTER TABLE generators ALTER COLUMN oil_pressure TYPE NUMERIC(10,2)");
+                await client.query("ALTER TABLE generators ALTER COLUMN power_factor TYPE NUMERIC(10,2)");
+                await client.query("ALTER TABLE generators ALTER COLUMN mains_frequency TYPE NUMERIC(10,2)");
+                console.log("Widened numeric columns to NUMERIC(10,2)");
+            } catch (e) {
+                console.log("Widening columns skipped or failed:", e.message);
+            }
+
             // Seed Default Generator
             const genCheck = await client.query("SELECT * FROM generators WHERE id = 'GEN-REAL-01'");
             if (genCheck.rows.length === 0) {
