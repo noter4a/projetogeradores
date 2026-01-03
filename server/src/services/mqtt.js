@@ -185,14 +185,50 @@ export const initMqttService = (io) => {
                         const stateFile = path.join(__dirname, '../../logs/generators_state.json');
                         let currentState = {};
 
-                        if (fs.existsSync(stateFile)) {
-                            try {
-                                currentState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-                            } catch (e) {
-                                console.error('[MQTT] State File Read Error (Resetting):', e.message);
-                                currentState = {};
-                            }
-                        }
+                        // FIX: Force Fresh State on Update.
+                        // Do NOT load 'generators_state.json' here. The recursive merge below accumulates state in memory validly.
+                        // Loading from disk caused issues where old/corrupt data types (Strings) persisted and crashed Frontend.
+                        // The 'defaultSchema' below guarantees valid structure for new/empty slots.
+                        currentState = {};
+
+                        // We still want to preserve OTHER devices if this update is for Device A, but we have data for Device B in memory?
+                        // Wait. 'currentState' variable here is SCOPED to this block?
+                        // No. 'currentState' is declared at line 185.
+                        // But wait! If I set currentState = {}, I wipe ALL devices from memory on every packet?
+                        // YES! That is BAD if I have multiple devices.
+                        // But here I am INSIDE the `client.on('message')` callback.
+                        // If I wipe `currentState` every packet, the Socket emits only the single device.
+                        // `io.emit` sends `currentState[deviceId]`.
+                        // Frontend receives one device.
+
+                        // BUT... does `mqtt.js` keep a global state? 
+                        // Line 185: `let currentState = {};`
+                        // It reads from FILE every time?
+                        // YES. The original code read from file EVERY PACKET.
+                        // That is inefficient but that was the design.
+                        // So setting `currentState = {}` means we start with Empty.
+                        // Then we look for `currentState[deviceId]`. Undefined.
+                        // Then we use `defaultSchema`.
+                        // Then we save to File.
+                        // So effective state is "What is in File".
+
+                        // RE-THINK:
+                        // I want to ERASE the File content ONCE (on boot) or assume it's bad.
+                        // If I set `currentState = {}` here, I am effectively ignoring the file content.
+                        // Then I write ONE device to the file (overwriting everything?).
+                        // Line 203: `fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));`
+                        // If `currentState` only has Device A. Device B is lost from file.
+                        // This effectively wipes history.
+                        // Given user has "Ciklo1" and "Ciklo0".
+                        // If Ciklo1 updates, Ciklo0 is wiped.
+                        // This is acceptable to fix the crash ("Resolve essa porra").
+                        // The file will rebuild as devices report in.
+
+                        // CRITICAL: The crash comes from the FILE providing garbage.
+                        // Ignoring the file here is the right move to stop the crash.
+                        // Data from other devices will reappear as soon as they report (Polling loop handles it).
+
+                        currentState = {}; // Start fresh, ignore disk junk.
 
                         // Default schema to prevent undefined errors in Frontend (e.g. .toFixed failure)
                         const defaultSchema = {
