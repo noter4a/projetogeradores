@@ -150,6 +150,15 @@ const initDb = async (retries = 15, delay = 5000) => {
                 await client.query("ALTER TABLE generators ALTER COLUMN oil_pressure TYPE NUMERIC(10,2)");
                 await client.query("ALTER TABLE generators ALTER COLUMN power_factor TYPE NUMERIC(10,2)");
                 await client.query("ALTER TABLE generators ALTER COLUMN mains_frequency TYPE NUMERIC(10,2)");
+
+                // Fix: Widen Voltages for Gen & Mains
+                await client.query("ALTER TABLE generators ALTER COLUMN voltage_l1 TYPE NUMERIC(10,2)");
+                await client.query("ALTER TABLE generators ALTER COLUMN voltage_l2 TYPE NUMERIC(10,2)");
+                await client.query("ALTER TABLE generators ALTER COLUMN voltage_l3 TYPE NUMERIC(10,2)");
+                await client.query("ALTER TABLE generators ALTER COLUMN mains_voltage_l1 TYPE NUMERIC(10,2)");
+                await client.query("ALTER TABLE generators ALTER COLUMN mains_voltage_l2 TYPE NUMERIC(10,2)");
+                await client.query("ALTER TABLE generators ALTER COLUMN mains_voltage_l3 TYPE NUMERIC(10,2)");
+
                 console.log("Widened numeric columns to NUMERIC(10,2)");
             } catch (e) {
                 console.log("Widening columns skipped or failed:", e.message);
