@@ -9,6 +9,15 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { initMqttService } from './services/mqtt.js';
 
+// CRITICAL DEBUG: Catch Crash Errors
+process.on('uncaughtException', (err) => {
+    console.error('[[[[ CRITICAL SERVER CRASH ]]]]:', err);
+    console.error(err.stack);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[[[[ UNHANDLED PROMISE REJECTION ]]]]:', reason);
+});
+
 dotenv.config();
 
 const app = express();
