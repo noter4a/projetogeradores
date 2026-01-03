@@ -64,6 +64,11 @@ export const initMqttService = (io) => {
                 console.log('[MQTT] WARNING: Received payload with EMPTY modbusRequest! Gateway might have rejected the command.');
             } else if (payload.modbusRequest) {
                 console.log(`[MQTT] Payload Request[0]: ${payload.modbusRequest[0]}`);
+                if (payload.modbusResponse) {
+                    console.log(`[MQTT] Payload Response[0]: ${payload.modbusResponse[0] ? payload.modbusResponse[0] : "EMPTY_STRING"}`);
+                } else {
+                    console.log('[MQTT] Payload has NO modbusResponse field.');
+                }
             }
 
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
