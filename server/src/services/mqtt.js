@@ -57,8 +57,18 @@ export const initMqttService = (io) => {
 
     client.on('message', (topic, message) => {
         try {
-            console.log(`[MQTT] Message received on ${topic}`); // Debug log
-            const payload = JSON.parse(message.toString());
+            const msgStr = message.toString();
+            console.log(`[MQTT] Message received on ${topic} | Len: ${msgStr.length}`);
+            console.log(`[MQTT] Payload Preview:`, msgStr.substring(0, 200));
+
+            let payload;
+            try {
+                payload = JSON.parse(msgStr);
+            } catch (e) {
+                console.error('[MQTT] JSON Parse Error (Ignored):', e.message);
+                return;
+            }
+
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
             // New SGC-120 Decoding Logic
