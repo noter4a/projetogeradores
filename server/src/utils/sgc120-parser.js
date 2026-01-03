@@ -222,13 +222,11 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // Bloco isolado do Horímetro (60)
   // Se recebermos apenas 2 regs (60/61 = Horas)
   if (startAddress === 60 && regs.length >= 2) {
-    // FIX: Modbus Standard is Big Endian Words (Hi Word First).
-    // Previous error: (Reg61 << 16) | Reg60 resulted in 262144 (4 << 16).
-    const engHrsHi = u16(regs, 0); // Reg 60
-    const engHrsLo = u16(regs, 1); // Reg 61
-    const engHrs = (engHrsHi << 16) | engHrsLo;
+    // FIX: Assume Reg 60 is the valid 16-bit Run Hours. 
+    // Reg 61 seems to contain garbage or high-word data that mismatches expected values (producing 65536 or 262144).
+    const engHrs = u16(regs, 0); // Reg 60
 
-    console.log(`[PARSER] Engine Hours (60-61): ${engHrs}h`);
+    console.log(`[PARSER] Engine Hours (Reg 60): ${engHrs}h`);
 
     // Retorna base. Minutos virão em outro pacote ou serão 0.
     return {
