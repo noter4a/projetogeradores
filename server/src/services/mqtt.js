@@ -59,9 +59,13 @@ export const initMqttService = (io) => {
         try {
             console.log(`[MQTT] Message received on ${topic}`); // Debug log
             const payload = JSON.parse(message.toString());
-            // console.log('[MQTT] Raw Payload:', JSON.stringify(payload)); // Un-comment for deep debug
-            // Log just keys to be less verbose but check structure
-            console.log('[MQTT] Payload Keys:', Object.keys(payload));
+            // console.log('[MQTT] Payload Keys:', Object.keys(payload));
+            if (payload.modbusRequest && payload.modbusRequest.length === 0) {
+                console.log('[MQTT] WARNING: Received payload with EMPTY modbusRequest! Gateway might have rejected the command.');
+            } else if (payload.modbusRequest) {
+                console.log(`[MQTT] Payload Request[0]: ${payload.modbusRequest[0]}`);
+            }
+
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
             // New SGC-120 Decoding Logic
@@ -381,27 +385,27 @@ export const initMqttService = (io) => {
                 // Sequência de Comandos (Relaxada - 2s por request)
                 // 1. Horímetro (60, 2 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 60, 2));
+                    client.publish(topic, createModbusReadRequest(slaveId, 60, 2).toString('hex'));
                 }, 0);
 
                 // 2. Minutos (62, 1 reg)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 62, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 62, 1).toString('hex'));
                 }, 1000); // +1s
 
                 // 3. Motor (51, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 51, 9));
+                    client.publish(topic, createModbusReadRequest(slaveId, 51, 9).toString('hex'));
                 }, 3000); // +2s
 
                 // 4. Tensões Gerador (1, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 1, 9));
+                    client.publish(topic, createModbusReadRequest(slaveId, 1, 9).toString('hex'));
                 }, 5000); // +2s
 
                 // 5. Tensões Rede (14, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 14, 9));
+                    client.publish(topic, createModbusReadRequest(slaveId, 14, 9).toString('hex'));
                     console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 7000); // +2s
             });
