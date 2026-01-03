@@ -319,8 +319,14 @@ export const initMqttService = (io) => {
     // Iniciar Polling Ativo Cíclico
     // Intervalo: 15s
     setInterval(() => {
+        // Debug Log to diagnose "No Data" issue
+        // console.log(`[MQTT-DEBUG] Polling Loop Tick. Connected: ${client?.connected}. Devices: ${devicesToPoll.length}`);
+
         if (client && client.connected) {
-            if (devicesToPoll.length === 0) return;
+            if (devicesToPoll.length === 0) {
+                // console.log(`[MQTT-DEBUG] No devices to poll (List empty). Check Database.`);
+                return;
+            }
 
             devicesToPoll.forEach(deviceId => {
                 const slaveId = 1;
