@@ -257,12 +257,12 @@ router.get('/generators', async (req, res) => {
             model: row.model,
             powerKVA: row.power_kva,
             status: row.status,
-            connectionName: row.connection_info.connectionName,
-            controller: row.connection_info.controller,
-            protocol: row.connection_info.protocol,
-            ip: row.connection_info.ip,
-            port: row.connection_info.port,
-            slaveId: row.connection_info.slaveId,
+            connectionName: row.connection_info?.connectionName || '',
+            controller: row.connection_info?.controller || '',
+            protocol: row.connection_info?.protocol || '',
+            ip: row.connection_info?.ip || '',
+            port: row.connection_info?.port || 0,
+            slaveId: row.connection_info?.slaveId || 1,
 
             // Map Persistent Real-Time Values
             fuelLevel: row.fuel_level || 0,
