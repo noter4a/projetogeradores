@@ -222,8 +222,10 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // Bloco isolado do Horímetro (60)
   // Se recebermos apenas 2 regs (60/61 = Horas)
   if (startAddress === 60 && regs.length >= 2) {
-    const engHrsLo = u16(regs, 0);
-    const engHrsHi = u16(regs, 1);
+    // FIX: Modbus Standard is Big Endian Words (Hi Word First).
+    // Previous error: (Reg61 << 16) | Reg60 resulted in 262144 (4 << 16).
+    const engHrsHi = u16(regs, 0); // Reg 60
+    const engHrsLo = u16(regs, 1); // Reg 61
     const engHrs = (engHrsHi << 16) | engHrsLo;
 
     console.log(`[PARSER] Engine Hours (60-61): ${engHrs}h`);
