@@ -193,11 +193,23 @@ export const initMqttService = (io) => {
                             }
                         }
 
-                        // Merge new data with existing state for this device to preserve fields not in this packet
+                        // Default schema to prevent undefined errors in Frontend (e.g. .toFixed failure)
+                        const defaultSchema = {
+                            voltageL1: 0, voltageL2: 0, voltageL3: 0,
+                            currentL1: 0, currentL2: 0, currentL3: 0,
+                            mainsVoltageL1: 0, mainsVoltageL2: 0, mainsVoltageL3: 0,
+                            mainsVoltageL12: 0, mainsVoltageL23: 0, mainsVoltageL31: 0,
+                            fuelLevel: 0, engineTemp: 0, oilPressure: 0, batteryVoltage: 0,
+                            rpm: 0, totalHours: 0, runHours: 0,
+                            activePower: 0, powerFactor: 0,
+                            frequency: 0, mainsFrequency: 0
+                        };
+
+                        // Merge logic: Defaults <- Existing from File <- New Unified Data
                         const existingDeviceData = currentState[deviceId]?.data || {};
                         currentState[deviceId] = {
                             ...updatePayload,
-                            data: { ...existingDeviceData, ...unifiedData }
+                            data: { ...defaultSchema, ...existingDeviceData, ...unifiedData }
                         };
 
                         fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));

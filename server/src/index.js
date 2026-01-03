@@ -256,25 +256,25 @@ router.get('/generators', async (req, res) => {
             slaveId: row.connection_info.slaveId,
 
             // Map Persistent Real-Time Values
-            fuelLevel: row.fuel_level || 0,
-            engineTemp: row.engine_temp || 0,
+            fuelLevel: parseFloat(row.fuel_level || 0),
+            engineTemp: parseFloat(row.engine_temp || 0),
             oilPressure: parseFloat(row.oil_pressure || 0),
             batteryVoltage: parseFloat(row.battery_voltage || 0),
-            rpm: row.rpm || 0,
+            rpm: parseFloat(row.rpm || 0),
             // Map 'totalHours' to the 'run_hours' column which we are actively updating
             totalHours: parseFloat(row.run_hours || 0),
             lastMaintenance: new Date().toISOString().split('T')[0],
 
-            voltageL1: row.voltage_l1 || 0,
-            voltageL2: row.voltage_l2 || 0,
-            voltageL3: row.voltage_l3 || 0,
-            currentL1: row.current_l1 || 0,
-            currentL2: row.current_l2 || 0,
-            currentL3: row.current_l3 || 0,
+            voltageL1: parseFloat(row.voltage_l1 || 0),
+            voltageL2: parseFloat(row.voltage_l2 || 0),
+            voltageL3: parseFloat(row.voltage_l3 || 0),
+            currentL1: parseFloat(row.current_l1 || 0),
+            currentL2: parseFloat(row.current_l2 || 0),
+            currentL3: parseFloat(row.current_l3 || 0),
 
-            mainsVoltageL1: row.mains_voltage_l1 || 0,
-            mainsVoltageL2: row.mains_voltage_l2 || 0,
-            mainsVoltageL3: row.mains_voltage_l3 || 0,
+            mainsVoltageL1: parseFloat(row.mains_voltage_l1 || 0),
+            mainsVoltageL2: parseFloat(row.mains_voltage_l2 || 0),
+            mainsVoltageL3: parseFloat(row.mains_voltage_l3 || 0),
             mainsFrequency: parseFloat(row.mains_frequency || 0),
 
             frequency: parseFloat(row.frequency || 0),
