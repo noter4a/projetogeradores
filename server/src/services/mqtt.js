@@ -57,18 +57,8 @@ export const initMqttService = (io) => {
 
     client.on('message', (topic, message) => {
         try {
-            const msgStr = message.toString();
-            console.log(`[MQTT] Message received on ${topic} | Len: ${msgStr.length}`);
-            console.log(`[MQTT] Payload Preview:`, msgStr.substring(0, 200));
-
-            let payload;
-            try {
-                payload = JSON.parse(msgStr);
-            } catch (e) {
-                console.error('[MQTT] JSON Parse Error (Ignored):', e.message);
-                return;
-            }
-
+            console.log(`[MQTT] Message received on ${topic}`); // Debug log
+            const payload = JSON.parse(message.toString());
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
             // New SGC-120 Decoding Logic
@@ -329,14 +319,8 @@ export const initMqttService = (io) => {
     // Iniciar Polling Ativo Cíclico
     // Intervalo: 15s
     setInterval(() => {
-        // Debug Log to diagnose "No Data" issue
-        // console.log(`[MQTT-DEBUG] Polling Loop Tick. Connected: ${client?.connected}. Devices: ${devicesToPoll.length}`);
-
         if (client && client.connected) {
-            if (devicesToPoll.length === 0) {
-                // console.log(`[MQTT-DEBUG] No devices to poll (List empty). Check Database.`);
-                return;
-            }
+            if (devicesToPoll.length === 0) return;
 
             devicesToPoll.forEach(deviceId => {
                 const slaveId = 1;

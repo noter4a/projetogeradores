@@ -9,15 +9,6 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { initMqttService } from './services/mqtt.js';
 
-// CRITICAL DEBUG: Catch Crash Errors
-process.on('uncaughtException', (err) => {
-    console.error('[[[[ CRITICAL SERVER CRASH ]]]]:', err);
-    console.error(err.stack);
-});
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('[[[[ UNHANDLED PROMISE REJECTION ]]]]:', reason);
-});
-
 dotenv.config();
 
 const app = express();
@@ -159,15 +150,6 @@ const initDb = async (retries = 15, delay = 5000) => {
                 await client.query("ALTER TABLE generators ALTER COLUMN oil_pressure TYPE NUMERIC(10,2)");
                 await client.query("ALTER TABLE generators ALTER COLUMN power_factor TYPE NUMERIC(10,2)");
                 await client.query("ALTER TABLE generators ALTER COLUMN mains_frequency TYPE NUMERIC(10,2)");
-
-                // Fix: Widen Voltages for Gen & Mains
-                await client.query("ALTER TABLE generators ALTER COLUMN voltage_l1 TYPE NUMERIC(10,2)");
-                await client.query("ALTER TABLE generators ALTER COLUMN voltage_l2 TYPE NUMERIC(10,2)");
-                await client.query("ALTER TABLE generators ALTER COLUMN voltage_l3 TYPE NUMERIC(10,2)");
-                await client.query("ALTER TABLE generators ALTER COLUMN mains_voltage_l1 TYPE NUMERIC(10,2)");
-                await client.query("ALTER TABLE generators ALTER COLUMN mains_voltage_l2 TYPE NUMERIC(10,2)");
-                await client.query("ALTER TABLE generators ALTER COLUMN mains_voltage_l3 TYPE NUMERIC(10,2)");
-
                 console.log("Widened numeric columns to NUMERIC(10,2)");
             } catch (e) {
                 console.log("Widening columns skipped or failed:", e.message);
@@ -259,53 +241,46 @@ router.get('/generators', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM generators ORDER BY created_at ASC');
         // Map DB fields to Frontend types
-        const generators = result.rows.map(row => {
-            try {
-                return {
-                    id: row.id,
-                    name: row.name,
-                    location: row.location,
-                    model: row.model,
-                    powerKVA: row.power_kva,
-                    status: row.status,
-                    connectionName: row.connection_info?.connectionName || '',
-                    controller: row.connection_info?.controller || '',
-                    protocol: row.connection_info?.protocol || '',
-                    ip: row.connection_info?.ip || '',
-                    port: row.connection_info?.port || 0,
-                    slaveId: row.connection_info?.slaveId || 1,
+        const generators = result.rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            location: row.location,
+            model: row.model,
+            powerKVA: row.power_kva,
+            status: row.status,
+            connectionName: row.connection_info.connectionName,
+            controller: row.connection_info.controller,
+            protocol: row.connection_info.protocol,
+            ip: row.connection_info.ip,
+            port: row.connection_info.port,
+            slaveId: row.connection_info.slaveId,
 
-                    // Map Persistent Real-Time Values
-                    fuelLevel: row.fuel_level || 0,
-                    engineTemp: row.engine_temp || 0,
-                    oilPressure: parseFloat(row.oil_pressure || 0),
-                    batteryVoltage: parseFloat(row.battery_voltage || 0),
-                    rpm: row.rpm || 0,
-                    // Map 'totalHours' to the 'run_hours' column which we are actively updating
-                    totalHours: parseFloat(row.run_hours || 0),
-                    lastMaintenance: new Date().toISOString().split('T')[0],
+            // Map Persistent Real-Time Values
+            fuelLevel: row.fuel_level || 0,
+            engineTemp: row.engine_temp || 0,
+            oilPressure: parseFloat(row.oil_pressure || 0),
+            batteryVoltage: parseFloat(row.battery_voltage || 0),
+            rpm: row.rpm || 0,
+            // Map 'totalHours' to the 'run_hours' column which we are actively updating
+            totalHours: parseFloat(row.run_hours || 0),
+            lastMaintenance: new Date().toISOString().split('T')[0],
 
-                    voltageL1: parseFloat(row.voltage_l1 || 0),
-                    voltageL2: parseFloat(row.voltage_l2 || 0),
-                    voltageL3: parseFloat(row.voltage_l3 || 0),
-                    currentL1: parseFloat(row.current_l1 || 0),
-                    currentL2: parseFloat(row.current_l2 || 0),
-                    currentL3: parseFloat(row.current_l3 || 0),
+            voltageL1: row.voltage_l1 || 0,
+            voltageL2: row.voltage_l2 || 0,
+            voltageL3: row.voltage_l3 || 0,
+            currentL1: row.current_l1 || 0,
+            currentL2: row.current_l2 || 0,
+            currentL3: row.current_l3 || 0,
 
-                    mainsVoltageL1: parseFloat(row.mains_voltage_l1 || 0),
-                    mainsVoltageL2: parseFloat(row.mains_voltage_l2 || 0),
-                    mainsVoltageL3: parseFloat(row.mains_voltage_l3 || 0),
-                    mainsFrequency: parseFloat(row.mains_frequency || 0),
+            mainsVoltageL1: row.mains_voltage_l1 || 0,
+            mainsVoltageL2: row.mains_voltage_l2 || 0,
+            mainsVoltageL3: row.mains_voltage_l3 || 0,
+            mainsFrequency: parseFloat(row.mains_frequency || 0),
 
-                    frequency: parseFloat(row.frequency || 0),
-                    powerFactor: parseFloat(row.power_factor || 0),
-                    activePower: parseFloat(row.active_power || 0)
-                };
-            } catch (err) {
-                console.error('[[[[ MAP ERROR ]]]] Failed to map generator row:', row?.id, err);
-                return null;
-            }
-        }).filter(g => g !== null);
+            frequency: parseFloat(row.frequency || 0),
+            powerFactor: parseFloat(row.power_factor || 0),
+            activePower: parseFloat(row.active_power || 0)
+        }));
         res.json(generators);
     } catch (err) {
         console.error('Get generators error:', err);
