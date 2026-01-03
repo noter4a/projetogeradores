@@ -116,14 +116,10 @@ export const initMqttService = (io) => {
 
                         // Map MAINS_14 (Corrected), MAINS_29 (Legacy) or MAINS_504 (Variant)
                         if (d.block === 'MAINS_14' || d.block === 'MAINS_29' || d.block === 'MAINS_504') {
-                            unifiedData.mainsVoltageL1 = d.l1n_v;
-                            unifiedData.mainsVoltageL2 = d.l2n_v;
-                            unifiedData.mainsVoltageL3 = d.l3n_v;
-
-                            // Map Phase-Phase Voltages (Mains)
-                            unifiedData.mainsVoltageL12 = d.l1l2_v || 0;
-                            unifiedData.mainsVoltageL23 = d.l2l3_v || 0;
-                            unifiedData.mainsVoltageL31 = d.l3l1_v || 0;
+                            // FIX: User requested to show Phase-Phase (L12, L23, L31) in the L1, L2, L3 slots
+                            unifiedData.mainsVoltageL1 = d.l1l2_v || 0;
+                            unifiedData.mainsVoltageL2 = d.l2l3_v || 0;
+                            unifiedData.mainsVoltageL3 = d.l3l1_v || 0;
 
                             unifiedData.mainsFrequency = d.freq_r_hz;
                             unifiedData.mainsCurrentL1 = 0;
