@@ -59,6 +59,9 @@ export const initMqttService = (io) => {
         try {
             console.log(`[MQTT] Message received on ${topic}`); // Debug log
             const payload = JSON.parse(message.toString());
+            // console.log('[MQTT] Raw Payload:', JSON.stringify(payload)); // Un-comment for deep debug
+            // Log just keys to be less verbose but check structure
+            console.log('[MQTT] Payload Keys:', Object.keys(payload));
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
             // New SGC-120 Decoding Logic
