@@ -62,12 +62,9 @@ export function createModbusReadRequest(slaveId, startAddress, quantity) {
   // Calculate CRC
   const crc = crc16Modbus(buf.subarray(0, 6));
 
-  // Fix CRC Byte Order:
-  // We observed "04 07" on the wire, but Modbus wants "07 04" (for CRC=0x0407).
-  // This means our previous attempt wrote 04 then 07.
-  // We need to swap the order of bytes we write.
-  buf.writeUInt8((crc >> 8) & 0xFF, 6); // Write MSB at pos 6
-  buf.writeUInt8(crc & 0xFF, 7);        // Write LSB at pos 7
+  // Standard Modbus RTU CRC is Low Byte First (Little Endian)
+  buf.writeUInt8(crc & 0xFF, 6);        // Write LSB at pos 6
+  buf.writeUInt8((crc >> 8) & 0xFF, 7); // Write MSB at pos 7
 
   return buf;
 }
