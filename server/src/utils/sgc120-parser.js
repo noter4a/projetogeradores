@@ -289,92 +289,72 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // Let's assume integer for now OR scaled. I'll use raw initially or scale01 if commonly needed.
   // Actually, standard is often 1 Amp = 1 unit? Or 0.1?
   // Let's try scaled * 0.1 since voltages are 0.1.
-  // EXTENDED: Reg 13 might be STATUS?
-  let reg13 = 0;
-  if (regs.length >= 4) {
-    reg13 = u16(regs, 3); // Index 3 is Reg 13
-    console.log(`[PARSER] Reg13 (Probe): ${reg13} (Bin: ${reg13.toString(2).padStart(16, '0')})`);
+  if (startAddress === 10 && regs.length >= 3) {
+    const c1 = scale01(u16(regs, 0) * 0.1);
+    const c2 = scale01(u16(regs, 1) * 0.1);
+    const c3 = scale01(u16(regs, 2) * 0.1);
+    console.log(`[PARSER] Currents (10): L1=${c1}A, L2=${c2}A, L3=${c3}A (Raw: ${u16(regs, 0)}, ${u16(regs, 1)}, ${u16(regs, 2)})`);
+    return {
+      block: "CURRENT_10",
+      curr_l1: c1,
+      curr_l2: c2,
+      curr_l3: c3
+    };
   }
 
-  const c1 = scale01(u16(regs, 0) * 0.1);
-  const c2 = scale01(u16(regs, 1) * 0.1);
-  const c3 = scale01(u16(regs, 2) * 0.1);
-  console.log(`[PARSER] Currents (10): L1=${c1}A, L2=${c2}A, L3=${c3}A`);
+  // Bloco 23 (3 regs): Status/Alarm Probe (Revised)
+  // Was 7 regs, but device returned 3 (Len:3).
+  if (startAddress === 23 && regs.length >= 3) {
+    console.log(`[PARSER] STATUS PROBE (23-25): [${regs.map(r => r.toString(16)).join(', ')}]`);
+
+    const reg23 = u16(regs, 0);
+    const reg24 = u16(regs, 1); // Alarm Status 1?
+
+    console.log(`[PARSER] Reg24 (Alarm/Status?): Bin=${reg24.toString(2).padStart(16, '0')}`);
+
+    return {
+      block: "STATUS_23",
+      reg23: reg23,
+      reg24: reg24,
+      // Mains Closed check (Hypothesis: Bit 2 of Reg 24)
+      mainsBreakerClosed: (reg24 & 0x0004) > 0,
+      // Gen Closed check (Hypothesis: Bit 1 of Reg 24)
+      genBreakerClosed: (reg24 & 0x0002) > 0
+    };
+  }
+
+  // Bloco 30 (2 regs): Active Power (kW) - Requested by User
+  if (startAddress === 30 && regs.length >= 2) {
+    // 32-bit Value (High/Low or Low/High? Assuming High/Low based on typical modbus)
+    // User response: 00 00 00 00 (Hex) -> 0
+    const val32 = (u16(regs, 0) << 16) | u16(regs, 1);
+
+    // Scale? Usually kW is integer or 0.1. User didn't specify.
+    // If it's a generator, 100kW is 100. Let's try raw first.
+    return {
+      block: "POWER_30",
+      activePower_kw: val32
+    };
+  }
+
+  // Bloco 43 (2 regs): Apparent Energy (kVAh) - Requested by User
+  if (startAddress === 43 && regs.length >= 2) {
+    const val32 = (u16(regs, 0) << 16) | u16(regs, 1);
+    const scaled = scale01(val32 * 0.1);
+    console.log(`[PARSER] Apparent Energy (43): Raw=${val32}, Scaled=${scaled} kVAh`);
+    return {
+      block: "ENERGY_43",
+      apparentEnergy_kvah: scaled
+    };
+  }
+
+  // Se cair aqui, é um bloco que você ainda não mapeou
   return {
-    block: "CURRENT_10",
-    curr_l1: c1,
-    curr_l2: c2,
-    curr_l3: c3,
-    reg13: reg13, // Pass Reg 13 to UI
-    mainsBreakerClosed: (reg13 & 0x0004) > 0, // Fallback Hypothesis
-    genBreakerClosed: (reg13 & 0x0002) > 0    // Fallback Hypothesis
+    block: "UNKNOWN",
+    startAddress,
+    registers: regs,
+    ...result
   };
-}
-
-// Bloco 0 (1 reg): Status/Alarm Probe (Reg 0)
-if (startAddress === 0 && regs.length >= 1) {
-  const reg0 = u16(regs, 0);
-  console.log(`[PARSER] Probe Reg0: ${reg0} (Bin: ${reg0.toString(2).padStart(16, '0')})`);
-  return {
-    block: "STATUS_0",
-    reg23: reg0, // Use existing Debug Field for display
-    // mainsBreakerClosed: (reg0 & 0x0004) > 0
-  };
-}
-
-// Bloco 23 (3 regs): Status/Alarm Probe (Revised)
-// Was 7 regs, but device returned 3 (Len:3).
-if (startAddress === 23 && regs.length >= 3) {
-  console.log(`[PARSER] STATUS PROBE (23-25): [${regs.map(r => r.toString(16)).join(', ')}]`);
-
-  const reg23 = u16(regs, 0);
-  const reg24 = u16(regs, 1); // Alarm Status 1?
-
-  console.log(`[PARSER] Reg24 (Alarm/Status?): Bin=${reg24.toString(2).padStart(16, '0')}`);
-
-  return {
-    block: "STATUS_23",
-    reg23: reg23,
-    reg24: reg24,
-    // Mains Closed check (Hypothesis: Bit 2 of Reg 24)
-    mainsBreakerClosed: (reg24 & 0x0004) > 0,
-    // Gen Closed check (Hypothesis: Bit 1 of Reg 24)
-    genBreakerClosed: (reg24 & 0x0002) > 0
-  };
-}
-
-// Bloco 30 (2 regs): Active Power (kW) - Requested by User
-if (startAddress === 30 && regs.length >= 2) {
-  // 32-bit Value (High/Low or Low/High? Assuming High/Low based on typical modbus)
-  // User response: 00 00 00 00 (Hex) -> 0
-  const val32 = (u16(regs, 0) << 16) | u16(regs, 1);
-
-  // Scale? Usually kW is integer or 0.1. User didn't specify.
-  // If it's a generator, 100kW is 100. Let's try raw first.
-  return {
-    block: "POWER_30",
-    activePower_kw: val32
-  };
-}
-
-// Bloco 43 (2 regs): Apparent Energy (kVAh) - Requested by User
-if (startAddress === 43 && regs.length >= 2) {
-  const val32 = (u16(regs, 0) << 16) | u16(regs, 1);
-  const scaled = scale01(val32 * 0.1);
-  console.log(`[PARSER] Apparent Energy (43): Raw=${val32}, Scaled=${scaled} kVAh`);
-  return {
-    block: "ENERGY_43",
-    apparentEnergy_kvah: scaled
-  };
-}
-
-// Se cair aqui, é um bloco que você ainda não mapeou
-return {
-  block: "UNKNOWN",
-  startAddress,
-  registers: regs,
-  ...result
-};
 }
 
 /**

@@ -169,16 +169,14 @@ export const initMqttService = (io) => {
                             unifiedData.currentL1 = d.curr_l1 || 0;
                             unifiedData.currentL2 = d.curr_l2 || 0;
                             unifiedData.currentL3 = d.curr_l3 || 0;
-                            // Check Reg 13 if present
-                            if (d.reg13 !== undefined) unifiedData.reg24 = d.reg13; // Display Reg13 in "Reg24" slot
                         }
 
-                        // Map STATUS_23 (Or now STATUS_0)
-                        if (d.block === 'STATUS_23' || d.block === 'STATUS_0') {
+                        // Map STATUS_23 (Breaker Feedback)
+                        if (d.block === 'STATUS_23') {
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
-                            if (d.reg23 !== undefined) unifiedData.reg23 = d.reg23;
-                            if (d.reg24 !== undefined) unifiedData.reg24 = d.reg24;
+                            unifiedData.reg23 = d.reg23; // Debug
+                            unifiedData.reg24 = d.reg24; // Debug
                         }
 
                         // Recalculate Combined Decimal Run Hours if cache has data
@@ -441,15 +439,15 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 43, 2));
                 }, 11000); // +2s
 
-                // 8. Correntes (10-15, 6 regs) - EXTENDED PROBE (Checking 13 for Status)
+                // 8. Correntes (10, 3 regs) - MOVED TO END
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 10, 6));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                    client.publish(topic, createModbusReadRequest(slaveId, 10, 3));
                 }, 13000); // +2s
 
-                // 9. STATUS PROBE (0, 1 reg) - Checking for Status Byte
+                // 9. STATUS PROBE (23-29) - Finding Breaker Status
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 0, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 23, 7));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 15000); // +2s
             });
         }
