@@ -30,6 +30,7 @@ services:
       - "5000:5000"
     volumes:
       - ./server/logs:/app/logs
+      - ./server/src:/app/src
     depends_on:
       - database
 
