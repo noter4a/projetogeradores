@@ -99,25 +99,28 @@ export const initMqttService = (io) => {
                         }
 
                         // Map GEN_VOLT_FREQ_1_9
+                        // Map GEN_VOLT_FREQ_1_9
                         if (d.block === 'GEN_VOLT_FREQ_1_9') {
-                            unifiedData.voltageL1 = d.l1n_v;
-                            unifiedData.voltageL2 = d.l2n_v;
-                            unifiedData.voltageL3 = d.l3n_v;
-                            unifiedData.frequency = d.freq_r_hz; // Assuming Gen Freq L1
+                            unifiedData.voltageL1 = d.l1n_v || 0;
+                            unifiedData.voltageL2 = d.l2n_v || 0;
+                            unifiedData.voltageL3 = d.l3n_v || 0;
+                            unifiedData.frequency = d.freq_r_hz || 0; // Assuming Gen Freq L1
                             // Calculate average voltage if needed
-                            unifiedData.avgVoltage = Math.round((d.l1n_v + d.l2n_v + d.l3n_v) / 3);
-                            unifiedData.voltageL12 = d.l12_v;
-                            unifiedData.voltageL23 = d.l23_v;
-                            unifiedData.voltageL31 = d.l31_v;
+                            const avgVal = (unifiedData.voltageL1 + unifiedData.voltageL2 + unifiedData.voltageL3) / 3;
+                            unifiedData.avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
+                            unifiedData.voltageL12 = d.l12_v || 0;
+                            unifiedData.voltageL23 = d.l23_v || 0;
+                            unifiedData.voltageL31 = d.l31_v || 0;
                         }
 
                         // Map ENGINE_51_59
+                        // Map ENGINE_51_59
                         if (d.block === 'ENGINE_51_59') {
-                            unifiedData.oilPressure = d.oilPressure_bar;
-                            unifiedData.engineTemp = d.coolantTemp_c;
-                            unifiedData.fuelLevel = d.fuelLevel_pct;
-                            unifiedData.rpm = d.rpm;
-                            unifiedData.batteryVoltage = d.batteryVoltage_v;
+                            unifiedData.oilPressure = d.oilPressure_bar || 0;
+                            unifiedData.engineTemp = d.coolantTemp_c || 0;
+                            unifiedData.fuelLevel = d.fuelLevel_pct || 0;
+                            unifiedData.rpm = d.rpm || 0;
+                            unifiedData.batteryVoltage = d.batteryVoltage_v || 0;
                         }
 
                         // Map RUNHOURS_60 (Hours Only)
@@ -131,13 +134,14 @@ export const initMqttService = (io) => {
                         }
 
                         // Map MAINS_14 (Corrected), MAINS_29 (Legacy) or MAINS_504 (Variant)
+                        // Map MAINS_14 (Corrected), MAINS_29 (Legacy) or MAINS_504 (Variant)
                         if (d.block === 'MAINS_14' || d.block === 'MAINS_29' || d.block === 'MAINS_504') {
                             // FIX: User requested to show Phase-Phase (L12, L23, L31) in the L1, L2, L3 slots
                             unifiedData.mainsVoltageL1 = d.l1l2_v || 0;
                             unifiedData.mainsVoltageL2 = d.l2l3_v || 0;
                             unifiedData.mainsVoltageL3 = d.l3l1_v || 0;
 
-                            unifiedData.mainsFrequency = d.freq_r_hz;
+                            unifiedData.mainsFrequency = d.freq_r_hz || 0;
                             unifiedData.mainsCurrentL1 = 0;
                             unifiedData.mainsCurrentL2 = 0;
                             unifiedData.mainsCurrentL3 = 0;
