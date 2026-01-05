@@ -477,8 +477,13 @@ export const initMqttService = (io) => {
                 // 11. MAINS CURRENT PROBE (116, 3 regs)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 116, 3));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 17000); // +1s
+
+                // 12. MODE PROBE (16, 1 reg) - Checking if this is the real status
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 16, 1));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 18000); // +1s
             });
         }
     }, 15000);

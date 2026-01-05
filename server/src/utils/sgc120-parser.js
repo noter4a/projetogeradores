@@ -153,11 +153,23 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     if (val === 4) mode = 'AUTO';
     else if (val === 2) mode = 'MANUAL';
     else if (val === 1) mode = 'INHIBITED'; // Or STOP
+    else if (val === 0) mode = 'UNKNOWN'; // Sometimes 0 is reported
 
     return {
       block: "MODE_0",
       opMode: mode,
       reg0: val
+    };
+  }
+
+  // DEBUG PROBE: Address 16
+  if (startAddress === 16 && regs.length >= 1) {
+    const val = u16(regs, 0);
+    console.log(`[PARSER] Probe Reg 16 (Status?): ${val} (Dec)`);
+    // Ideally we would map this if it turns out to be better than Reg 0.
+    return {
+      block: "PROBE_16",
+      reg16: val
     };
   }
 
