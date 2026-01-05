@@ -396,545 +396,550 @@ const GeneratorDetail: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Divider for mobile/desktop */}
-                  <div className="hidden lg:block lg:col-span-1 border-l border-gray-800 mx-auto h-full w-px"></div>
+                {/* Divider for mobile/desktop */}
+                <div className="hidden lg:block lg:col-span-1 border-l border-gray-800 mx-auto h-full w-px"></div>
 
-                  {/* QTA (Right side - 6 cols) */}
-                  <div className="lg:col-span-6 flex flex-col justify-center">
-                    <div className="text-center mb-6">
-                      <label className="text-[10px] text-gray-500 uppercase font-bold block">Status da Transferência (QTA)</label>
-                      <span className="text-xs font-mono text-gray-400">
-                        {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' :
-                          gen.operationMode === 'INHIBITED' ? 'Transferência Bloqueada' : 'Controle Manual Habilitado'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between relative px-2 md:px-4 py-8 bg-gray-900/30 rounded-xl border border-dashed border-gray-800">
-                      {/* Grid Line */}
-                      <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-700 -z-0"></div>
-
-                      {/* Mains Breaker */}
-                      <div className="relative z-10 flex flex-col items-center gap-2 md:gap-3 bg-ciklo-card p-2 md:p-3 rounded-xl border border-gray-800 shadow-lg">
-                        <div className={`p-1.5 md:p-2 rounded-full ${gen.mainsBreakerClosed ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-red-500/20 text-red-500'}`}>
-                          <UtilityPole size={20} className="md:w-6 md:h-6" />
-                        </div>
-                        <button
-                          onClick={() => handleControl('toggleMains')}
-                          disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
-                          className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.mainsBreakerClosed
-                            ? 'bg-green-900/30 text-green-400 border-green-500'
-                            : 'bg-red-900/30 text-red-400 border-red-500 hover:border-red-400'
-                            } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
-                        >
-                          {gen.mainsBreakerClosed ? 'REDE FECHADA' : 'REDE ABERTA'}
-                        </button>
-                      </div>
-
-                      {/* Load Center */}
-                      <div className="relative z-10 flex flex-col items-center">
-                        <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg border-4 transition-all duration-500 ${(gen.mainsBreakerClosed || gen.genBreakerClosed)
-                          ? 'bg-ciklo-orange border-ciklo-orange text-black shadow-orange-500/20'
-                          : 'bg-gray-800 border-gray-700 text-gray-500'
-                          }`}>
-                          <Zap size={20} className={`md:w-7 md:h-7 ${(gen.mainsBreakerClosed || gen.genBreakerClosed) ? 'fill-current' : ''}`} />
-                        </div>
-                        <span className="mt-2 text-[9px] md:text-[10px] font-bold text-gray-500 uppercase">Carga</span>
-                      </div>
-
-                      {/* Gen Breaker */}
-                      <div className="relative z-10 flex flex-col items-center gap-2 md:gap-3 bg-ciklo-card p-2 md:p-3 rounded-xl border border-gray-800 shadow-lg">
-                        <div className={`p-1.5 md:p-2 rounded-full ${gen.genBreakerClosed ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-red-500/20 text-red-500'}`}>
-                          <Power size={20} className="md:w-6 md:h-6" />
-                        </div>
-                        <button
-                          onClick={() => handleControl('toggleGen')}
-                          disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
-                          className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.genBreakerClosed
-                            ? 'bg-green-900/30 text-green-400 border-green-500'
-                            : 'bg-red-900/30 text-red-400 border-red-500 hover:border-red-400'
-                            } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
-                        >
-                          {gen.genBreakerClosed ? 'GER. FECHADO' : 'GER. ABERTO'}
-                        </button>
-                      </div>
-                    </div>
-                    {/* DEBUG BREAKER STATUS */}
-                    <div className="mt-2 text-center">
-                      <p className="text-[10px] text-gray-500 font-mono">
-                        DEBUG: Reg23={gen.reg23} | Reg24={gen.reg24}
-                      </p>
-                    </div>
+                {/* QTA (Right side - 6 cols) */}
+                <div className="lg:col-span-6 flex flex-col justify-center">
+                  <div className="text-center mb-6">
+                    <label className="text-[10px] text-gray-500 uppercase font-bold block">Status da Transferência (QTA)</label>
+                    <span className="text-xs font-mono text-gray-400">
+                      {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' :
+                        gen.operationMode === 'INHIBITED' ? 'Transferência Bloqueada' : 'Controle Manual Habilitado'}
+                    </span>
                   </div>
-                </div>
-              </div>
-          )}
 
-              {/* Main SCADA Dashboard Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="flex items-center justify-between relative px-2 md:px-4 py-8 bg-gray-900/30 rounded-xl border border-dashed border-gray-800">
+                    {/* Grid Line */}
+                    <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-700 -z-0"></div>
 
-                {/* Left Col: Mechanical Gauges */}
-                <div className="space-y-6">
-                  <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
-                    <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                      <Settings size={18} className="text-ciklo-orange" /> Parâmetros Mecânicos
-                    </h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <CircularGauge value={gen.rpm} max={2500} label="RPM Motor" unit="rpm" color="text-blue-500" />
-                      <CircularGauge value={gen.oilPressure} max={10} label="Pressão Óleo" unit="bar" color="text-red-500" />
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <Thermometer size={18} /> Temp. Motor
-                        </div>
-                        <span className="text-xl font-bold text-white">{gen.engineTemp}°C</span>
+                    {/* Mains Breaker */}
+                    <div className="relative z-10 flex flex-col items-center gap-2 md:gap-3 bg-ciklo-card p-2 md:p-3 rounded-xl border border-gray-800 shadow-lg">
+                      <div className={`p-1.5 md:p-2 rounded-full ${gen.mainsBreakerClosed ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-red-500/20 text-red-500'}`}>
+                        <UtilityPole size={20} className="md:w-6 md:h-6" />
                       </div>
-                      <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <Droplets size={18} /> Nível Combustível
-                        </div>
-                        <span className={`text-xl font-bold ${gen.fuelLevel < 20 ? 'text-red-500' : 'text-green-500'}`}>{gen.fuelLevel}%</span>
-                      </div>
-                      <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <Battery size={18} /> Tensão Bateria
-                        </div>
-                        <span className="text-xl font-bold text-white">{gen.batteryVoltage} V</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Center Col: Electrical Table (Comparison) */}
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6 h-full flex flex-col">
-                    <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                      <Zap size={18} className="text-ciklo-yellow" /> Parâmetros Elétricos
-                    </h3>
-
-                    {/* Big Power Display */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                      <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-ciklo-orange">
-                        <p className="text-gray-400 text-xs uppercase font-bold">Potência Ativa Total</p>
-                        <p className="text-3xl font-bold text-white mt-1">{Number(gen.activePower || 0).toFixed(1)} <span className="text-base font-normal text-gray-500">kW</span></p>
-                      </div>
-                      <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-blue-500">
-                        <p className="text-gray-400 text-xs uppercase font-bold">Fator de Potência</p>
-                        <p className="text-3xl font-bold text-white mt-1">{gen.powerFactor} <span className="text-base font-normal text-gray-500">cos φ</span></p>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* GENERATOR COLUMN */}
-                      <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-                        <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
-                          <div className="flex items-center gap-2 text-green-500">
-                            <Power size={18} />
-                            <span className="font-bold uppercase tracking-wider text-sm">Gerador</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {/* Toggle Phase-Neutral / Phase-Phase */}
-                            <div className="flex bg-gray-800 rounded-lg p-0.5">
-                              <button
-                                onClick={() => setVoltageViewMode('PN')}
-                                className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                              >
-                                F-N
-                              </button>
-                              <button
-                                onClick={() => setVoltageViewMode('PP')}
-                                className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                              >
-                                F-F
-                              </button>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-xs text-gray-400 block">Frequência</span>
-                              <span className="text-lg font-bold text-white">{Number(gen.frequency || 0).toFixed(1)} Hz</span>
-                            </div>
-                          </div>
-                        </div>
-                        <table className="w-full text-left">
-                          <thead className="text-[10px] text-gray-500 uppercase">
-                            <tr>
-                              <th className="pb-2">Fase</th>
-                              <th className="pb-2 text-right">Tensão</th>
-                              <th className="pb-2 text-right">Corrente</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-800 text-sm">
-                            {voltageViewMode === 'PN' ? (
-                              <>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L1</td>
-                                  <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL1 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-blue-400">{Number(gen.currentL1 || 0).toFixed(0)} A</td>
-                                </tr>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L2</td>
-                                  <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL2 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-blue-400">{Number(gen.currentL2 || 0).toFixed(0)} A</td>
-                                </tr>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L3</td>
-                                  <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL3 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-blue-400">{Number(gen.currentL3 || 0).toFixed(0)} A</td>
-                                </tr>
-                              </>
-                            ) : (
-                              <>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L1-L2</td>
-                                  <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL12 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
-                                </tr>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L2-L3</td>
-                                  <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL23 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
-                                </tr>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L3-L1</td>
-                                  <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL31 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
-                                </tr>
-                              </>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* MAINS COLUMN */}
-                      <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-                        <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
-                          <div className="flex items-center gap-2 text-gray-400">
-                            <UtilityPole size={18} />
-                            <span className="font-bold uppercase tracking-wider text-sm">Rede</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {/* Toggle Phase-Neutral / Phase-Phase */}
-                            <div className="flex bg-gray-800 rounded-lg p-0.5">
-                              <button
-                                onClick={() => setMainsVoltageViewMode('PN')}
-                                className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                              >
-                                F-N
-                              </button>
-                              <button
-                                onClick={() => setMainsVoltageViewMode('PP')}
-                                className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                              >
-                                F-F
-                              </button>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-xs text-gray-400 block">Frequência</span>
-                              <span className="text-lg font-bold text-white">{Number(gen.mainsFrequency || 0).toFixed(1)} Hz</span>
-                            </div>
-                          </div>
-                        </div>
-                        <table className="w-full text-left">
-                          <thead className="text-[10px] text-gray-500 uppercase">
-                            <tr>
-                              <th className="pb-2">Fase</th>
-                              <th className="pb-2 text-right">Tensão</th>
-                              <th className="pb-2 text-right">Corrente</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-800 text-sm">
-                            {mainsVoltageViewMode === 'PN' ? (
-                              <>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L1</td>
-                                  <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL1 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL1 || 0).toFixed(0)} A</td>
-                                </tr>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L2</td>
-                                  <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL2 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL2 || 0).toFixed(0)} A</td>
-                                </tr>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L3</td>
-                                  <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL3 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL3 || 0).toFixed(0)} A</td>
-                                </tr>
-                              </>
-                            ) : (
-                              <>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L1-L2</td>
-                                  <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL12 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
-                                </tr>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L2-L3</td>
-                                  <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL23 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
-                                </tr>
-                                <tr>
-                                  <td className="py-2 text-gray-300 font-bold">L3-L1</td>
-                                  <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL31 || 0).toFixed(0)} V</td>
-                                  <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
-                                </tr>
-                              </>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 p-4 bg-gray-800/50 rounded-lg border border-dashed border-gray-700 flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <Timer className="text-gray-400" />
-                        <div>
-                          <p className="text-xs text-gray-500">Horímetro Total</p>
-                          <p className="text-xl font-mono text-white">{Number(gen.totalHours || 0).toFixed(2)} h</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500">Próxima Manutenção</p>
-                        <p className="text-sm text-ciklo-orange font-bold">Em 150h</p>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
-              {/* Load Chart Section */}
-              <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-white font-bold flex items-center gap-2">
-                    <TrendingUp size={18} className="text-ciklo-orange" /> Curva de Carga (kW)
-                  </h3>
-                  <div className="flex gap-2 text-xs text-gray-400">
-                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-ciklo-yellow"></div> Potência Ativa</span>
-                  </div>
-                </div>
-
-                <div className="h-[350px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={historyData}>
-                      <defs>
-                        <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#FACC15" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                      <XAxis
-                        dataKey="time"
-                        stroke="#666"
-                        tick={{ fontSize: 11 }}
-                        minTickGap={30}
-                      />
-                      <YAxis
-                        stroke="#666"
-                        tick={{ fontSize: 11 }}
-                        unit=" kW"
-                      />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1E1E1E', borderColor: '#333', color: '#fff', borderRadius: '8px' }}
-                        itemStyle={{ color: '#FACC15' }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="power"
-                        stroke="#FACC15"
-                        strokeWidth={2}
-                        fillOpacity={1}
-                        fill="url(#colorPower)"
-                        animationDuration={1500}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* MODBUS CONTROL TAB */}
-          {activeTab === 'modbus' && canAccessAdvanced && (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              {/* Header Info */}
-              <div className="bg-ciklo-card p-6 rounded-xl border border-gray-800">
-                <h2 className="text-lg font-bold text-white mb-2">Comunicação Modbus</h2>
-                <p className="text-sm text-gray-400">Protocolo: <span className="text-white font-mono">{gen.protocol || 'modbus_tcp'}</span> | IP: <span className="text-white font-mono">{gen.ip || '192.168.1.100'}</span> | Porta: <span className="text-white font-mono">{gen.port || '502'}</span> | ID: <span className="text-white font-mono">{gen.slaveId || '1'}</span></p>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* READ SECTION */}
-                <div className="bg-ciklo-card p-6 rounded-xl border border-gray-800 flex flex-col h-full">
-                  <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                    <LayoutDashboard size={18} className="text-blue-500" /> Monitoramento (Leitura)
-                  </h3>
-
-                  {/* Add Register Form */}
-                  <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
-                    <p className="text-xs text-gray-500 font-bold uppercase mb-3">Adicionar Parâmetro</p>
-                    <div className="grid grid-cols-12 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Endereço (Ex: 40001)"
-                        value={readAddress}
-                        onChange={(e) => setReadAddress(e.target.value)}
-                        className="col-span-3 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Nome do Parâmetro"
-                        value={readName}
-                        onChange={(e) => setReadName(e.target.value)}
-                        className="col-span-4 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Un."
-                        value={readUnit}
-                        onChange={(e) => setReadUnit(e.target.value)}
-                        className="col-span-2 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                      />
                       <button
-                        onClick={handleAddReadParameter}
-                        className="col-span-3 bg-blue-600 hover:bg-blue-500 text-white rounded p-2 text-xs font-bold flex items-center justify-center gap-1"
+                        onClick={() => handleControl('toggleMains')}
+                        disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
+                        className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.mainsBreakerClosed
+                          ? 'bg-green-900/30 text-green-400 border-green-500'
+                          : 'bg-red-900/30 text-red-400 border-red-500 hover:border-red-400'
+                          } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
                       >
-                        <Plus size={12} /> Adicionar
+                        {gen.mainsBreakerClosed ? 'REDE FECHADA' : 'REDE ABERTA'}
+                      </button>
+                    </div>
+
+                    {/* Load Center */}
+                    <div className="relative z-10 flex flex-col items-center">
+                      <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg border-4 transition-all duration-500 ${(gen.mainsBreakerClosed || gen.genBreakerClosed)
+                        ? 'bg-ciklo-orange border-ciklo-orange text-black shadow-orange-500/20'
+                        : 'bg-gray-800 border-gray-700 text-gray-500'
+                        }`}>
+                        <Zap size={20} className={`md:w-7 md:h-7 ${(gen.mainsBreakerClosed || gen.genBreakerClosed) ? 'fill-current' : ''}`} />
+                      </div>
+                      <span className="mt-2 text-[9px] md:text-[10px] font-bold text-gray-500 uppercase">Carga</span>
+                    </div>
+
+                    {/* Gen Breaker */}
+                    <div className="relative z-10 flex flex-col items-center gap-2 md:gap-3 bg-ciklo-card p-2 md:p-3 rounded-xl border border-gray-800 shadow-lg">
+                      <div className={`p-1.5 md:p-2 rounded-full ${gen.genBreakerClosed ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-red-500/20 text-red-500'}`}>
+                        <Power size={20} className="md:w-6 md:h-6" />
+                      </div>
+                      <button
+                        onClick={() => handleControl('toggleGen')}
+                        disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
+                        className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.genBreakerClosed
+                          ? 'bg-green-900/30 text-green-400 border-green-500'
+                          : 'bg-red-900/30 text-red-400 border-red-500 hover:border-red-400'
+                          } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
+                      >
+                        {gen.genBreakerClosed ? 'GER. FECHADO' : 'GER. ABERTO'}
                       </button>
                     </div>
                   </div>
-
-                  {/* Register List - UPDATED TO SHOW ALL REGISTERS */}
-                  <div className="flex-1 overflow-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-gray-800 text-gray-500 text-[10px] uppercase">
-                        <tr>
-                          <th className="p-3">Endereço</th>
-                          <th className="p-3">Nome</th>
-                          <th className="p-3 text-right">Valor</th>
-                          <th className="p-3 text-right">Ação</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800 text-sm">
-                        {modbusRegisters.map(reg => (
-                          <tr key={reg.id} className="hover:bg-gray-800/30">
-                            <td className="p-3 font-mono text-gray-400">{reg.address}</td>
-                            <td className="p-3 text-white">{reg.name}</td>
-                            <td className="p-3 text-right font-mono font-bold text-ciklo-yellow">
-                              {reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span>
-                            </td>
-                            <td className="p-3 text-right">
-                              <button onClick={() => handleRemoveRegister(reg.id)} className="text-gray-600 hover:text-red-500">
-                                <Trash2 size={14} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                        {modbusRegisters.length === 0 && (
-                          <tr><td colSpan={4} className="p-4 text-center text-gray-600 text-xs">Nenhum parâmetro monitorado</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* WRITE SECTION - UPDATED TO TABLE & ALL REGISTERS */}
-                <div className="bg-ciklo-card p-6 rounded-xl border border-gray-800 flex flex-col h-full">
-                  <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                    <Sliders size={18} className="text-ciklo-orange" /> Comando (Escrita)
-                  </h3>
-
-                  {/* Add Control Form */}
-                  <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
-                    <p className="text-xs text-gray-500 font-bold uppercase mb-3">Configurar Novo Comando</p>
-                    <div className="grid grid-cols-12 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Endereço"
-                        value={writeAddress}
-                        onChange={(e) => setWriteAddress(e.target.value)}
-                        className="col-span-3 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Nome do Comando"
-                        value={writeName}
-                        onChange={(e) => setWriteName(e.target.value)}
-                        className="col-span-6 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                      />
-                      <button
-                        onClick={handleAddWriteCommand}
-                        className="col-span-3 bg-ciklo-orange hover:bg-orange-500 text-black rounded p-2 text-xs font-bold flex items-center justify-center gap-1"
-                      >
-                        <Plus size={12} /> Configurar
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Updated Table Layout for Write Commands (Showing ALL registers) */}
-                  <div className="flex-1 overflow-auto">
-                    <table className="w-full text-left">
-                      <thead className="bg-gray-800 text-gray-500 text-[10px] uppercase">
-                        <tr>
-                          <th className="p-3">Endereço</th>
-                          <th className="p-3">Nome</th>
-                          <th className="p-3 text-right">Valor Atual</th>
-                          <th className="p-3 text-right">Definir</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800 text-sm">
-                        {modbusRegisters.map(reg => (
-                          <tr key={reg.id} className="hover:bg-gray-800/30">
-                            <td className="p-3 font-mono text-gray-400">{reg.address}</td>
-                            <td className="p-3 text-white">{reg.name}</td>
-                            <td className="p-3 text-right font-mono font-bold text-ciklo-yellow">
-                              {reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span>
-                            </td>
-                            <td className="p-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <input
-                                  type="text"
-                                  className="w-16 bg-black border border-gray-600 rounded p-1 text-xs text-white text-right"
-                                  placeholder="Novo"
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      handleWriteRegister(reg.id, (e.target as HTMLInputElement).value);
-                                      (e.target as HTMLInputElement).value = '';
-                                    }
-                                  }}
-                                />
-                                <button
-                                  className="p-1.5 bg-green-600 hover:bg-green-500 text-white rounded"
-                                  onClick={(e) => {
-                                    const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                                    if (input) {
-                                      handleWriteRegister(reg.id, input.value);
-                                      input.value = '';
-                                    }
-                                  }}
-                                >
-                                  <Send size={14} />
-                                </button>
-                                <button onClick={() => handleRemoveRegister(reg.id)} className="text-gray-600 hover:text-red-500 ml-1">
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                        {modbusRegisters.length === 0 && (
-                          <tr><td colSpan={4} className="p-4 text-center text-gray-600 text-xs">Nenhum comando disponível</td></tr>
-                        )}
-                      </tbody>
-                    </table>
+                  {/* DEBUG BREAKER STATUS */}
+                  <div className="mt-2 text-center">
+                    <p className="text-[10px] text-gray-500 font-mono">
+                      DEBUG: Reg23={gen.reg23} | Reg24={gen.reg24}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
-          )}
+            </div>
+      )}
+
+      {/* Main SCADA Dashboard Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Left Col: Mechanical Gauges */}
+        <div className="space-y-6">
+          <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
+            <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+              <Settings size={18} className="text-ciklo-orange" /> Parâmetros Mecânicos
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <CircularGauge value={gen.rpm} max={2500} label="RPM Motor" unit="rpm" color="text-blue-500" />
+              <CircularGauge value={gen.oilPressure} max={10} label="Pressão Óleo" unit="bar" color="text-red-500" />
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Thermometer size={18} /> Temp. Motor
+                </div>
+                <span className="text-xl font-bold text-white">{gen.engineTemp}°C</span>
+              </div>
+              <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Droplets size={18} /> Nível Combustível
+                </div>
+                <span className={`text-xl font-bold ${gen.fuelLevel < 20 ? 'text-red-500' : 'text-green-500'}`}>{gen.fuelLevel}%</span>
+              </div>
+              <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Battery size={18} /> Tensão Bateria
+                </div>
+                <span className="text-xl font-bold text-white">{gen.batteryVoltage} V</span>
+              </div>
+            </div>
+          </div>
         </div>
-      );
+
+        {/* Center Col: Electrical Table (Comparison) */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6 h-full flex flex-col">
+            <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+              <Zap size={18} className="text-ciklo-yellow" /> Parâmetros Elétricos
+            </h3>
+
+            {/* Big Power Display */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-ciklo-orange">
+                <p className="text-gray-400 text-xs uppercase font-bold">Potência Ativa Total</p>
+                <p className="text-3xl font-bold text-white mt-1">{Number(gen.activePower || 0).toFixed(1)} <span className="text-base font-normal text-gray-500">kW</span></p>
+              </div>
+              <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-blue-500">
+                <p className="text-gray-400 text-xs uppercase font-bold">Fator de Potência</p>
+                <p className="text-3xl font-bold text-white mt-1">{gen.powerFactor} <span className="text-base font-normal text-gray-500">cos φ</span></p>
+              </div>
+            </div>
+
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* GENERATOR COLUMN */}
+              <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
+                  <div className="flex items-center gap-2 text-green-500">
+                    <Power size={18} />
+                    <span className="font-bold uppercase tracking-wider text-sm">Gerador</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {/* Toggle Phase-Neutral / Phase-Phase */}
+                    <div className="flex bg-gray-800 rounded-lg p-0.5">
+                      <button
+                        onClick={() => setVoltageViewMode('PN')}
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                      >
+                        F-N
+                      </button>
+                      <button
+                        onClick={() => setVoltageViewMode('PP')}
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                      >
+                        F-F
+                      </button>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-gray-400 block">Frequência</span>
+                      <span className="text-lg font-bold text-white">{Number(gen.frequency || 0).toFixed(1)} Hz</span>
+                    </div>
+                  </div>
+                </div>
+                <table className="w-full text-left">
+                  <thead className="text-[10px] text-gray-500 uppercase">
+                    <tr>
+                      <th className="pb-2">Fase</th>
+                      <th className="pb-2 text-right">Tensão</th>
+                      <th className="pb-2 text-right">Corrente</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800 text-sm">
+                    {voltageViewMode === 'PN' ? (
+                      <>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L1</td>
+                          <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL1 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-blue-400">{Number(gen.currentL1 || 0).toFixed(0)} A</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L2</td>
+                          <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL2 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-blue-400">{Number(gen.currentL2 || 0).toFixed(0)} A</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L3</td>
+                          <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL3 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-blue-400">{Number(gen.currentL3 || 0).toFixed(0)} A</td>
+                        </tr>
+                      </>
+                    ) : (
+                      <>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L1-L2</td>
+                          <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL12 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L2-L3</td>
+                          <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL23 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L3-L1</td>
+                          <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL31 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MAINS COLUMN */}
+              <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <UtilityPole size={18} />
+                    <span className="font-bold uppercase tracking-wider text-sm">Rede</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {/* Toggle Phase-Neutral / Phase-Phase */}
+                    <div className="flex bg-gray-800 rounded-lg p-0.5">
+                      <button
+                        onClick={() => setMainsVoltageViewMode('PN')}
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                      >
+                        F-N
+                      </button>
+                      <button
+                        onClick={() => setMainsVoltageViewMode('PP')}
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                      >
+                        F-F
+                      </button>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-gray-400 block">Frequência</span>
+                      <span className="text-lg font-bold text-white">{Number(gen.mainsFrequency || 0).toFixed(1)} Hz</span>
+                    </div>
+                  </div>
+                </div>
+                <table className="w-full text-left">
+                  <thead className="text-[10px] text-gray-500 uppercase">
+                    <tr>
+                      <th className="pb-2">Fase</th>
+                      <th className="pb-2 text-right">Tensão</th>
+                      <th className="pb-2 text-right">Corrente</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800 text-sm">
+                    {mainsVoltageViewMode === 'PN' ? (
+                      <>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L1</td>
+                          <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL1 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL1 || 0).toFixed(0)} A</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L2</td>
+                          <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL2 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL2 || 0).toFixed(0)} A</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L3</td>
+                          <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL3 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL3 || 0).toFixed(0)} A</td>
+                        </tr>
+                      </>
+                    ) : (
+                      <>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L1-L2</td>
+                          <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL12 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L2-L3</td>
+                          <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL23 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 text-gray-300 font-bold">L3-L1</td>
+                          <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL31 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-gray-800/50 rounded-lg border border-dashed border-gray-700 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Timer className="text-gray-400" />
+                <div>
+                  <p className="text-xs text-gray-500">Horímetro Total</p>
+                  <p className="text-xl font-mono text-white">{Number(gen.totalHours || 0).toFixed(2)} h</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500">Próxima Manutenção</p>
+                <p className="text-sm text-ciklo-orange font-bold">Em 150h</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* Load Chart Section */}
+      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-white font-bold flex items-center gap-2">
+            <TrendingUp size={18} className="text-ciklo-orange" /> Curva de Carga (kW)
+          </h3>
+          <div className="flex gap-2 text-xs text-gray-400">
+            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-ciklo-yellow"></div> Potência Ativa</span>
+          </div>
+        </div>
+
+        <div className="h-[350px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={historyData}>
+              <defs>
+                <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#FACC15" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <XAxis
+                dataKey="time"
+                stroke="#666"
+                tick={{ fontSize: 11 }}
+                minTickGap={30}
+              />
+              <YAxis
+                stroke="#666"
+                tick={{ fontSize: 11 }}
+                unit=" kW"
+              />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#1E1E1E', borderColor: '#333', color: '#fff', borderRadius: '8px' }}
+                itemStyle={{ color: '#FACC15' }}
+              />
+              <Area
+                type="monotone"
+                dataKey="power"
+                stroke="#FACC15"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorPower)"
+                animationDuration={1500}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+{/* MODBUS CONTROL TAB */ }
+{
+  activeTab === 'modbus' && canAccessAdvanced && (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Header Info */}
+      <div className="bg-ciklo-card p-6 rounded-xl border border-gray-800">
+        <h2 className="text-lg font-bold text-white mb-2">Comunicação Modbus</h2>
+        <p className="text-sm text-gray-400">Protocolo: <span className="text-white font-mono">{gen.protocol || 'modbus_tcp'}</span> | IP: <span className="text-white font-mono">{gen.ip || '192.168.1.100'}</span> | Porta: <span className="text-white font-mono">{gen.port || '502'}</span> | ID: <span className="text-white font-mono">{gen.slaveId || '1'}</span></p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* READ SECTION */}
+        <div className="bg-ciklo-card p-6 rounded-xl border border-gray-800 flex flex-col h-full">
+          <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+            <LayoutDashboard size={18} className="text-blue-500" /> Monitoramento (Leitura)
+          </h3>
+
+          {/* Add Register Form */}
+          <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
+            <p className="text-xs text-gray-500 font-bold uppercase mb-3">Adicionar Parâmetro</p>
+            <div className="grid grid-cols-12 gap-2">
+              <input
+                type="text"
+                placeholder="Endereço (Ex: 40001)"
+                value={readAddress}
+                onChange={(e) => setReadAddress(e.target.value)}
+                className="col-span-3 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
+              />
+              <input
+                type="text"
+                placeholder="Nome do Parâmetro"
+                value={readName}
+                onChange={(e) => setReadName(e.target.value)}
+                className="col-span-4 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
+              />
+              <input
+                type="text"
+                placeholder="Un."
+                value={readUnit}
+                onChange={(e) => setReadUnit(e.target.value)}
+                className="col-span-2 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
+              />
+              <button
+                onClick={handleAddReadParameter}
+                className="col-span-3 bg-blue-600 hover:bg-blue-500 text-white rounded p-2 text-xs font-bold flex items-center justify-center gap-1"
+              >
+                <Plus size={12} /> Adicionar
+              </button>
+            </div>
+          </div>
+
+          {/* Register List - UPDATED TO SHOW ALL REGISTERS */}
+          <div className="flex-1 overflow-auto">
+            <table className="w-full text-left">
+              <thead className="bg-gray-800 text-gray-500 text-[10px] uppercase">
+                <tr>
+                  <th className="p-3">Endereço</th>
+                  <th className="p-3">Nome</th>
+                  <th className="p-3 text-right">Valor</th>
+                  <th className="p-3 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800 text-sm">
+                {modbusRegisters.map(reg => (
+                  <tr key={reg.id} className="hover:bg-gray-800/30">
+                    <td className="p-3 font-mono text-gray-400">{reg.address}</td>
+                    <td className="p-3 text-white">{reg.name}</td>
+                    <td className="p-3 text-right font-mono font-bold text-ciklo-yellow">
+                      {reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span>
+                    </td>
+                    <td className="p-3 text-right">
+                      <button onClick={() => handleRemoveRegister(reg.id)} className="text-gray-600 hover:text-red-500">
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {modbusRegisters.length === 0 && (
+                  <tr><td colSpan={4} className="p-4 text-center text-gray-600 text-xs">Nenhum parâmetro monitorado</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* WRITE SECTION - UPDATED TO TABLE & ALL REGISTERS */}
+        <div className="bg-ciklo-card p-6 rounded-xl border border-gray-800 flex flex-col h-full">
+          <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+            <Sliders size={18} className="text-ciklo-orange" /> Comando (Escrita)
+          </h3>
+
+          {/* Add Control Form */}
+          <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
+            <p className="text-xs text-gray-500 font-bold uppercase mb-3">Configurar Novo Comando</p>
+            <div className="grid grid-cols-12 gap-2">
+              <input
+                type="text"
+                placeholder="Endereço"
+                value={writeAddress}
+                onChange={(e) => setWriteAddress(e.target.value)}
+                className="col-span-3 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
+              />
+              <input
+                type="text"
+                placeholder="Nome do Comando"
+                value={writeName}
+                onChange={(e) => setWriteName(e.target.value)}
+                className="col-span-6 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
+              />
+              <button
+                onClick={handleAddWriteCommand}
+                className="col-span-3 bg-ciklo-orange hover:bg-orange-500 text-black rounded p-2 text-xs font-bold flex items-center justify-center gap-1"
+              >
+                <Plus size={12} /> Configurar
+              </button>
+            </div>
+          </div>
+
+          {/* Updated Table Layout for Write Commands (Showing ALL registers) */}
+          <div className="flex-1 overflow-auto">
+            <table className="w-full text-left">
+              <thead className="bg-gray-800 text-gray-500 text-[10px] uppercase">
+                <tr>
+                  <th className="p-3">Endereço</th>
+                  <th className="p-3">Nome</th>
+                  <th className="p-3 text-right">Valor Atual</th>
+                  <th className="p-3 text-right">Definir</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800 text-sm">
+                {modbusRegisters.map(reg => (
+                  <tr key={reg.id} className="hover:bg-gray-800/30">
+                    <td className="p-3 font-mono text-gray-400">{reg.address}</td>
+                    <td className="p-3 text-white">{reg.name}</td>
+                    <td className="p-3 text-right font-mono font-bold text-ciklo-yellow">
+                      {reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span>
+                    </td>
+                    <td className="p-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <input
+                          type="text"
+                          className="w-16 bg-black border border-gray-600 rounded p-1 text-xs text-white text-right"
+                          placeholder="Novo"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleWriteRegister(reg.id, (e.target as HTMLInputElement).value);
+                              (e.target as HTMLInputElement).value = '';
+                            }
+                          }}
+                        />
+                        <button
+                          className="p-1.5 bg-green-600 hover:bg-green-500 text-white rounded"
+                          onClick={(e) => {
+                            const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                            if (input) {
+                              handleWriteRegister(reg.id, input.value);
+                              input.value = '';
+                            }
+                          }}
+                        >
+                          <Send size={14} />
+                        </button>
+                        <button onClick={() => handleRemoveRegister(reg.id)} className="text-gray-600 hover:text-red-500 ml-1">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {modbusRegisters.length === 0 && (
+                  <tr><td colSpan={4} className="p-4 text-center text-gray-600 text-xs">Nenhum comando disponível</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+    </div >
+  );
 };
 
-      export default GeneratorDetail;
+export default GeneratorDetail;
