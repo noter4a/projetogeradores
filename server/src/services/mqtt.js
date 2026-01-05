@@ -419,11 +419,6 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 14, 9));
                 }, 7000); // +2s
 
-                // 8. Correntes (10, 3 regs) - NEW
-                setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 10, 3));
-                }, 8000); // +1s
-
                 // 6. Active Power (30, 2 regs)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 30, 2));
@@ -432,8 +427,13 @@ export const initMqttService = (io) => {
                 // 7. Apparent Energy (43, 2 regs)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 43, 2));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 11000); // +2s
+
+                // 8. Correntes (10, 3 regs) - MOVED TO END
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 10, 3));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 13000); // +2s
             });
         }
     }, 15000);

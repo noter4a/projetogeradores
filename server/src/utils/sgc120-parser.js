@@ -290,11 +290,15 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // Actually, standard is often 1 Amp = 1 unit? Or 0.1?
   // Let's try scaled * 0.1 since voltages are 0.1.
   if (startAddress === 10 && regs.length >= 3) {
+    const c1 = scale01(u16(regs, 0) * 0.1);
+    const c2 = scale01(u16(regs, 1) * 0.1);
+    const c3 = scale01(u16(regs, 2) * 0.1);
+    console.log(`[PARSER] Currents (10): L1=${c1}A, L2=${c2}A, L3=${c3}A (Raw: ${u16(regs, 0)}, ${u16(regs, 1)}, ${u16(regs, 2)})`);
     return {
       block: "CURRENT_10",
-      curr_l1: scale01(u16(regs, 0) * 0.1),
-      curr_l2: scale01(u16(regs, 1) * 0.1),
-      curr_l3: scale01(u16(regs, 2) * 0.1)
+      curr_l1: c1,
+      curr_l2: c2,
+      curr_l3: c3
     };
   }
 
