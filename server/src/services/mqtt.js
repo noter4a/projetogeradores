@@ -159,6 +159,11 @@ export const initMqttService = (io) => {
                             unifiedData.activePower = d.activePower_kw || 0;
                         }
 
+                        // Map ENERGY_43 (Apparent Energy)
+                        if (d.block === 'ENERGY_43') {
+                            unifiedData.apparentEnergy = d.apparentEnergy_kvah || 0;
+                        }
+
                         // Recalculate Combined Decimal Run Hours if cache has data
                         if (global.mqttDeviceCache[deviceId]) {
                             const h = global.mqttDeviceCache[deviceId].runHours;
@@ -410,8 +415,13 @@ export const initMqttService = (io) => {
                 // 6. Active Power (30, 2 regs)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 30, 2));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 9000); // +2s
+
+                // 7. Apparent Energy (43, 2 regs)
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 43, 2));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 11000); // +2s
             });
         }
     }, 15000);

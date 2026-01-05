@@ -47,6 +47,11 @@ export interface Generator {
   frequency: number;
   powerFactor: number;
   activePower: number; // kW
+  apparentPower?: number; // kVA
+  reactivePower?: number; // kVAr
+  apparentEnergy?: number; // kVAh
+  activeEnergy?: number; // kWh
+  reactiveEnergy?: number; // kVArh
 
   voltageL12?: number;
   voltageL23?: number;

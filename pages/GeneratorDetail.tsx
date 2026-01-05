@@ -677,12 +677,12 @@ const GeneratorDetail: React.FC = () => {
                     <Timer className="text-gray-400" />
                     <div>
                       <p className="text-xs text-gray-500">Horímetro Total</p>
-                      <p className="text-xl font-mono text-white">{gen.totalHours.toLocaleString()} h</p>
+                      <p className="text-xl font-mono text-white">{Number(gen.totalHours || 0).toFixed(2)} h</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">Próxima Manutenção</p>
-                    <p className="text-sm text-ciklo-orange font-bold">Em 150h</p>
+                    <p className="text-xs text-gray-500">Energia Aparente</p>
+                    <p className="text-sm text-ciklo-yellow font-bold">{Number(gen.apparentEnergy || 0).toLocaleString()} kVAh</p>
                   </div>
                 </div>
 
