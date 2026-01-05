@@ -332,10 +332,10 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
       block: "STATUS_23",
       reg23: reg23,
       reg24: reg24,
-      // Mains Closed check (Hypothesis: Bit 2 of Reg 24)
-      mainsBreakerClosed: (reg24 & 0x0004) > 0,
-      // Gen Closed check (Hypothesis: Bit 1 of Reg 24)
-      genBreakerClosed: (reg24 & 0x0002) > 0
+      // Mains Closed check (Swap: Bit 1 instead of 4)
+      mainsBreakerClosed: (reg24 & 0x0002) > 0,
+      // Gen Closed check (Swap: Bit 2 instead of 2)
+      genBreakerClosed: (reg24 & 0x0004) > 0
     };
   }
 
