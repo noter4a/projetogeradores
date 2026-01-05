@@ -186,12 +186,16 @@ export const initMqttService = (io) => {
                             console.log(`[MQTT-DEBUG] Mapping MAINS_CURRENT_116: ${d.mainsCurr_l1}, ${d.mainsCurr_l2}, ${d.mainsCurr_l3}`);
                         }
 
-                        // Map STATUS_23 (Breaker Feedback)
-                        if (d.block === 'STATUS_23') {
-                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
-                            unifiedData.genBreakerClosed = d.genBreakerClosed;
-                            unifiedData.reg23 = d.reg23; // Debug
-                            unifiedData.reg24 = d.reg24; // Debug
+                        // Map LOAD_CURRENT_23 (New Authority for Current)
+                        if (d.block === 'LOAD_CURRENT_23') {
+                            unifiedData.currentL1 = d.loadCurr_l1 || 0;
+                            unifiedData.currentL2 = d.loadCurr_l2 || 0;
+                            unifiedData.currentL3 = d.loadCurr_l3 || 0;
+                            console.log(`[MQTT-DEBUG] Mapping LOAD_CURRENT_23 -> unifiedData: ${d.loadCurr_l1}A`);
+
+                            // Also map to reg23/24 for debug view
+                            unifiedData.reg23 = d.reg23;
+                            unifiedData.reg24 = d.reg24;
                         }
 
                         // Recalculate Combined Decimal Run Hours if cache has data
