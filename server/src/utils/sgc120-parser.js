@@ -318,6 +318,20 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
+  // Bloco 116 (3 regs): Mains Currents Probe
+  if (startAddress === 116 && regs.length >= 3) {
+    const mc1 = scale01(u16(regs, 0) * 0.1);
+    const mc2 = scale01(u16(regs, 1) * 0.1);
+    const mc3 = scale01(u16(regs, 2) * 0.1);
+    console.log(`[PARSER] MAINS CURRENT (116): L1=${mc1}A, L2=${mc2}A, L3=${mc3}A`);
+    return {
+      block: "MAINS_CURRENT_116",
+      mainsCurr_l1: mc1,
+      mainsCurr_l2: mc2,
+      mainsCurr_l3: mc3
+    };
+  }
+
   // Bloco 23 (3 regs): Status/Alarm Probe (Revised)
   // Was 7 regs, but device returned 3 (Len:3).
   if (startAddress === 23 && regs.length >= 3) {

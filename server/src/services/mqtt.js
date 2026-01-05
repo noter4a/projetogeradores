@@ -178,6 +178,14 @@ export const initMqttService = (io) => {
                             unifiedData.currentL3 = d.curr_l3 || 0;
                         }
 
+                        // Map MAINS_CURRENT_116
+                        if (d.block === 'MAINS_CURRENT_116') {
+                            unifiedData.mainsCurrentL1 = d.mainsCurr_l1 || 0;
+                            unifiedData.mainsCurrentL2 = d.mainsCurr_l2 || 0;
+                            unifiedData.mainsCurrentL3 = d.mainsCurr_l3 || 0;
+                            console.log(`[MQTT-DEBUG] Mapping MAINS_CURRENT_116: ${d.mainsCurr_l1}, ${d.mainsCurr_l2}, ${d.mainsCurr_l3}`);
+                        }
+
                         // Map STATUS_23 (Breaker Feedback)
                         if (d.block === 'STATUS_23') {
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
@@ -460,8 +468,13 @@ export const initMqttService = (io) => {
                 // 10. OPERATION MODE (0, 1 reg)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 0, 1));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 16000); // +1s
+
+                // 11. MAINS CURRENT PROBE (116, 3 regs)
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 116, 3));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 17000); // +1s
             });
         }
     }, 15000);
