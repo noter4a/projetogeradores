@@ -189,9 +189,12 @@ export const initMqttService = (io) => {
                         // Map LOAD_CURRENT_23 (New Authority for Current)
                         if (d.block === 'LOAD_CURRENT_23') {
                             unifiedData.currentL1 = d.loadCurr_l1 || 0;
-                            unifiedData.currentL2 = d.loadCurr_l2 || 0;
                             unifiedData.currentL3 = d.loadCurr_l3 || 0;
                             console.log(`[MQTT-DEBUG] Mapping LOAD_CURRENT_23 -> unifiedData: ${d.loadCurr_l1}A`);
+
+                            // RESTORED: Map Breaker Status from Legacy Bits
+                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = d.genBreakerClosed;
 
                             // Also map to reg23/24 for debug view
                             unifiedData.reg23 = d.reg23;
