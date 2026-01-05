@@ -368,16 +368,26 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     const c2 = scale01(u16(regs, 1) * 0.1);
     const c3 = scale01(u16(regs, 2) * 0.1);
 
-    console.log(`[PARSER] LOAD CURRENT (23): L1=${c1}A, L2=${c2}A, L3=${c3}A`);
+    // Legacy Breaker Logic (Restored & Corrected)
+    // Reg 24 (Index 1) value 172 (0xAC = 1010 1100)
+    // User trace: "Mains Closed" and Val=172 (Bit 2 is 1). So Bit 2 = Mains Closed.
+    // User trace: "Gen Open" and Val=172 (Bit 1 is 0). So Bit 1 = Gen Closed.
+    const val24 = u16(regs, 1);
+    const mainsClosed = (val24 & 0x0004) !== 0; // Bit 2
+    const genClosed = (val24 & 0x0002) !== 0;   // Bit 1
+
+    console.log(`[PARSER] Currents (23): L1=${c1}A, L2=${c2}A, L3=${c3}A`);
+    console.log(`[PARSER] Breaker Flags via Reg 24: Mains=${mainsClosed}, Gen=${genClosed} (Val: ${val24})`);
 
     return {
       block: "LOAD_CURRENT_23",
       loadCurr_l1: c1,
       loadCurr_l2: c2,
       loadCurr_l3: c3,
-      // Legacy/Debug raw values
+      mainsBreakerClosed: mainsClosed,
+      genBreakerClosed: genClosed,
       reg23: u16(regs, 0),
-      reg24: u16(regs, 1) // Used to be interpreted as status
+      reg24: u16(regs, 1)
     };
   }
 
