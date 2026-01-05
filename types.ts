@@ -64,10 +64,16 @@ export interface Generator {
   mainsVoltageL12?: number;
   mainsVoltageL23?: number;
   mainsVoltageL31?: number; // Phase-Phase Mains Voltages
+  mainsVoltageL12?: number;
+  mainsVoltageL23?: number;
+  mainsVoltageL31?: number;
   mainsFrequency?: number;
   mainsCurrentL1?: number;
   mainsCurrentL2?: number;
   mainsCurrentL3?: number;
+
+  mainsBreakerClosed?: boolean;
+  genBreakerClosed?: boolean;
 
   // Connectivity Fields
   connectionName?: string;

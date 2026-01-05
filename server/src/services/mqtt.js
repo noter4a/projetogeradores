@@ -171,6 +171,13 @@ export const initMqttService = (io) => {
                             unifiedData.currentL3 = d.curr_l3 || 0;
                         }
 
+                        // Map STATUS_23 (Breaker Feedback)
+                        if (d.block === 'STATUS_23') {
+                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = d.genBreakerClosed;
+                            unifiedData.reg24 = d.reg24; // Debug
+                        }
+
                         // Recalculate Combined Decimal Run Hours if cache has data
                         if (global.mqttDeviceCache[deviceId]) {
                             const h = global.mqttDeviceCache[deviceId].runHours;
@@ -245,6 +252,7 @@ export const initMqttService = (io) => {
                             voltageL1: 0, voltageL2: 0, voltageL3: 0,
                             currentL1: 0, currentL2: 0, currentL3: 0,
                             activePower: 0, apparentEnergy: 0, // NEW
+                            mainsBreakerClosed: false, genBreakerClosed: false, // NEW
                             mainsVoltageL1: 0, mainsVoltageL2: 0, mainsVoltageL3: 0,
                             mainsVoltageL12: 0, mainsVoltageL23: 0, mainsVoltageL31: 0,
                             fuelLevel: 0, engineTemp: 0, oilPressure: 0, batteryVoltage: 0,
@@ -433,8 +441,13 @@ export const initMqttService = (io) => {
                 // 8. Correntes (10, 3 regs) - MOVED TO END
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 10, 3));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 13000); // +2s
+
+                // 9. STATUS PROBE (23-29) - Finding Breaker Status
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 23, 7));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 15000); // +2s
             });
         }
     }, 15000);

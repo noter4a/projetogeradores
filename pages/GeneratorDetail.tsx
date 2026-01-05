@@ -409,46 +409,46 @@ const GeneratorDetail: React.FC = () => {
 
                     {/* Mains Breaker */}
                     <div className="relative z-10 flex flex-col items-center gap-2 md:gap-3 bg-ciklo-card p-2 md:p-3 rounded-xl border border-gray-800 shadow-lg">
-                      <div className={`p-1.5 md:p-2 rounded-full ${gen.breakerMains === 'CLOSED' ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-gray-700 text-gray-400'}`}>
+                      <div className={`p-1.5 md:p-2 rounded-full ${gen.mainsBreakerClosed ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-red-500/20 text-red-500'}`}>
                         <UtilityPole size={20} className="md:w-6 md:h-6" />
                       </div>
                       <button
                         onClick={() => handleControl('toggleMains')}
                         disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
-                        className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.breakerMains === 'CLOSED'
+                        className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.mainsBreakerClosed
                           ? 'bg-green-900/30 text-green-400 border-green-500'
-                          : 'bg-gray-800 text-gray-500 border-gray-600 hover:border-gray-500'
+                          : 'bg-red-900/30 text-red-400 border-red-500 hover:border-red-400'
                           } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
                       >
-                        {gen.breakerMains === 'CLOSED' ? 'REDE FECHADA' : 'REDE ABERTA'}
+                        {gen.mainsBreakerClosed ? 'REDE FECHADA' : 'REDE ABERTA'}
                       </button>
                     </div>
 
                     {/* Load Center */}
                     <div className="relative z-10 flex flex-col items-center">
-                      <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg border-4 transition-all duration-500 ${(gen.breakerMains === 'CLOSED' || gen.breakerGen === 'CLOSED')
+                      <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg border-4 transition-all duration-500 ${(gen.mainsBreakerClosed || gen.genBreakerClosed)
                         ? 'bg-ciklo-orange border-ciklo-orange text-black shadow-orange-500/20'
                         : 'bg-gray-800 border-gray-700 text-gray-500'
                         }`}>
-                        <Zap size={20} className={`md:w-7 md:h-7 ${(gen.breakerMains === 'CLOSED' || gen.breakerGen === 'CLOSED') ? 'fill-current' : ''}`} />
+                        <Zap size={20} className={`md:w-7 md:h-7 ${(gen.mainsBreakerClosed || gen.genBreakerClosed) ? 'fill-current' : ''}`} />
                       </div>
                       <span className="mt-2 text-[9px] md:text-[10px] font-bold text-gray-500 uppercase">Carga</span>
                     </div>
 
                     {/* Gen Breaker */}
                     <div className="relative z-10 flex flex-col items-center gap-2 md:gap-3 bg-ciklo-card p-2 md:p-3 rounded-xl border border-gray-800 shadow-lg">
-                      <div className={`p-1.5 md:p-2 rounded-full ${gen.breakerGen === 'CLOSED' ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-gray-700 text-gray-400'}`}>
+                      <div className={`p-1.5 md:p-2 rounded-full ${gen.genBreakerClosed ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-red-500/20 text-red-500'}`}>
                         <Power size={20} className="md:w-6 md:h-6" />
                       </div>
                       <button
                         onClick={() => handleControl('toggleGen')}
                         disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
-                        className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.breakerGen === 'CLOSED'
+                        className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.genBreakerClosed
                           ? 'bg-green-900/30 text-green-400 border-green-500'
-                          : 'bg-gray-800 text-gray-500 border-gray-600 hover:border-gray-500'
+                          : 'bg-red-900/30 text-red-400 border-red-500 hover:border-red-400'
                           } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
                       >
-                        {gen.breakerGen === 'CLOSED' ? 'GER. FECHADO' : 'GER. ABERTO'}
+                        {gen.genBreakerClosed ? 'GER. FECHADO' : 'GER. ABERTO'}
                       </button>
                     </div>
                   </div>
