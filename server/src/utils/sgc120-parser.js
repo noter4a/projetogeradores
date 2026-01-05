@@ -222,16 +222,17 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // Bloco isolado do Horímetro (60)
   // Se recebermos apenas 2 regs (60/61 = Horas)
   if (startAddress === 60 && regs.length >= 2) {
-    // FIX: Assume Reg 60 is the valid 16-bit Run Hours. 
-    // Reg 61 seems to contain garbage or high-word data that mismatches expected values (producing 65536 or 262144).
-    const engHrs = u16(regs, 0); // Reg 60
+    // FIX: Read as 32-bit Unsigned Integer
+    // Reg 60 = High Word (MSW), Reg 61 = Low Word (LSW)
+    const hi = u16(regs, 0);
+    const lo = u16(regs, 1);
+    const engHrs = (hi << 16) | lo;
 
-    console.log(`[PARSER] Engine Hours (Reg 60): ${engHrs}h`);
+    console.log(`[PARSER] Engine Hours Debug - Reg60(Hi): ${hi}, Reg61(Lo): ${lo} -> Total: ${engHrs}h`);
 
-    // Retorna base. Minutos virão em outro pacote ou serão 0.
     return {
       block: "RUNHOURS_60",
-      runHours: engHrs, // Temporário, até chegar minutos
+      runHours: engHrs,
       runHoursTotal: engHrs,
       ...result
     };
