@@ -526,7 +526,7 @@ const GeneratorDetail: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-ciklo-orange">
                     <p className="text-gray-400 text-xs uppercase font-bold">Potência Ativa Total</p>
-                    <p className="text-3xl font-bold text-white mt-1">{gen.activePower.toFixed(1)} <span className="text-base font-normal text-gray-500">kW</span></p>
+                    <p className="text-3xl font-bold text-white mt-1">{(gen.activePower || 0).toFixed(1)} <span className="text-base font-normal text-gray-500">kW</span></p>
                   </div>
                   <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-blue-500">
                     <p className="text-gray-400 text-xs uppercase font-bold">Fator de Potência</p>
@@ -544,7 +544,7 @@ const GeneratorDetail: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <span className="text-xs text-gray-400 block">Frequência</span>
-                        <span className="text-lg font-bold text-white">{gen.frequency.toFixed(1)} Hz</span>
+                        <span className="text-lg font-bold text-white">{(gen.frequency || 0).toFixed(1)} Hz</span>
                       </div>
                     </div>
                     <table className="w-full text-left">
@@ -558,18 +558,18 @@ const GeneratorDetail: React.FC = () => {
                       <tbody className="divide-y divide-gray-800 text-sm">
                         <tr>
                           <td className="py-2 text-gray-300 font-bold">L1</td>
-                          <td className="py-2 text-right text-ciklo-yellow">{gen.voltageL1.toFixed(0)} V</td>
-                          <td className="py-2 text-right text-blue-400">{gen.currentL1.toFixed(0)} A</td>
+                          <td className="py-2 text-right text-ciklo-yellow">{(gen.voltageL1 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-blue-400">{(gen.currentL1 || 0).toFixed(0)} A</td>
                         </tr>
                         <tr>
                           <td className="py-2 text-gray-300 font-bold">L2</td>
-                          <td className="py-2 text-right text-ciklo-yellow">{gen.voltageL2.toFixed(0)} V</td>
-                          <td className="py-2 text-right text-blue-400">{gen.currentL2.toFixed(0)} A</td>
+                          <td className="py-2 text-right text-ciklo-yellow">{(gen.voltageL2 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-blue-400">{(gen.currentL2 || 0).toFixed(0)} A</td>
                         </tr>
                         <tr>
                           <td className="py-2 text-gray-300 font-bold">L3</td>
-                          <td className="py-2 text-right text-ciklo-yellow">{gen.voltageL3.toFixed(0)} V</td>
-                          <td className="py-2 text-right text-blue-400">{gen.currentL3.toFixed(0)} A</td>
+                          <td className="py-2 text-right text-ciklo-yellow">{(gen.voltageL3 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-blue-400">{(gen.currentL3 || 0).toFixed(0)} A</td>
                         </tr>
                       </tbody>
                     </table>
