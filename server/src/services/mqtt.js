@@ -164,6 +164,13 @@ export const initMqttService = (io) => {
                             unifiedData.apparentEnergy = d.apparentEnergy_kvah || 0;
                         }
 
+                        // Map CURRENT_10 (Generator Currents)
+                        if (d.block === 'CURRENT_10') {
+                            unifiedData.currentL1 = d.curr_l1 || 0;
+                            unifiedData.currentL2 = d.curr_l2 || 0;
+                            unifiedData.currentL3 = d.curr_l3 || 0;
+                        }
+
                         // Recalculate Combined Decimal Run Hours if cache has data
                         if (global.mqttDeviceCache[deviceId]) {
                             const h = global.mqttDeviceCache[deviceId].runHours;
@@ -411,6 +418,11 @@ export const initMqttService = (io) => {
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 14, 9));
                 }, 7000); // +2s
+
+                // 8. Correntes (10, 3 regs) - NEW
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 10, 3));
+                }, 8000); // +1s
 
                 // 6. Active Power (30, 2 regs)
                 setTimeout(() => {

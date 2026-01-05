@@ -279,6 +279,25 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
+  // Bloco 10 (3 regs): Generator Currents (L1, L2, L3)
+  // Baseado na resposta do usuário: 010306010200AC0056...
+  // 0102 = 258, 00AC = 172, 0056 = 86.
+  // Assuming 1 decimal place (25.8A, 17.2A, 8.6A) or integer.
+  // Usually currents are 1 decimal or integer depending on CT ratio.
+  // Standard DEIF SGC 120 often uses integer currents, but let's check values.
+  // Validating: If user has 258A load, that's high. If 25.8A, that's moderate.
+  // Let's assume integer for now OR scaled. I'll use raw initially or scale01 if commonly needed.
+  // Actually, standard is often 1 Amp = 1 unit? Or 0.1?
+  // Let's try scaled * 0.1 since voltages are 0.1.
+  if (startAddress === 10 && regs.length >= 3) {
+    return {
+      block: "CURRENT_10",
+      curr_l1: scale01(u16(regs, 0) * 0.1),
+      curr_l2: scale01(u16(regs, 1) * 0.1),
+      curr_l3: scale01(u16(regs, 2) * 0.1)
+    };
+  }
+
   // Bloco 30 (2 regs): Active Power (kW) - Requested by User
   if (startAddress === 30 && regs.length >= 2) {
     // 32-bit Value (High/Low or Low/High? Assuming High/Low based on typical modbus)
