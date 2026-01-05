@@ -302,23 +302,20 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // Bloco 23 (7 regs): Status/Alarm Probe
-  // Candidates: Reg 24 (Alarm Status 1), Reg 23 (Gen Status?)
-  if (startAddress === 23 && regs.length >= 7) {
-    console.log(`[PARSER] STATUS PROBE (23-29): [${regs.map(r => r.toString(16)).join(', ')}]`);
+  // Bloco 23 (3 regs): Status/Alarm Probe (Revised)
+  // Was 7 regs, but device returned 3 (Len:3).
+  if (startAddress === 23 && regs.length >= 3) {
+    console.log(`[PARSER] STATUS PROBE (23-25): [${regs.map(r => r.toString(16)).join(', ')}]`);
 
-    // Tentativa de decodificar Reg 24 (Index 1)
-    const reg24 = u16(regs, 1);
-    // Bitmask check (exemplo hipotético)
-    // Bit 0: Running?
-    // Bit 1: Gen Breaker?
-    // Bit 2: Mains Breaker?
+    const reg23 = u16(regs, 0);
+    const reg24 = u16(regs, 1); // Alarm Status 1?
+
     console.log(`[PARSER] Reg24 (Alarm/Status?): Bin=${reg24.toString(2).padStart(16, '0')}`);
 
     return {
       block: "STATUS_23",
-      reg23: u16(regs, 0),
-      reg24: u16(regs, 1),
+      reg23: reg23,
+      reg24: reg24,
       // Mains Closed check (Hypothesis: Bit 2 of Reg 24)
       mainsBreakerClosed: (reg24 & 0x0004) > 0,
       // Gen Closed check (Hypothesis: Bit 1 of Reg 24)
