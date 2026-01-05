@@ -482,4 +482,83 @@ export const initMqttService = (io) => {
             });
         }
     }, 15000);
-};
+
+    // ==========================================
+    // CONTROL & COMMAND FUNCTIONS
+    // ==========================================
+
+    // Helper to create Modbus Write Request (Function 06 - Write Single Register)
+    function createModbusWriteRequest(slaveId, address, value) {
+        const buffer = Buffer.alloc(8);
+        buffer.writeUInt8(slaveId, 0); // Slave ID
+        buffer.writeUInt8(6, 1);       // Function Code 06 (Write Single Register)
+        buffer.writeUInt16BE(address, 2); // Address
+        buffer.writeUInt16BE(value, 4);   // Value to write
+
+        // CRC
+        const crc = calculateCRC(buffer.slice(0, 6));
+        buffer.writeUInt16LE(crc, 6);
+
+        return buffer;
+    }
+
+    // Exported Command Function
+    export const sendControlCommand = (deviceId, action) => {
+        const client = global.mqttClient;
+        if (!client || !client.connected) {
+            console.error('[MQTT-CMD] Client not connected');
+            return false;
+        }
+
+        // Since devicesToPoll is local to this module, we can access it.
+        // Ensure we find the slaveId.
+        // devicesToPoll is updated periodically.
+        const device = devicesToPoll.find(d => d.id === deviceId);
+        if (!device) {
+            console.error(`[MQTT-CMD] Device ${deviceId} not found in polling list`);
+            return false;
+        }
+
+        const { slaveId } = device;
+        const topic = `devices/command/${deviceId}`;
+
+        console.log(`[MQTT-CMD] Action: ${action} -> Device: ${deviceId} (Slave ${slaveId})`);
+
+        let valueToWrite = 0;
+
+        // Logic based on User Documentation (Reg 0)
+        // STOP=1, START=2, AUTO=4, ACK=64
+        switch (action) {
+            case 'stop':
+                valueToWrite = 1; // SGC STOP KEY
+                break;
+            case 'start':
+                valueToWrite = 2; // SGC START KEY
+                break;
+            case 'manual':
+                valueToWrite = 2; // SGC START (Manual?)
+                break;
+            case 'auto':
+                valueToWrite = 4; // SGC AUTO KEY
+                break;
+            case 'ack':
+            case 'reset':
+                valueToWrite = 64; // SGC ACK KEY
+                break;
+            case 'inhibit':
+                valueToWrite = 1; // Stop/Inhibited
+                break;
+            default:
+                console.warn(`[MQTT-CMD] Unknown action: ${action}`);
+                return false;
+        }
+
+        if (valueToWrite > 0) {
+            const buffer = createModbusWriteRequest(slaveId, 0, valueToWrite);
+            client.publish(topic, buffer);
+            console.log(`[MQTT-CMD] Sent Modbus Write: Reg 0 = ${valueToWrite} to ${topic}`);
+            return true;
+        }
+
+        return false;
+    };

@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Pro
 import { Generator } from '../types';
 import { io } from 'socket.io-client';
 
+export const socket = io(); // Exported singleton
+
 interface GeneratorContextType {
   generators: Generator[];
   addGenerator: (gen: Generator) => void;
@@ -44,8 +46,7 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
 
   // Socket.IO Real-Time Updates
   useEffect(() => {
-    const socket = io();
-
+    // Uses the exported singleton 'socket'
     socket.on('generator:update', (data: any) => {
       // console.log('Context Received Real-Time Data:', data.id);
       setGenerators(prevGenerators => prevGenerators.map(gen => {

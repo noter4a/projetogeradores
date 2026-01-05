@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Generator, GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { useGenerators } from '../context/GeneratorContext';
+import { useGenerators, socket } from '../context/GeneratorContext'; // Import socket
 import { useAlarms } from '../context/AlarmContext';
 import {
   Power, AlertOctagon, RotateCcw, Settings, Gauge,
@@ -151,6 +151,32 @@ const GeneratorDetail: React.FC = () => {
     if (!canControl) return;
     setControlLoading(action);
 
+    // Emit Socket.IO Command
+    // Assuming we have access to the 'socket' instance here.
+    // If socket is not available via prop or context, we might need to use a request or import the socket instance if it's global.
+    // Ideally, GeneratorContext provides the socket or a method.
+    // For now, let's assume standard fetch or if socket is global.
+    // Actually, looking at imports, there is no socket instance.
+    // I should use a simple POST endpoint if socket is not easily accessible, OR use the existing socket connection if available.
+    // Let's use a simple fetch to a new endpoint `/api/control` which calls the MQTT service, OR better,
+    // assuming the `socket` is available from `useContext`.
+    // GeneratorContext.tsx likely has the socket.
+    // Since I cannot change Context easily right now, I will use a POST request to a new API endpoint, calling the command.
+    // BUT I didn't create an endpoint.
+    // I added a socket listener in index.js.
+    // So I need to use the socket.
+
+    // Check if 'socket' is available in window or imports.
+    // Previous files showed `import { socket } from '../context/GeneratorContext'`.
+    // Let's check imports.
+    // If not, I will add `import { socket } from '../context/GeneratorContext';`
+
+    socket.emit('control_generator', { generatorId: gen.id, action });
+
+    // Simulate delay for UI feedback
+    setTimeout(() => {
+      setControlLoading(null);
+    }, 2000);
   }
 
 

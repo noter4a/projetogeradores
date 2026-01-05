@@ -23,6 +23,19 @@ const io = new Server(httpServer, {
 // Start MQTT Service
 initMqttService(io);
 
+// Socket.io Command Listener
+io.on('connection', (socket) => {
+    console.log('Client connected to Socket.IO');
+
+    socket.on('control_generator', ({ generatorId, action }) => {
+        console.log(`[API] Received Control Command: ${action} for ${generatorId}`);
+        // Dynamic import to avoid circular dep issues if any, or use the exported function directly
+        import('./services/mqtt.js').then(module => {
+            module.sendControlCommand(generatorId, action);
+        });
+    });
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
