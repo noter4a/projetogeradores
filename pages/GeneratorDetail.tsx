@@ -357,7 +357,7 @@ const GeneratorDetail: React.FC = () => {
                         <button
                           onClick={() => handleControl('auto')}
                           className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
+                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20'
                             : 'text-gray-400 hover:text-white hover:bg-white/5'
                             }`}
                         >
