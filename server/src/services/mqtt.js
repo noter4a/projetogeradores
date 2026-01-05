@@ -555,9 +555,11 @@ export const sendControlCommand = (deviceId, action) => {
     }
 
     if (valueToWrite > 0) {
-        const buffer = createModbusWriteRequest(slaveId, 0, valueToWrite);
+        // CORRECTION: User Datasheet says Reg 16 is "DG mode change command"
+        // Previous value 0 was incorrect.
+        const buffer = createModbusWriteRequest(slaveId, 16, valueToWrite);
         client.publish(topic, buffer);
-        console.log(`[MQTT-CMD] Sent Modbus Write: Reg 0 = ${valueToWrite} to ${topic}`);
+        console.log(`[MQTT-CMD] Sent Modbus Write: Reg 16 = ${valueToWrite} to ${topic}`);
         return true;
     }
 
