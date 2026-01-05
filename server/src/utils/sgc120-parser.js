@@ -203,15 +203,15 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   if (startAddress === 14 && regs.length >= 7) { // Need at least 7 registers for the specified fields
     return {
       block: 'MAINS_14',
-      // Phase-Neutral (Actually Regs 17, 18, 19 -> Indices 3, 4, 5)
-      l1n_v: scale01(u16(regs, 3) * 0.1),
-      l2n_v: scale01(u16(regs, 4) * 0.1),
-      l3n_v: scale01(u16(regs, 5) * 0.1),
+      // Phase-Neutral (Regs 14, 15, 16 -> Indices 0, 1, 2)
+      l1n_v: scale01(u16(regs, 0) * 0.1),
+      l2n_v: scale01(u16(regs, 1) * 0.1),
+      l3n_v: scale01(u16(regs, 2) * 0.1),
 
-      // Phase-Phase (Actually Regs 14, 15, 16 -> Indices 0, 1, 2)
-      l1l2_v: scale01(u16(regs, 0) * 0.1),
-      l2l3_v: scale01(u16(regs, 1) * 0.1),
-      l3l1_v: scale01(u16(regs, 2) * 0.1),
+      // Phase-Phase (Regs 17, 18, 19 -> Indices 3, 4, 5)
+      l1l2_v: scale01(u16(regs, 3) * 0.1),
+      l2l3_v: scale01(u16(regs, 4) * 0.1),
+      l3l1_v: scale01(u16(regs, 5) * 0.1),
 
       // Frequency (Freq R)
       freq_r_hz: scale01(u16(regs, 6) * 0.1), // 20
