@@ -12,7 +12,6 @@ import {
   Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { io } from 'socket.io-client';
 
 const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", size = 120 }: any) => {
   const radius = 40;
@@ -111,33 +110,8 @@ const GeneratorDetail: React.FC = () => {
     }
   }, [foundGen]);
 
-  // Socket.io Real-Time Updates
-  useEffect(() => {
-    // Connect to same host, Nginx will proxy /socket.io
-    const socket = io();
-
-    socket.on('connect', () => {
-      console.log('Connected to WebSocket');
-    });
-
-    socket.on('generator:update', (data: any) => {
-      // Match against ID (if hardcoded) OR the stored IP/DeviceID field (Ciklo0)
-      if (data.id === id || (gen && data.id === gen.ip) || (gen && data.id === gen.connectionName)) {
-        console.log('Received Real-Time Data:', data);
-        setGen(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            ...data.data, // Merge decoded modbus data (including status if sent)
-          };
-        });
-      }
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [id]);
+  // Socket.io Listener moved to GeneratorContext.tsx
+  // This ensures Dashboard and Detail views are always in sync.
 
   // Generate Mock History Data (Last 24 Hours) for Load Chart
   // Placeholder for real history data (DB integration needed later)

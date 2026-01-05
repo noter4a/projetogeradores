@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, PropsWithChildren } from 'react';
 import { Generator } from '../types';
+import { io } from 'socket.io-client';
 
 interface GeneratorContextType {
   generators: Generator[];
@@ -39,6 +40,29 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
       }
     };
     fetchGenerators();
+  }, []);
+
+  // Socket.IO Real-Time Updates
+  useEffect(() => {
+    const socket = io();
+
+    socket.on('generator:update', (data: any) => {
+      // console.log('Context Received Real-Time Data:', data.id);
+      setGenerators(prevGenerators => prevGenerators.map(gen => {
+        // Match against ID, IP, or Connection Name
+        if (data.id === gen.id || data.id === gen.ip || data.id === gen.connectionName) {
+          return {
+            ...gen,
+            ...data.data, // Merge new data
+          };
+        }
+        return gen;
+      }));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const addGenerator = useCallback(async (gen: Generator) => {
