@@ -244,6 +244,7 @@ export const initMqttService = (io) => {
                         const defaultSchema = {
                             voltageL1: 0, voltageL2: 0, voltageL3: 0,
                             currentL1: 0, currentL2: 0, currentL3: 0,
+                            activePower: 0, apparentEnergy: 0, // NEW
                             mainsVoltageL1: 0, mainsVoltageL2: 0, mainsVoltageL3: 0,
                             mainsVoltageL12: 0, mainsVoltageL23: 0, mainsVoltageL31: 0,
                             fuelLevel: 0, engineTemp: 0, oilPressure: 0, batteryVoltage: 0,
