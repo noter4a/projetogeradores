@@ -452,6 +452,12 @@ const GeneratorDetail: React.FC = () => {
                       </button>
                     </div>
                   </div>
+                  {/* DEBUG BREAKER STATUS */}
+                  <div className="mt-2 text-center">
+                    <p className="text-[10px] text-gray-500 font-mono">
+                      DEBUG: Reg23={gen.reg23} | Reg24={gen.reg24}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

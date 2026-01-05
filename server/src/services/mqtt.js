@@ -175,6 +175,7 @@ export const initMqttService = (io) => {
                         if (d.block === 'STATUS_23') {
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
+                            unifiedData.reg23 = d.reg23; // Debug
                             unifiedData.reg24 = d.reg24; // Debug
                         }
 

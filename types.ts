@@ -75,6 +75,9 @@ export interface Generator {
   mainsBreakerClosed?: boolean;
   genBreakerClosed?: boolean;
 
+  reg23?: number; // Debug Status 1
+  reg24?: number; // Debug Status 2
+
   // Connectivity Fields
   connectionName?: string;
   controller?: string;
