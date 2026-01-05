@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, PropsWithChildren } from 'react';
 import { Alarm } from '../types';
-import { MOCK_ALARMS } from '../constants';
+
 
 interface AlarmContextType {
   alarms: Alarm[];
@@ -22,7 +22,7 @@ export const useAlarms = () => {
 };
 
 export const AlarmProvider = ({ children }: PropsWithChildren<{}>) => {
-  const [alarms, setAlarms] = useState<Alarm[]>(MOCK_ALARMS);
+  const [alarms, setAlarms] = useState<Alarm[]>([]);
 
   const addAlarm = (alarm: Alarm) => {
     setAlarms(prev => [alarm, ...prev]);
