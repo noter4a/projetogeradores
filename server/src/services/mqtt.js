@@ -203,6 +203,7 @@ export const initMqttService = (io) => {
                     try {
                         const stateFile = path.join(__dirname, '../../logs/generators_state.json');
                         // FIX: Load existing state instead of wiping it
+                        let currentState = {};
                         if (fs.existsSync(stateFile)) {
                             try {
                                 const rawState = fs.readFileSync(stateFile, 'utf8');
