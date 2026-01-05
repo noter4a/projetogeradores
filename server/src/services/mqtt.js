@@ -59,8 +59,6 @@ export const initMqttService = (io) => {
         try {
             console.log(`[MQTT] Message received on ${topic}`); // Debug log
             const payload = JSON.parse(message.toString());
-<<<<<<< HEAD
-=======
             // console.log('[MQTT] Payload Keys:', Object.keys(payload));
             if (payload.modbusRequest && payload.modbusRequest.length === 0) {
                 console.log('[MQTT] WARNING: Received payload with EMPTY modbusRequest! Gateway might have rejected the command.');
@@ -77,8 +75,6 @@ export const initMqttService = (io) => {
                     console.log('[MQTT] Payload has NO modbusResponse field.');
                 }
             }
-
->>>>>>> d802d47e00a384b30a186ba64d27a826d91acd90
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
             // New SGC-120 Decoding Logic
@@ -215,18 +211,6 @@ export const initMqttService = (io) => {
                             currentState = {};
                         }
 
-<<<<<<< HEAD
-                        if (fs.existsSync(stateFile)) {
-                            try {
-                                currentState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-                            } catch (e) {
-                                console.error('[MQTT] State File Read Error (Resetting):', e.message);
-                                currentState = {};
-                            }
-                        }
-
-                        // Merge new data with existing state for this device to preserve fields not in this packet
-=======
                         // Default schema to prevent undefined errors
                         const defaultSchema = {
                             voltageL1: 0, voltageL2: 0, voltageL3: 0,
@@ -240,7 +224,6 @@ export const initMqttService = (io) => {
                         };
 
                         // Merge logic: Defaults <- Existing from File <- New Unified Data
->>>>>>> d802d47e00a384b30a186ba64d27a826d91acd90
                         const existingDeviceData = currentState[deviceId]?.data || {};
                         currentState[deviceId] = {
                             ...updatePayload,
