@@ -47,11 +47,18 @@ export interface Generator {
   frequency: number;
   powerFactor: number;
   activePower: number; // kW
-  
+
+  voltageL12?: number;
+  voltageL23?: number;
+  voltageL31?: number; // Phase-Phase Voltages
+
   // Mains / Grid Fields
   mainsVoltageL1?: number;
   mainsVoltageL2?: number;
   mainsVoltageL3?: number;
+  mainsVoltageL12?: number;
+  mainsVoltageL23?: number;
+  mainsVoltageL31?: number; // Phase-Phase Mains Voltages
   mainsFrequency?: number;
   mainsCurrentL1?: number;
   mainsCurrentL2?: number;
