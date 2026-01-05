@@ -65,7 +65,12 @@ export const initMqttService = (io) => {
             } else if (payload.modbusRequest) {
                 console.log(`[MQTT] Payload Request[0]: ${payload.modbusRequest[0]}`);
                 if (payload.modbusResponse) {
-                    console.log(`[MQTT] Payload Response[0]: ${payload.modbusResponse[0] ? payload.modbusResponse[0] : "EMPTY_STRING"}`);
+                    const resp = payload.modbusResponse[0];
+                    if (!resp || resp === "") {
+                        console.log(`[MQTT] ⚠️  TIMEOUT/CONFLICT: Modem received 'Empty' from Generator. (Check Cable or Parallel Software)`);
+                    } else {
+                        console.log(`[MQTT] Payload Response[0]: ${resp}`);
+                    }
                 } else {
                     console.log('[MQTT] Payload has NO modbusResponse field.');
                 }
@@ -195,54 +200,20 @@ export const initMqttService = (io) => {
                     // 2. Update Current State (generators_state.json)
                     try {
                         const stateFile = path.join(__dirname, '../../logs/generators_state.json');
-                        let currentState = {};
+                        // FIX: Load existing state instead of wiping it
+                        if (fs.existsSync(stateFile)) {
+                            try {
+                                const rawState = fs.readFileSync(stateFile, 'utf8');
+                                currentState = JSON.parse(rawState);
+                            } catch (readErr) {
+                                console.error('[MQTT] Failed to read state file, starting fresh:', readErr.message);
+                                currentState = {};
+                            }
+                        } else {
+                            currentState = {};
+                        }
 
-                        // FIX: Force Fresh State on Update.
-                        // Do NOT load 'generators_state.json' here. The recursive merge below accumulates state in memory validly.
-                        // Loading from disk caused issues where old/corrupt data types (Strings) persisted and crashed Frontend.
-                        // The 'defaultSchema' below guarantees valid structure for new/empty slots.
-                        currentState = {};
-
-                        // We still want to preserve OTHER devices if this update is for Device A, but we have data for Device B in memory?
-                        // Wait. 'currentState' variable here is SCOPED to this block?
-                        // No. 'currentState' is declared at line 185.
-                        // But wait! If I set currentState = {}, I wipe ALL devices from memory on every packet?
-                        // YES! That is BAD if I have multiple devices.
-                        // But here I am INSIDE the `client.on('message')` callback.
-                        // If I wipe `currentState` every packet, the Socket emits only the single device.
-                        // `io.emit` sends `currentState[deviceId]`.
-                        // Frontend receives one device.
-
-                        // BUT... does `mqtt.js` keep a global state? 
-                        // Line 185: `let currentState = {};`
-                        // It reads from FILE every time?
-                        // YES. The original code read from file EVERY PACKET.
-                        // That is inefficient but that was the design.
-                        // So setting `currentState = {}` means we start with Empty.
-                        // Then we look for `currentState[deviceId]`. Undefined.
-                        // Then we use `defaultSchema`.
-                        // Then we save to File.
-                        // So effective state is "What is in File".
-
-                        // RE-THINK:
-                        // I want to ERASE the File content ONCE (on boot) or assume it's bad.
-                        // If I set `currentState = {}` here, I am effectively ignoring the file content.
-                        // Then I write ONE device to the file (overwriting everything?).
-                        // Line 203: `fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));`
-                        // If `currentState` only has Device A. Device B is lost from file.
-                        // This effectively wipes history.
-                        // Given user has "Ciklo1" and "Ciklo0".
-                        // If Ciklo1 updates, Ciklo0 is wiped.
-                        // This is acceptable to fix the crash ("Resolve essa porra").
-                        // The file will rebuild as devices report in.
-
-                        // CRITICAL: The crash comes from the FILE providing garbage.
-                        // Ignoring the file here is the right move to stop the crash.
-                        // Data from other devices will reappear as soon as they report (Polling loop handles it).
-
-                        currentState = {}; // Start fresh, ignore disk junk.
-
-                        // Default schema to prevent undefined errors in Frontend (e.g. .toFixed failure)
+                        // Default schema to prevent undefined errors
                         const defaultSchema = {
                             voltageL1: 0, voltageL2: 0, voltageL3: 0,
                             currentL1: 0, currentL2: 0, currentL3: 0,
@@ -261,7 +232,11 @@ export const initMqttService = (io) => {
                             data: { ...defaultSchema, ...existingDeviceData, ...unifiedData }
                         };
 
-                        fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
+                        try {
+                            fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
+                        } catch (writeErr) {
+                            console.error('[MQTT] Failed to write state file:', writeErr.message);
+                        }
 
                         // 3. Broadcast to Real-Time Clients (Moved inside Try block to access currentState)
                         if (currentState[deviceId]) {
@@ -363,8 +338,11 @@ export const initMqttService = (io) => {
         try {
             const res = await pool.query("SELECT connection_info FROM generators");
             devicesToPoll = res.rows
-                .map(row => row.connection_info?.ip) // Use 'ip' field as the MQTT ID
-                .filter(ip => ip); // Filter out null/undefined
+                .filter(row => row.connection_info && row.connection_info.ip) // Ensure valid config
+                .map(row => ({
+                    id: row.connection_info.ip,
+                    slaveId: parseInt(row.connection_info.slaveId) || 1 // Fetch Slave ID or Default 1
+                }));
 
             // console.log('[MQTT] Updated Polling List:', devicesToPoll);
         } catch (err) {
@@ -383,9 +361,12 @@ export const initMqttService = (io) => {
         if (client && client.connected) {
             if (devicesToPoll.length === 0) return;
 
-            devicesToPoll.forEach(deviceId => {
-                const slaveId = 1;
+            devicesToPoll.forEach(device => {
+                const deviceId = device.id;
+                const slaveId = device.slaveId; // Dynamic Slave ID
                 const topic = `devices/command/${deviceId}`;
+
+                // console.log(`[MQTT-POLL] Polling ${deviceId} (Slave ${slaveId})...`);
 
                 // Sequência de Comandos (Relaxada - 2s por request)
                 // 1. Horímetro (60, 2 regs)
