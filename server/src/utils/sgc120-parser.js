@@ -188,7 +188,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
       block: "ENGINE_51_59",
       oilPressure_bar: scale01(u16(regs, 0) * 0.1),
       coolantTemp_c: scale01(s16(regs, 1) * 0.1), // signed
-      fuelLevel_pct: u16(regs, 2),
+      fuelLevel_pct: scale01(u16(regs, 2) * 0.1),
       fuelLiters_l: scale01(u16(regs, 3) * 0.1),
       chargeAltVoltage_v: scale01(u16(regs, 4) * 0.1),
       batteryVoltage_v: scale01(u16(regs, 5) * 0.1),
