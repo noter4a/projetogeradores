@@ -332,24 +332,23 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // Bloco 23 (3 regs): Status/Alarm Probe (Revised)
-  // Was 7 regs, but device returned 3 (Len:3).
+  // Bloco 23 (3 regs): LOAD CURRENTS (L1, L2, L3)
+  // User provided datasheet: 23=L1, 24=L2, 25=L3 (Scale 0.1)
   if (startAddress === 23 && regs.length >= 3) {
-    console.log(`[PARSER] STATUS PROBE (23-25): [${regs.map(r => r.toString(16)).join(', ')}]`);
+    const c1 = scale01(u16(regs, 0) * 0.1);
+    const c2 = scale01(u16(regs, 1) * 0.1);
+    const c3 = scale01(u16(regs, 2) * 0.1);
 
-    const reg23 = u16(regs, 0);
-    const reg24 = u16(regs, 1); // Alarm Status 1?
-
-    console.log(`[PARSER] Reg24 (Alarm/Status?): Bin=${reg24.toString(2).padStart(16, '0')}`);
+    console.log(`[PARSER] LOAD CURRENT (23): L1=${c1}A, L2=${c2}A, L3=${c3}A`);
 
     return {
-      block: "STATUS_23",
-      reg23: reg23,
-      reg24: reg24,
-      // Mains Closed check (Swap: Bit 1 instead of 4)
-      mainsBreakerClosed: (reg24 & 0x0002) > 0,
-      // Gen Closed check (Swap: Bit 2 instead of 2)
-      genBreakerClosed: (reg24 & 0x0004) > 0
+      block: "LOAD_CURRENT_23",
+      loadCurr_l1: c1,
+      loadCurr_l2: c2,
+      loadCurr_l3: c3,
+      // Legacy/Debug raw values
+      reg23: u16(regs, 0),
+      reg24: u16(regs, 1) // Used to be interpreted as status
     };
   }
 
