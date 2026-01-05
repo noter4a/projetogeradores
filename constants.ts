@@ -17,7 +17,4 @@ export const MOCK_LOGS: MaintenanceLog[] = [
   { id: 'LOG-2', generatorId: 'GEN-003', date: '2024-02-01', technician: 'João Souza', type: 'CORRECTIVE', description: 'Ajuste de correia do alternador', completed: false },
 ];
 
-export const MOCK_ALARMS: Alarm[] = [
-  { id: 'ALM-1', generatorId: 'GEN-003', message: 'Baixo Nível de Combustível', severity: 'WARNING', timestamp: '2024-05-20 14:30:00', active: true },
-  { id: 'ALM-2', generatorId: 'GEN-003', message: 'Alta Temperatura do Motor', severity: 'CRITICAL', timestamp: '2024-05-20 15:00:00', active: true },
-];
+export const MOCK_ALARMS: Alarm[] = [];
