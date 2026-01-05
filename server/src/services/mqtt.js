@@ -59,6 +59,8 @@ export const initMqttService = (io) => {
         try {
             console.log(`[MQTT] Message received on ${topic}`); // Debug log
             const payload = JSON.parse(message.toString());
+<<<<<<< HEAD
+=======
             // console.log('[MQTT] Payload Keys:', Object.keys(payload));
             if (payload.modbusRequest && payload.modbusRequest.length === 0) {
                 console.log('[MQTT] WARNING: Received payload with EMPTY modbusRequest! Gateway might have rejected the command.');
@@ -76,6 +78,7 @@ export const initMqttService = (io) => {
                 }
             }
 
+>>>>>>> d802d47e00a384b30a186ba64d27a826d91acd90
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
             // New SGC-120 Decoding Logic
@@ -101,25 +104,24 @@ export const initMqttService = (io) => {
 
                         // Map GEN_VOLT_FREQ_1_9
                         if (d.block === 'GEN_VOLT_FREQ_1_9') {
-                            unifiedData.voltageL1 = d.l1n_v || 0;
-                            unifiedData.voltageL2 = d.l2n_v || 0;
-                            unifiedData.voltageL3 = d.l3n_v || 0;
-                            unifiedData.frequency = d.freq_r_hz || 0;
-                            // Calculate average voltage
-                            const avgVal = (unifiedData.voltageL1 + unifiedData.voltageL2 + unifiedData.voltageL3) / 3;
-                            unifiedData.avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
-                            unifiedData.voltageL12 = d.l12_v || 0;
-                            unifiedData.voltageL23 = d.l23_v || 0;
-                            unifiedData.voltageL31 = d.l31_v || 0;
+                            unifiedData.voltageL1 = d.l1n_v;
+                            unifiedData.voltageL2 = d.l2n_v;
+                            unifiedData.voltageL3 = d.l3n_v;
+                            unifiedData.frequency = d.freq_r_hz; // Assuming Gen Freq L1
+                            // Calculate average voltage if needed
+                            unifiedData.avgVoltage = Math.round((d.l1n_v + d.l2n_v + d.l3n_v) / 3);
+                            unifiedData.voltageL12 = d.l12_v;
+                            unifiedData.voltageL23 = d.l23_v;
+                            unifiedData.voltageL31 = d.l31_v;
                         }
 
                         // Map ENGINE_51_59
                         if (d.block === 'ENGINE_51_59') {
-                            unifiedData.oilPressure = d.oilPressure_bar || 0;
-                            unifiedData.engineTemp = d.coolantTemp_c || 0;
-                            unifiedData.fuelLevel = d.fuelLevel_pct || 0;
-                            unifiedData.rpm = d.rpm || 0;
-                            unifiedData.batteryVoltage = d.batteryVoltage_v || 0;
+                            unifiedData.oilPressure = d.oilPressure_bar;
+                            unifiedData.engineTemp = d.coolantTemp_c;
+                            unifiedData.fuelLevel = d.fuelLevel_pct;
+                            unifiedData.rpm = d.rpm;
+                            unifiedData.batteryVoltage = d.batteryVoltage_v;
                         }
 
                         // Map RUNHOURS_60 (Hours Only)
@@ -139,7 +141,7 @@ export const initMqttService = (io) => {
                             unifiedData.mainsVoltageL2 = d.l2l3_v || 0;
                             unifiedData.mainsVoltageL3 = d.l3l1_v || 0;
 
-                            unifiedData.mainsFrequency = d.freq_r_hz || 0;
+                            unifiedData.mainsFrequency = d.freq_r_hz;
                             unifiedData.mainsCurrentL1 = 0;
                             unifiedData.mainsCurrentL2 = 0;
                             unifiedData.mainsCurrentL3 = 0;
@@ -213,6 +215,18 @@ export const initMqttService = (io) => {
                             currentState = {};
                         }
 
+<<<<<<< HEAD
+                        if (fs.existsSync(stateFile)) {
+                            try {
+                                currentState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+                            } catch (e) {
+                                console.error('[MQTT] State File Read Error (Resetting):', e.message);
+                                currentState = {};
+                            }
+                        }
+
+                        // Merge new data with existing state for this device to preserve fields not in this packet
+=======
                         // Default schema to prevent undefined errors
                         const defaultSchema = {
                             voltageL1: 0, voltageL2: 0, voltageL3: 0,
@@ -226,10 +240,11 @@ export const initMqttService = (io) => {
                         };
 
                         // Merge logic: Defaults <- Existing from File <- New Unified Data
+>>>>>>> d802d47e00a384b30a186ba64d27a826d91acd90
                         const existingDeviceData = currentState[deviceId]?.data || {};
                         currentState[deviceId] = {
                             ...updatePayload,
-                            data: { ...defaultSchema, ...existingDeviceData, ...unifiedData }
+                            data: { ...existingDeviceData, ...unifiedData }
                         };
 
                         try {
@@ -369,27 +384,27 @@ export const initMqttService = (io) => {
                 // Sequência de Comandos (Relaxada - 2s por request)
                 // 1. Horímetro (60, 2 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 60, 2).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 60, 2));
                 }, 0);
 
                 // 2. Minutos (62, 1 reg)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 62, 1).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 62, 1));
                 }, 1000); // +1s
 
                 // 3. Motor (51, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 51, 9).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 51, 9));
                 }, 3000); // +2s
 
                 // 4. Tensões Gerador (1, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 1, 9).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 1, 9));
                 }, 5000); // +2s
 
                 // 5. Tensões Rede (14, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 14, 9).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 14, 9));
                     console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 7000); // +2s
             });
