@@ -132,7 +132,7 @@ const Dashboard: React.FC = () => {
                         <Activity size={10} /> Tensão
                       </p>
                       <span className="text-lg font-bold text-white">
-                        {gen.status === GeneratorStatus.RUNNING ? Math.round((gen.voltageL1 + gen.voltageL2 + gen.voltageL3) / 3) : 0}
+                        {gen.status === GeneratorStatus.RUNNING ? Math.round(((gen.voltageL1 || 0) + (gen.voltageL2 || 0) + (gen.voltageL3 || 0)) / 3) : 0}
                       </span>
                       <span className="text-xs text-gray-500 ml-1">V</span>
                     </div>
