@@ -203,7 +203,13 @@ export const initMqttService = (io) => {
                             if (d.opMode !== 'UNKNOWN') {
                                 unifiedData.operationMode = d.opMode;
                             }
-                            console.log(`[MQTT-DEBUG] Mapping STATUS_78 -> Mode: ${d.opMode}`);
+                            unifiedData.reg78_hex = d.reg78_hex;
+                            console.log(`[MQTT-DEBUG] Mapping STATUS_78 -> Mode: ${d.opMode}, Hex: ${d.reg78_hex}`);
+                        }
+
+                        // Map PROBE_16
+                        if (d.block === 'PROBE_16') {
+                            unifiedData.reg16 = d.reg16;
                         }
 
                         // Recalculate Combined Decimal Run Hours if cache has data
