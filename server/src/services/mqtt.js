@@ -147,6 +147,11 @@ export const initMqttService = (io) => {
                             unifiedData.mainsCurrentL3 = 0;
                         }
 
+                        // Map POWER_30 (Active Power)
+                        if (d.block === 'POWER_30') {
+                            unifiedData.activePower = d.activePower_kw || 0;
+                        }
+
                         // Recalculate Combined Decimal Run Hours if cache has data
                         if (global.mqttDeviceCache[deviceId]) {
                             const h = global.mqttDeviceCache[deviceId].runHours;
@@ -393,8 +398,13 @@ export const initMqttService = (io) => {
                 // 5. Tensões Rede (14, 9 regs)
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 14, 9));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 7000); // +2s
+
+                // 6. Active Power (30, 2 regs)
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 30, 2));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 9000); // +2s
             });
         }
     }, 15000);

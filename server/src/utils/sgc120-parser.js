@@ -278,6 +278,20 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
+  // Bloco 30 (2 regs): Active Power (kW) - Requested by User
+  if (startAddress === 30 && regs.length >= 2) {
+    // 32-bit Value (High/Low or Low/High? Assuming High/Low based on typical modbus)
+    // User response: 00 00 00 00 (Hex) -> 0
+    const val32 = (u16(regs, 0) << 16) | u16(regs, 1);
+
+    // Scale? Usually kW is integer or 0.1. User didn't specify.
+    // If it's a generator, 100kW is 100. Let's try raw first.
+    return {
+      block: "POWER_30",
+      activePower_kw: val32
+    };
+  }
+
   // Se cair aqui, é um bloco que você ainda não mapeou
   return {
     block: "UNKNOWN",
