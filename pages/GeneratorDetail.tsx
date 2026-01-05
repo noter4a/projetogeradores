@@ -584,7 +584,7 @@ const GeneratorDetail: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <span className="text-xs text-gray-400 block">Frequência</span>
-                        <span className="text-lg font-bold text-white">{(gen.mainsFrequency || 0).toFixed(1)} Hz</span>
+                        <span className="text-lg font-bold text-white">{Number(gen.mainsFrequency || 0).toFixed(1)} Hz</span>
                       </div>
                     </div>
                     <table className="w-full text-left">
@@ -598,18 +598,18 @@ const GeneratorDetail: React.FC = () => {
                       <tbody className="divide-y divide-gray-800 text-sm">
                         <tr>
                           <td className="py-2 text-gray-300 font-bold">L1</td>
-                          <td className="py-2 text-right text-white">{(gen.mainsVoltageL1 || 0).toFixed(0)} V</td>
-                          <td className="py-2 text-right text-blue-400">{(gen.mainsCurrentL1 || 0).toFixed(0)} A</td>
+                          <td className="py-2 text-right text-white">{Number(gen.mainsVoltageL1 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-blue-400">{Number(gen.mainsCurrentL1 || 0).toFixed(0)} A</td>
                         </tr>
                         <tr>
                           <td className="py-2 text-gray-300 font-bold">L2</td>
-                          <td className="py-2 text-right text-white">{(gen.mainsVoltageL2 || 0).toFixed(0)} V</td>
-                          <td className="py-2 text-right text-blue-400">{(gen.mainsCurrentL2 || 0).toFixed(0)} A</td>
+                          <td className="py-2 text-right text-white">{Number(gen.mainsVoltageL2 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-blue-400">{Number(gen.mainsCurrentL2 || 0).toFixed(0)} A</td>
                         </tr>
                         <tr>
                           <td className="py-2 text-gray-300 font-bold">L3</td>
-                          <td className="py-2 text-right text-white">{(gen.mainsVoltageL3 || 0).toFixed(0)} V</td>
-                          <td className="py-2 text-right text-blue-400">{(gen.mainsCurrentL3 || 0).toFixed(0)} A</td>
+                          <td className="py-2 text-right text-white">{Number(gen.mainsVoltageL3 || 0).toFixed(0)} V</td>
+                          <td className="py-2 text-right text-blue-400">{Number(gen.mainsCurrentL3 || 0).toFixed(0)} A</td>
                         </tr>
                       </tbody>
                     </table>
