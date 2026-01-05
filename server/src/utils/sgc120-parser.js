@@ -296,10 +296,11 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // Bloco 43 (2 regs): Apparent Energy (kVAh) - Requested by User
   if (startAddress === 43 && regs.length >= 2) {
     const val32 = (u16(regs, 0) << 16) | u16(regs, 1);
-    console.log(`[PARSER] Apparent Energy (43): ${val32} kVAh`);
+    const scaled = scale01(val32 * 0.1);
+    console.log(`[PARSER] Apparent Energy (43): Raw=${val32}, Scaled=${scaled} kVAh`);
     return {
       block: "ENERGY_43",
-      apparentEnergy_kvah: val32
+      apparentEnergy_kvah: scaled
     };
   }
 
