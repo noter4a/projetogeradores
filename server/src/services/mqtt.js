@@ -59,6 +59,26 @@ export const initMqttService = (io) => {
         try {
             console.log(`[MQTT] Message received on ${topic}`); // Debug log
             const payload = JSON.parse(message.toString());
+<<<<<<< HEAD
+=======
+            // console.log('[MQTT] Payload Keys:', Object.keys(payload));
+            if (payload.modbusRequest && payload.modbusRequest.length === 0) {
+                console.log('[MQTT] WARNING: Received payload with EMPTY modbusRequest! Gateway might have rejected the command.');
+            } else if (payload.modbusRequest) {
+                console.log(`[MQTT] Payload Request[0]: ${payload.modbusRequest[0]}`);
+                if (payload.modbusResponse) {
+                    const resp = payload.modbusResponse[0];
+                    if (!resp || resp === "") {
+                        console.log(`[MQTT] ⚠️  TIMEOUT/CONFLICT: Modem received 'Empty' from Generator. (Check Cable or Parallel Software)`);
+                    } else {
+                        console.log(`[MQTT] Payload Response[0]: ${resp}`);
+                    }
+                } else {
+                    console.log('[MQTT] Payload has NO modbusResponse field.');
+                }
+            }
+
+>>>>>>> d802d47e00a384b30a186ba64d27a826d91acd90
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
             // New SGC-120 Decoding Logic
@@ -182,8 +202,20 @@ export const initMqttService = (io) => {
                     // 2. Update Current State (generators_state.json)
                     try {
                         const stateFile = path.join(__dirname, '../../logs/generators_state.json');
-                        let currentState = {};
+                        // FIX: Load existing state instead of wiping it
+                        if (fs.existsSync(stateFile)) {
+                            try {
+                                const rawState = fs.readFileSync(stateFile, 'utf8');
+                                currentState = JSON.parse(rawState);
+                            } catch (readErr) {
+                                console.error('[MQTT] Failed to read state file, starting fresh:', readErr.message);
+                                currentState = {};
+                            }
+                        } else {
+                            currentState = {};
+                        }
 
+<<<<<<< HEAD
                         if (fs.existsSync(stateFile)) {
                             try {
                                 currentState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
@@ -194,13 +226,32 @@ export const initMqttService = (io) => {
                         }
 
                         // Merge new data with existing state for this device to preserve fields not in this packet
+=======
+                        // Default schema to prevent undefined errors
+                        const defaultSchema = {
+                            voltageL1: 0, voltageL2: 0, voltageL3: 0,
+                            currentL1: 0, currentL2: 0, currentL3: 0,
+                            mainsVoltageL1: 0, mainsVoltageL2: 0, mainsVoltageL3: 0,
+                            mainsVoltageL12: 0, mainsVoltageL23: 0, mainsVoltageL31: 0,
+                            fuelLevel: 0, engineTemp: 0, oilPressure: 0, batteryVoltage: 0,
+                            rpm: 0, totalHours: 0, runHours: 0,
+                            activePower: 0, powerFactor: 0,
+                            frequency: 0, mainsFrequency: 0
+                        };
+
+                        // Merge logic: Defaults <- Existing from File <- New Unified Data
+>>>>>>> d802d47e00a384b30a186ba64d27a826d91acd90
                         const existingDeviceData = currentState[deviceId]?.data || {};
                         currentState[deviceId] = {
                             ...updatePayload,
                             data: { ...existingDeviceData, ...unifiedData }
                         };
 
-                        fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
+                        try {
+                            fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
+                        } catch (writeErr) {
+                            console.error('[MQTT] Failed to write state file:', writeErr.message);
+                        }
 
                         // 3. Broadcast to Real-Time Clients (Moved inside Try block to access currentState)
                         if (currentState[deviceId]) {
@@ -302,8 +353,11 @@ export const initMqttService = (io) => {
         try {
             const res = await pool.query("SELECT connection_info FROM generators");
             devicesToPoll = res.rows
-                .map(row => row.connection_info?.ip) // Use 'ip' field as the MQTT ID
-                .filter(ip => ip); // Filter out null/undefined
+                .filter(row => row.connection_info && row.connection_info.ip) // Ensure valid config
+                .map(row => ({
+                    id: row.connection_info.ip,
+                    slaveId: parseInt(row.connection_info.slaveId) || 1 // Fetch Slave ID or Default 1
+                }));
 
             // console.log('[MQTT] Updated Polling List:', devicesToPoll);
         } catch (err) {
@@ -322,9 +376,12 @@ export const initMqttService = (io) => {
         if (client && client.connected) {
             if (devicesToPoll.length === 0) return;
 
-            devicesToPoll.forEach(deviceId => {
-                const slaveId = 1;
+            devicesToPoll.forEach(device => {
+                const deviceId = device.id;
+                const slaveId = device.slaveId; // Dynamic Slave ID
                 const topic = `devices/command/${deviceId}`;
+
+                // console.log(`[MQTT-POLL] Polling ${deviceId} (Slave ${slaveId})...`);
 
                 // Sequência de Comandos (Relaxada - 2s por request)
                 // 1. Horímetro (60, 2 regs)
