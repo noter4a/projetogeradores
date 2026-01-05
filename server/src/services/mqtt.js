@@ -170,8 +170,9 @@ export const initMqttService = (io) => {
                             unifiedData.apparentEnergy = d.apparentEnergy_kvah || 0;
                         }
 
-                        // Map CURRENT_10 (Generator Currents)
+                        // Map CURRENT_10
                         if (d.block === 'CURRENT_10') {
+                            console.log(`[MQTT-DEBUG] Mapping CURRENT_10: L1=${d.curr_l1}, L2=${d.curr_l2}, L3=${d.curr_l3}`);
                             unifiedData.currentL1 = d.curr_l1 || 0;
                             unifiedData.currentL2 = d.curr_l2 || 0;
                             unifiedData.currentL3 = d.curr_l3 || 0;
