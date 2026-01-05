@@ -59,18 +59,6 @@ export const initMqttService = (io) => {
         try {
             console.log(`[MQTT] Message received on ${topic}`); // Debug log
             const payload = JSON.parse(message.toString());
-            // console.log('[MQTT] Payload Keys:', Object.keys(payload));
-            if (payload.modbusRequest && payload.modbusRequest.length === 0) {
-                console.log('[MQTT] WARNING: Received payload with EMPTY modbusRequest! Gateway might have rejected the command.');
-            } else if (payload.modbusRequest) {
-                console.log(`[MQTT] Payload Request[0]: ${payload.modbusRequest[0]}`);
-                if (payload.modbusResponse) {
-                    console.log(`[MQTT] Payload Response[0]: ${payload.modbusResponse[0] ? payload.modbusResponse[0] : "EMPTY_STRING"}`);
-                } else {
-                    console.log('[MQTT] Payload has NO modbusResponse field.');
-                }
-            }
-
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
             // New SGC-120 Decoding Logic
@@ -96,25 +84,24 @@ export const initMqttService = (io) => {
 
                         // Map GEN_VOLT_FREQ_1_9
                         if (d.block === 'GEN_VOLT_FREQ_1_9') {
-                            unifiedData.voltageL1 = d.l1n_v || 0;
-                            unifiedData.voltageL2 = d.l2n_v || 0;
-                            unifiedData.voltageL3 = d.l3n_v || 0;
-                            unifiedData.frequency = d.freq_r_hz || 0;
-                            // Calculate average voltage
-                            const avgVal = (unifiedData.voltageL1 + unifiedData.voltageL2 + unifiedData.voltageL3) / 3;
-                            unifiedData.avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
-                            unifiedData.voltageL12 = d.l12_v || 0;
-                            unifiedData.voltageL23 = d.l23_v || 0;
-                            unifiedData.voltageL31 = d.l31_v || 0;
+                            unifiedData.voltageL1 = d.l1n_v;
+                            unifiedData.voltageL2 = d.l2n_v;
+                            unifiedData.voltageL3 = d.l3n_v;
+                            unifiedData.frequency = d.freq_r_hz; // Assuming Gen Freq L1
+                            // Calculate average voltage if needed
+                            unifiedData.avgVoltage = Math.round((d.l1n_v + d.l2n_v + d.l3n_v) / 3);
+                            unifiedData.voltageL12 = d.l12_v;
+                            unifiedData.voltageL23 = d.l23_v;
+                            unifiedData.voltageL31 = d.l31_v;
                         }
 
                         // Map ENGINE_51_59
                         if (d.block === 'ENGINE_51_59') {
-                            unifiedData.oilPressure = d.oilPressure_bar || 0;
-                            unifiedData.engineTemp = d.coolantTemp_c || 0;
-                            unifiedData.fuelLevel = d.fuelLevel_pct || 0;
-                            unifiedData.rpm = d.rpm || 0;
-                            unifiedData.batteryVoltage = d.batteryVoltage_v || 0;
+                            unifiedData.oilPressure = d.oilPressure_bar;
+                            unifiedData.engineTemp = d.coolantTemp_c;
+                            unifiedData.fuelLevel = d.fuelLevel_pct;
+                            unifiedData.rpm = d.rpm;
+                            unifiedData.batteryVoltage = d.batteryVoltage_v;
                         }
 
                         // Map RUNHOURS_60 (Hours Only)
@@ -134,7 +121,7 @@ export const initMqttService = (io) => {
                             unifiedData.mainsVoltageL2 = d.l2l3_v || 0;
                             unifiedData.mainsVoltageL3 = d.l3l1_v || 0;
 
-                            unifiedData.mainsFrequency = d.freq_r_hz || 0;
+                            unifiedData.mainsFrequency = d.freq_r_hz;
                             unifiedData.mainsCurrentL1 = 0;
                             unifiedData.mainsCurrentL2 = 0;
                             unifiedData.mainsCurrentL3 = 0;
@@ -197,68 +184,20 @@ export const initMqttService = (io) => {
                         const stateFile = path.join(__dirname, '../../logs/generators_state.json');
                         let currentState = {};
 
-                        // FIX: Force Fresh State on Update.
-                        // Do NOT load 'generators_state.json' here. The recursive merge below accumulates state in memory validly.
-                        // Loading from disk caused issues where old/corrupt data types (Strings) persisted and crashed Frontend.
-                        // The 'defaultSchema' below guarantees valid structure for new/empty slots.
-                        currentState = {};
+                        if (fs.existsSync(stateFile)) {
+                            try {
+                                currentState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+                            } catch (e) {
+                                console.error('[MQTT] State File Read Error (Resetting):', e.message);
+                                currentState = {};
+                            }
+                        }
 
-                        // We still want to preserve OTHER devices if this update is for Device A, but we have data for Device B in memory?
-                        // Wait. 'currentState' variable here is SCOPED to this block?
-                        // No. 'currentState' is declared at line 185.
-                        // But wait! If I set currentState = {}, I wipe ALL devices from memory on every packet?
-                        // YES! That is BAD if I have multiple devices.
-                        // But here I am INSIDE the `client.on('message')` callback.
-                        // If I wipe `currentState` every packet, the Socket emits only the single device.
-                        // `io.emit` sends `currentState[deviceId]`.
-                        // Frontend receives one device.
-
-                        // BUT... does `mqtt.js` keep a global state? 
-                        // Line 185: `let currentState = {};`
-                        // It reads from FILE every time?
-                        // YES. The original code read from file EVERY PACKET.
-                        // That is inefficient but that was the design.
-                        // So setting `currentState = {}` means we start with Empty.
-                        // Then we look for `currentState[deviceId]`. Undefined.
-                        // Then we use `defaultSchema`.
-                        // Then we save to File.
-                        // So effective state is "What is in File".
-
-                        // RE-THINK:
-                        // I want to ERASE the File content ONCE (on boot) or assume it's bad.
-                        // If I set `currentState = {}` here, I am effectively ignoring the file content.
-                        // Then I write ONE device to the file (overwriting everything?).
-                        // Line 203: `fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));`
-                        // If `currentState` only has Device A. Device B is lost from file.
-                        // This effectively wipes history.
-                        // Given user has "Ciklo1" and "Ciklo0".
-                        // If Ciklo1 updates, Ciklo0 is wiped.
-                        // This is acceptable to fix the crash ("Resolve essa porra").
-                        // The file will rebuild as devices report in.
-
-                        // CRITICAL: The crash comes from the FILE providing garbage.
-                        // Ignoring the file here is the right move to stop the crash.
-                        // Data from other devices will reappear as soon as they report (Polling loop handles it).
-
-                        currentState = {}; // Start fresh, ignore disk junk.
-
-                        // Default schema to prevent undefined errors in Frontend (e.g. .toFixed failure)
-                        const defaultSchema = {
-                            voltageL1: 0, voltageL2: 0, voltageL3: 0,
-                            currentL1: 0, currentL2: 0, currentL3: 0,
-                            mainsVoltageL1: 0, mainsVoltageL2: 0, mainsVoltageL3: 0,
-                            mainsVoltageL12: 0, mainsVoltageL23: 0, mainsVoltageL31: 0,
-                            fuelLevel: 0, engineTemp: 0, oilPressure: 0, batteryVoltage: 0,
-                            rpm: 0, totalHours: 0, runHours: 0,
-                            activePower: 0, powerFactor: 0,
-                            frequency: 0, mainsFrequency: 0
-                        };
-
-                        // Merge logic: Defaults <- Existing from File <- New Unified Data
+                        // Merge new data with existing state for this device to preserve fields not in this packet
                         const existingDeviceData = currentState[deviceId]?.data || {};
                         currentState[deviceId] = {
                             ...updatePayload,
-                            data: { ...defaultSchema, ...existingDeviceData, ...unifiedData }
+                            data: { ...existingDeviceData, ...unifiedData }
                         };
 
                         fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
@@ -390,27 +329,27 @@ export const initMqttService = (io) => {
                 // Sequência de Comandos (Relaxada - 2s por request)
                 // 1. Horímetro (60, 2 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 60, 2).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 60, 2));
                 }, 0);
 
                 // 2. Minutos (62, 1 reg)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 62, 1).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 62, 1));
                 }, 1000); // +1s
 
                 // 3. Motor (51, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 51, 9).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 51, 9));
                 }, 3000); // +2s
 
                 // 4. Tensões Gerador (1, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 1, 9).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 1, 9));
                 }, 5000); // +2s
 
                 // 5. Tensões Rede (14, 9 regs)
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 14, 9).toString('hex'));
+                    client.publish(topic, createModbusReadRequest(slaveId, 14, 9));
                     console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 7000); // +2s
             });
