@@ -606,42 +606,6 @@ const GeneratorDetail: React.FC = () => {
                     </table>
                   </div>
 
-                  {/* MAINS COLUMN (NEW) */}
-                  <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50 mt-4">
-                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
-                      <div className="flex items-center gap-2 text-blue-500">
-                        <UtilityPole size={18} />
-                        <span className="font-bold uppercase tracking-wider text-sm">Rede (Mains)</span>
-                      </div>
-                    </div>
-                    <table className="w-full text-left">
-                      <thead className="text-[10px] text-gray-500 uppercase">
-                        <tr>
-                          <th className="pb-2">Fase</th>
-                          <th className="pb-2 text-right">Tensão</th>
-                          <th className="pb-2 text-right">Corrente</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800 text-sm">
-                        <tr>
-                          <td className="py-2 text-gray-300 font-bold">L1</td>
-                          <td className="py-2 text-right text-ciklo-yellow">{Number(gen.mainsVoltageL1 || 0).toFixed(0)} V</td>
-                          <td className="py-2 text-right text-green-400">{Number(gen.mainsCurrentL1 || 0).toFixed(0)} A</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 text-gray-300 font-bold">L2</td>
-                          <td className="py-2 text-right text-ciklo-yellow">{Number(gen.mainsVoltageL2 || 0).toFixed(0)} V</td>
-                          <td className="py-2 text-right text-green-400">{Number(gen.mainsCurrentL2 || 0).toFixed(0)} A</td>
-                        </tr>
-                        <tr>
-                          <td className="py-2 text-gray-300 font-bold">L3</td>
-                          <td className="py-2 text-right text-ciklo-yellow">{Number(gen.mainsVoltageL3 || 0).toFixed(0)} V</td>
-                          <td className="py-2 text-right text-green-400">{Number(gen.mainsCurrentL3 || 0).toFixed(0)} A</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
                   {/* MAINS COLUMN */}
                   <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
                     <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">

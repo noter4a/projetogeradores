@@ -196,12 +196,6 @@ export const initMqttService = (io) => {
                             // Also map to reg23/24 for debug view
                             unifiedData.reg23 = d.reg23;
                             unifiedData.reg24 = d.reg24;
-
-                            // USER REQUEST: Duplicate Load Current to Mains Current as well
-                            // (Since Load Current = value consumed, valid for both sources)
-                            unifiedData.mainsCurrentL1 = d.loadCurr_l1 || 0;
-                            unifiedData.mainsCurrentL2 = d.loadCurr_l2 || 0;
-                            unifiedData.mainsCurrentL3 = d.loadCurr_l3 || 0;
                         }
 
                         // Recalculate Combined Decimal Run Hours if cache has data
