@@ -198,6 +198,14 @@ export const initMqttService = (io) => {
                             unifiedData.reg24 = d.reg24;
                         }
 
+                        // Map STATUS_78 (Correct Mode Status)
+                        if (d.block === 'STATUS_78') {
+                            if (d.opMode !== 'UNKNOWN') {
+                                unifiedData.operationMode = d.opMode;
+                            }
+                            console.log(`[MQTT-DEBUG] Mapping STATUS_78 -> Mode: ${d.opMode}`);
+                        }
+
                         // Recalculate Combined Decimal Run Hours if cache has data
                         if (global.mqttDeviceCache[deviceId]) {
                             const h = global.mqttDeviceCache[deviceId].runHours;
@@ -482,8 +490,13 @@ export const initMqttService = (io) => {
                 // 12. MODE PROBE (16, 1 reg) - Checking if this is the real status
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 16, 1));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 18000); // +1s
+
+                // 13. REAL STATUS PROBE (78, 1 reg) - User confirmed 0x6480 from Reg 78
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 78, 1));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 19000); // +1s
             });
         }
     }, 15000);
