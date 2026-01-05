@@ -327,9 +327,7 @@ export const initMqttService = (io) => {
         console.error('[MQTT] Connection Error:', err.message);
     });
 
-    client.on('error', (err) => {
-        console.error('[MQTT] Connection Error:', err.message);
-    });
+
 
     // Dynamic Polling List
     let devicesToPoll = [];
