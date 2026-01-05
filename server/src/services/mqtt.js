@@ -155,9 +155,7 @@ export const initMqttService = (io) => {
                             unifiedData.mainsVoltageL31 = d.l3l1_v || 0;
 
                             unifiedData.mainsFrequency = d.freq_r_hz || 0;
-                            unifiedData.mainsCurrentL1 = 0;
-                            unifiedData.mainsCurrentL2 = 0;
-                            unifiedData.mainsCurrentL3 = 0;
+                            // REMOVED: Do not overwrite mains current with 0
                         }
 
                         // Map POWER_30 (Active Power)
@@ -180,10 +178,11 @@ export const initMqttService = (io) => {
 
                         // Map MAINS_CURRENT_116
                         if (d.block === 'MAINS_CURRENT_116') {
-                            unifiedData.mainsCurrentL1 = d.mainsCurr_l1 || 0;
-                            unifiedData.mainsCurrentL2 = d.mainsCurr_l2 || 0;
-                            unifiedData.mainsCurrentL3 = d.mainsCurr_l3 || 0;
-                            console.log(`[MQTT-DEBUG] Mapping MAINS_CURRENT_116: ${d.mainsCurr_l1}, ${d.mainsCurr_l2}, ${d.mainsCurr_l3}`);
+                            // User request: Use Generator Current for Mains. Disabling this to prevent overwrite.
+                            // unifiedData.mainsCurrentL1 = d.mainsCurr_l1 || 0;
+                            // unifiedData.mainsCurrentL2 = d.mainsCurr_l2 || 0;
+                            // unifiedData.mainsCurrentL3 = d.mainsCurr_l3 || 0;
+                            console.log(`[MQTT-DEBUG] IGNORED MAINS_CURRENT_116: ${d.mainsCurr_l1}, ${d.mainsCurr_l2}, ${d.mainsCurr_l3}`);
                         }
 
                         // Map LOAD_CURRENT_23 (New Authority for Current)
