@@ -32,6 +32,9 @@ const TOPIC = 'devices/data/#';
  * Initializes the MQTT Service
  * @param {Object} io - The Socket.io server instance
  */
+// Initialize Cache
+global.mqttDeviceCache = {};
+
 export const initMqttService = (io) => {
     console.log(`[MQTT] Connecting to ${BROKER_URL}...`);
 

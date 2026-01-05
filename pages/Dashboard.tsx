@@ -35,8 +35,8 @@ const Dashboard: React.FC = () => {
   const { generators: allGenerators } = useGenerators();
 
   // Filter generators based on user assignment (Admins see all)
-  const generators = user?.role === UserRole.ADMIN 
-    ? allGenerators 
+  const generators = user?.role === UserRole.ADMIN
+    ? allGenerators
     : allGenerators.filter(g => user?.assignedGeneratorIds?.includes(g.id));
 
   const runningGens = generators.filter(g => g.status === GeneratorStatus.RUNNING).length;
@@ -67,7 +67,7 @@ const Dashboard: React.FC = () => {
           <div className="text-center py-16 bg-ciklo-card rounded-xl border border-gray-800 border-dashed">
             <p className="text-gray-400 text-lg">Nenhum gerador monitorado ou atribuído.</p>
             {user?.role === UserRole.ADMIN && (
-              <button 
+              <button
                 onClick={() => navigate('/add-generator')}
                 className="mt-4 text-ciklo-orange font-medium hover:underline"
               >
@@ -78,7 +78,7 @@ const Dashboard: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {generators.map((gen) => (
-              <div 
+              <div
                 key={gen.id}
                 onClick={() => navigate(`/generator/${gen.id}`)}
                 className="bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden hover:border-ciklo-orange transition-all duration-300 cursor-pointer group hover:shadow-xl hover:shadow-orange-900/10 relative"
@@ -92,11 +92,11 @@ const Dashboard: React.FC = () => {
                         <span className="truncate">{gen.location}</span>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 shrink-0">
-                       <div className="flex items-center gap-2">
-                         <StatusBadge status={gen.status} />
-                       </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={gen.status} />
+                      </div>
                     </div>
                   </div>
 
@@ -112,7 +112,7 @@ const Dashboard: React.FC = () => {
                       </div>
                       {/* Fuel Bar */}
                       <div className="w-full bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full rounded-full transition-all duration-500 ${gen.fuelLevel < 20 ? 'bg-red-500' : 'bg-ciklo-yellow'}`}
                           style={{ width: `${gen.fuelLevel}%` }}
                         ></div>
@@ -132,7 +132,7 @@ const Dashboard: React.FC = () => {
                         <Activity size={10} /> Tensão
                       </p>
                       <span className="text-lg font-bold text-white">
-                        {gen.status === GeneratorStatus.RUNNING ? Math.round((gen.voltageL1 + gen.voltageL2 + gen.voltageL3)/3) : 0}
+                        {gen.status === GeneratorStatus.RUNNING ? Math.round((gen.voltageL1 + gen.voltageL2 + gen.voltageL3) / 3) : 0}
                       </span>
                       <span className="text-xs text-gray-500 ml-1">V</span>
                     </div>
@@ -141,18 +141,18 @@ const Dashboard: React.FC = () => {
                       <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
                         <Clock size={10} /> Horas
                       </p>
-                      <span className="text-lg font-bold text-white">{gen.totalHours}</span>
+                      <span className="text-lg font-bold text-white">{Number(gen.totalHours || 0).toFixed(2)}</span>
                       <span className="text-xs text-gray-500 ml-1">h</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-800">
-                     <span className="text-xs text-gray-500">
-                       Modelo: <span className="text-gray-300 font-medium">{gen.model}</span>
-                     </span>
-                     <span className="text-xs text-ciklo-orange font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                       Monitoramento Completo <ChevronRight size={14} />
-                     </span>
+                    <span className="text-xs text-gray-500">
+                      Modelo: <span className="text-gray-300 font-medium">{gen.model}</span>
+                    </span>
+                    <span className="text-xs text-ciklo-orange font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                      Monitoramento Completo <ChevronRight size={14} />
+                    </span>
                   </div>
                 </div>
               </div>
