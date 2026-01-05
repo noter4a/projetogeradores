@@ -145,6 +145,22 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     result.runHours = val32;
   }
 
+  // Bloco 0 (1 reg): Operation Mode
+  // 1=Stop, 2=Start(Manual), 4=Auto, 64=Ack
+  if (startAddress === 0 && regs.length >= 1) {
+    const val = u16(regs, 0);
+    let mode = 'UNKNOWN';
+    if (val === 4) mode = 'AUTO';
+    else if (val === 2) mode = 'MANUAL';
+    else if (val === 1) mode = 'INHIBITED'; // Or STOP
+
+    return {
+      block: "MODE_0",
+      opMode: mode,
+      reg0: val
+    };
+  }
+
   // Bloco 1–9 (9 regs): Tensões + freq (conforme seu comando 0001 qty 0009)
   if (startAddress === 1 && regs.length >= 9) {
     // Ajuste os nomes conforme a tabela do seu XLSX (algumas tabelas usam ordem levemente diferente).

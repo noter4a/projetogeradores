@@ -114,6 +114,12 @@ export const initMqttService = (io) => {
                             unifiedData.voltageL12 = d.l12_v || 0;
                             unifiedData.voltageL23 = d.l23_v || 0;
                             unifiedData.voltageL31 = d.l31_v || 0;
+                            unifiedData.voltageL31 = d.l31_v || 0;
+                        }
+
+                        // Map MODE_0
+                        if (d.block === 'MODE_0') {
+                            unifiedData.operationMode = d.opMode;
                         }
 
                         // Map ENGINE_51_59
@@ -256,6 +262,7 @@ export const initMqttService = (io) => {
                             mainsBreakerClosed: false, genBreakerClosed: false, // NEW
                             mainsVoltageL1: 0, mainsVoltageL2: 0, mainsVoltageL3: 0,
                             mainsVoltageL12: 0, mainsVoltageL23: 0, mainsVoltageL31: 0,
+                            operationMode: 'MANUAL', // Default
                             fuelLevel: 0, engineTemp: 0, oilPressure: 0, batteryVoltage: 0,
                             rpm: 0, totalHours: 0, runHours: 0,
                             activePower: 0, powerFactor: 0,
@@ -446,9 +453,14 @@ export const initMqttService = (io) => {
 
                 // 9. STATUS PROBE (23-29) - Finding Breaker Status
                 setTimeout(() => {
-                    client.publish(topic, createModbusReadRequest(slaveId, 23, 7));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                    client.publish(topic, createModbusReadRequest(slaveId, 23, 3)); // Fixed len
                 }, 15000); // +2s
+
+                // 10. OPERATION MODE (0, 1 reg)
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 0, 1));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 16000); // +1s
             });
         }
     }, 15000);
