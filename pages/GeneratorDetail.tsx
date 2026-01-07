@@ -614,17 +614,17 @@ const GeneratorDetail: React.FC = () => {
                             <tr>
                               <td className="py-2 text-gray-300 font-bold">L1-L2</td>
                               <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL12 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
+                              <td className="py-2 text-right text-blue-400">{Number(gen.currentL1 || 0).toFixed(0)} A</td>
                             </tr>
                             <tr>
                               <td className="py-2 text-gray-300 font-bold">L2-L3</td>
                               <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL23 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
+                              <td className="py-2 text-right text-blue-400">{Number(gen.currentL2 || 0).toFixed(0)} A</td>
                             </tr>
                             <tr>
                               <td className="py-2 text-gray-300 font-bold">L3-L1</td>
                               <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL31 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-gray-600 text-xs italic">-</td>
+                              <td className="py-2 text-right text-blue-400">{Number(gen.currentL3 || 0).toFixed(0)} A</td>
                             </tr>
                           </>
                         )}
