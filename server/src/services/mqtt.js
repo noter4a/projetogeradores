@@ -163,6 +163,12 @@ export const initMqttService = (io) => {
                             unifiedData.activePower = d.activePower_kw || 0;
                         }
 
+                        // Map ACTIVE_POWER_29 (New Authority)
+                        if (d.block === 'ACTIVE_POWER_29') {
+                            unifiedData.activePower = d.activePower_kw || 0;
+                            console.log(`[MQTT-DEBUG] Mapping ACTIVE_POWER_29 -> ${d.activePower_kw} kW`);
+                        }
+
                         // Map ENERGY_43 (Apparent Energy)
                         if (d.block === 'ENERGY_43') {
                             unifiedData.apparentEnergy = d.apparentEnergy_kvah || 0;
@@ -510,8 +516,13 @@ export const initMqttService = (io) => {
                 // 13. REAL STATUS PROBE (78, 1 reg) - User confirmed 0x6480 from Reg 78
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 78, 1));
-                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 19000); // +1s
+
+                // 14. ACTIVE POWER (29, 1 reg) - User requested new source
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 29, 1));
+                    console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
+                }, 20000); // +1s
             });
         }
     }, 15000);

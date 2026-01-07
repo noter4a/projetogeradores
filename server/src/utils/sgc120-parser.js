@@ -145,6 +145,20 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     result.runHours = val32;
   }
 
+  // Bloco 29 (1 reg): Active Power Total (User Override)
+  // Request: 01 03 00 1D 00 01 (Reg 29, 1 qty) -> Resp: 00 1D (29 decimal)
+  // Display Correction: User says 29 = 2.9 kW. Scaling factor 0.1.
+  if (startAddress === 29 && regs.length === 1) {
+    const raw = u16(regs, 0); // 16-bit
+    const kw = scale01(raw * 0.1); // Scaling factor 0.1
+    console.log(`[PARSER] Active Power (29): Raw=${raw}, Scaled=${kw} kW`);
+    return {
+      block: "ACTIVE_POWER_29",
+      activePower_kw: kw,
+      reg29_raw: raw
+    };
+  }
+
   // Bloco 0 (1 reg): Operation Mode (Legacy/Alternative?)
   // Keeping this for now, but Reg 78 seems to be the real one.
   if (startAddress === 0 && regs.length >= 1) {
