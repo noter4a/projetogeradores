@@ -100,6 +100,20 @@ const GeneratorDetail: React.FC = () => {
   const [voltageViewMode, setVoltageViewMode] = useState<'PN' | 'PP'>('PN');
   const [mainsVoltageViewMode, setMainsVoltageViewMode] = useState<'PN' | 'PP'>('PN');
 
+  // Local Alarm Acknowledgment State
+  const [acknowledgedAlarms, setAcknowledgedAlarms] = useState<Set<string>>(new Set());
+
+  // Reset acknowledgment if alarm clears
+  useEffect(() => {
+    if (!gen?.alarms?.startFailure) {
+      setAcknowledgedAlarms(prev => {
+        const next = new Set(prev);
+        next.delete('startFailure');
+        return next;
+      });
+    }
+  }, [gen?.alarms?.startFailure]);
+
   // Access check
   const hasAccess = user?.role === UserRole.ADMIN || (user?.assignedGeneratorIds?.includes(id || ''));
 
@@ -965,7 +979,7 @@ const GeneratorDetail: React.FC = () => {
       }
 
       {/* CRITICAL ALARM POPUP */}
-      {gen?.alarms?.startFailure && (
+      {gen?.alarms?.startFailure && !acknowledgedAlarms.has('startFailure') && (
         <div className="fixed inset-0 z-[100] bg-red-900/40 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-300">
           <div className="bg-[#1a0f0f] border-2 border-red-500 rounded-2xl p-8 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.5)] relative overflow-hidden">
             {/* Background Pulse Effect */}
@@ -992,8 +1006,7 @@ const GeneratorDetail: React.FC = () => {
 
               <button
                 onClick={() => {
-                  // Optional: Add logic to acknowledge alarm locally if needed
-                  // For now, just a close button, but the alarm might persist if backend is sending true
+                  setAcknowledgedAlarms(prev => new Set(prev).add('startFailure'));
                 }}
                 className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-red-500/30 uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
               >
