@@ -145,6 +145,22 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     result.runHours = val32;
   }
 
+  // Bloco 66 (1 reg): Alarm Code
+  // User Request: 0x0131 (305 decimal) = "Falha Partida" (Start Failure)
+  if (startAddress === 66 && regs.length === 1) {
+    const code = u16(regs, 0);
+    // Logic: 305 is confirmed as Start Failure. We can map others later.
+    const isStartFailure = (code === 305 || code === 0x0131);
+
+    console.log(`[PARSER] Alarm Code (66): ${code} (Hex: 0x${code.toString(16)}) -> StartFailure: ${isStartFailure}`);
+
+    return {
+      block: "ALARM_66",
+      alarmCode: code,
+      startFailure: isStartFailure
+    };
+  }
+
   // Bloco 29 (1 reg): Active Power Total (User Override)
   // Request: 01 03 00 1D 00 01 (Reg 29, 1 qty) -> Resp: 00 1D (29 decimal)
   // Display Correction: User says 29 = 2.9 kW. Scaling factor 0.1.

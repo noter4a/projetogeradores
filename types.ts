@@ -53,6 +53,13 @@ export interface Generator {
   activeEnergy?: number; // kWh
   reactiveEnergy?: number; // kVArh
 
+  // Alarms
+  alarms?: {
+    startFailure?: boolean;
+    [key: string]: boolean | undefined;
+  };
+  alarmCode?: number;
+
   voltageL12?: number;
   voltageL23?: number;
   voltageL31?: number; // Phase-Phase Voltages

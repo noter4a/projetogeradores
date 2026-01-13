@@ -166,7 +166,14 @@ export const initMqttService = (io) => {
                         // Map ACTIVE_POWER_29 (New Authority)
                         if (d.block === 'ACTIVE_POWER_29') {
                             unifiedData.activePower = d.activePower_kw || 0;
-                            console.log(`[MQTT-DEBUG] Mapping ACTIVE_POWER_29 -> ${d.activePower_kw} kW`);
+                            // console.log(`[MQTT-DEBUG] Mapping ACTIVE_POWER_29 -> ${d.activePower_kw} kW`);
+                        }
+
+                        // Map ALARM_66
+                        if (d.block === 'ALARM_66') {
+                            if (!unifiedData.alarms) unifiedData.alarms = {};
+                            unifiedData.alarms.startFailure = d.startFailure;
+                            unifiedData.alarmCode = d.alarmCode;
                         }
 
                         // Map ENERGY_43 (Apparent Energy)
@@ -487,6 +494,11 @@ export const initMqttService = (io) => {
                 setTimeout(() => {
                     client.publish(topic, createModbusReadRequest(slaveId, 43, 2));
                 }, 11000); // +2s
+
+                // 8. Alarm Code (66, 1 reg) - NEW
+                setTimeout(() => {
+                    client.publish(topic, createModbusReadRequest(slaveId, 66, 1));
+                }, 12000); // +1s
 
                 // 8. Correntes (10, 3 regs) - MOVED TO END
                 setTimeout(() => {

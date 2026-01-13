@@ -963,6 +963,46 @@ const GeneratorDetail: React.FC = () => {
           </div>
         )
       }
+
+      {/* CRITICAL ALARM POPUP */}
+      {gen?.alarms?.startFailure && (
+        <div className="fixed inset-0 z-[100] bg-red-900/40 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-300">
+          <div className="bg-[#1a0f0f] border-2 border-red-500 rounded-2xl p-8 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.5)] relative overflow-hidden">
+            {/* Background Pulse Effect */}
+            <div className="absolute inset-0 bg-red-500/10 animate-pulse pointer-events-none"></div>
+
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-6 animate-bounce">
+                <AlertOctagon size={48} className="text-red-500" />
+              </div>
+
+              <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-widest">
+                FALHA DE PARTIDA
+              </h2>
+
+              <p className="text-red-200 mb-8 text-lg">
+                O gerador falhou ao tentar iniciar o motor. Verifique o equipamento imediatamente.
+              </p>
+
+              <div className="w-full bg-red-900/30 rounded-lg p-4 border border-red-800 mb-6">
+                <p className="text-red-400 text-xs uppercase font-bold mb-1">Código do Alarme</p>
+                <p className="text-2xl font-mono font-bold text-white">0x{Number(gen.alarmCode).toString(16).toUpperCase()}</p>
+                <p className="text-xs text-gray-400 mt-1">Reg 66 (Modbus)</p>
+              </div>
+
+              <button
+                onClick={() => {
+                  // Optional: Add logic to acknowledge alarm locally if needed
+                  // For now, just a close button, but the alarm might persist if backend is sending true
+                }}
+                className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-red-500/30 uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reconhecer Alarme
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div >
   );
 };
