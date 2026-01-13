@@ -583,27 +583,47 @@ export const sendControlCommand = (deviceId, action) => {
 
     let valueToWrite = 0;
 
-    // Logic based on User Documentation (Reg 0)
-    // STOP=1, START=2, AUTO=4, ACK=64
+    // Logic based on User Documentation / Confirmation
+    // START: Pulse on Reg 99 (0x63). Write 1 -> Wait 500ms -> Write 0.
+
+    if (action === 'start') {
+        // Step 1: Write 1
+        const buf1 = createModbusWriteRequest(slaveId, 99, 1);
+        const payload1 = JSON.stringify({
+            modbusCommand: buf1.toString('hex').toUpperCase(),
+            modbusPeriodicitySeconds: 0
+        });
+        client.publish(topic, payload1);
+        console.log(`[MQTT-CMD] START STEP 1: Sent 1 to Reg 99`);
+
+        // Step 2: Write 0 (after 500ms)
+        setTimeout(() => {
+            const buf2 = createModbusWriteRequest(slaveId, 99, 0);
+            const payload2 = JSON.stringify({
+                modbusCommand: buf2.toString('hex').toUpperCase(),
+                modbusPeriodicitySeconds: 0
+            });
+            client.publish(topic, payload2);
+            console.log(`[MQTT-CMD] START STEP 2: Sent 0 to Reg 99`);
+        }, 500);
+
+        return true;
+    }
+
+    // Default Logic for Other Commands (Reg 16 - To be confirmed if they move to 99)
+    // Keeping Reg 16 for others for now based on previous config
+    let regAddress = 16;
+
     switch (action) {
         case 'stop':
-            valueToWrite = 1; // SGC STOP KEY
-            break;
-        case 'start':
-            valueToWrite = 2; // SGC START KEY
-            break;
-        case 'manual':
-            valueToWrite = 2; // SGC START (Manual?)
+            valueToWrite = 1;
             break;
         case 'auto':
-            valueToWrite = 4; // SGC AUTO KEY
+            valueToWrite = 4;
             break;
         case 'ack':
         case 'reset':
             valueToWrite = 64; // SGC ACK KEY
-            break;
-        case 'inhibit':
-            valueToWrite = 1; // Stop/Inhibited
             break;
         default:
             console.warn(`[MQTT-CMD] Unknown action: ${action}`);
