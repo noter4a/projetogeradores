@@ -189,8 +189,8 @@ const GeneratorDetail: React.FC = () => {
     // Fallback to gen.id only if IP is missing.
     const targetId = gen.ip || gen.id;
 
-    // Use HTTP API instead of Socket.IO for guaranteed delivery/feedback
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/control`, {
+    // Use HTTP API (Relative path works for both Dev Proxy and Nginx Prod)
+    fetch('/api/control', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ generatorId: targetId, action })
