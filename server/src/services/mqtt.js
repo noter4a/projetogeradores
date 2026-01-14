@@ -596,78 +596,84 @@ function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
 
 // Exported Command Function
 export const sendControlCommand = (deviceId, action) => {
-    const client = global.mqttClient;
-    if (!client || !client.connected) {
-        const reason = lastConnectionError || 'Unknown connection issue';
-        console.error(`[MQTT-CMD] Client not connected. Reason: ${reason}`);
-        return { success: false, error: `MQTT Not Connected. Reason: ${reason}` };
+    try {
+        const client = global.mqttClient;
+        if (!client || !client.connected) {
+            const reason = lastConnectionError || 'Unknown connection issue';
+            console.error(`[MQTT-CMD] Client not connected. Reason: ${reason}`);
+            return { success: false, error: `MQTT Not Connected. Reason: ${reason}` };
+        }
+
+        // Since devicesToPoll is local to this module, we can access it.
+        // Ensure we find the slaveId.
+        const device = devicesToPoll.find(d => d.id === deviceId);
+
+        if (!device) {
+            const available = devicesToPoll.map(d => d.id).join(', ');
+            console.error(`[MQTT-CMD] Device ${deviceId} not found. Available: [${available}]`);
+            return { success: false, error: `Device '${deviceId}' not found in polling list. Available: [${available}]` };
+        }
+
+        const { slaveId } = device;
+        const topic = `devices/command/${deviceId}`;
+
+        console.log(`[MQTT-CMD] Action: ${action} -> Device: ${deviceId} (Slave ${slaveId})`);
+
+        let valueToWrite = 0;
+
+        // Logic based on User Documentation / Confirmation
+        // START: Pulse on Reg 99 (0x63). Write 1 -> Wait 500ms -> Write 0.
+
+        if (action === 'start') {
+            // Dynamic generation (Function 16, Reg 0, Val 2)
+            // Works for ANY Slave ID.
+            // If Slave=1, generates: 01 10 00 00 00 01 02 00 02 27 91 (Confirmed)
+
+            const buf = createModbusWriteMultipleRequest(slaveId, 0, [2]);
+
+            const payload = JSON.stringify({
+                modbusCommand: buf.toString('hex').toUpperCase(),
+                modbusPeriodicitySeconds: 0
+            });
+
+            client.publish(topic, payload);
+            console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2). Hex: ${buf.toString('hex').toUpperCase()}`);
+            return { success: true };
+        }
+
+        // Default Logic for Other Commands (Reg 16 - To be confirmed if they move to 99)
+        // Keeping Reg 16 for others for now based on previous config
+        let regAddress = 16;
+
+        switch (action) {
+            case 'stop':
+                valueToWrite = 1;
+                break;
+            case 'auto':
+                valueToWrite = 4;
+                break;
+            case 'ack':
+            case 'reset':
+                valueToWrite = 64; // SGC ACK KEY
+                break;
+            default:
+                console.warn(`[MQTT-CMD] Unknown action: ${action}`);
+                return { success: false, error: `Unknown action '${action}'` };
+        }
+
+        if (valueToWrite > 0) {
+            // CORRECTION: User Datasheet says Reg 16 is "DG mode change command"
+            // Previous value 0 was incorrect.
+            const buffer = createModbusWriteRequest(slaveId, 16, valueToWrite);
+            client.publish(topic, buffer);
+            console.log(`[MQTT-CMD] Sent Modbus Write: Reg 16 = ${valueToWrite} to ${topic}`);
+            return { success: true };
+        }
+
+        return { success: false, error: 'No value to write for this action' };
+
+    } catch (err) {
+        console.error('[MQTT-CMD] Critical Error:', err);
+        return { success: false, error: `Backend Crash: ${err.message || String(err)}` };
     }
-
-    // Since devicesToPoll is local to this module, we can access it.
-    // Ensure we find the slaveId.
-    const device = devicesToPoll.find(d => d.id === deviceId);
-
-    if (!device) {
-        const available = devicesToPoll.map(d => d.id).join(', ');
-        console.error(`[MQTT-CMD] Device ${deviceId} not found. Available: [${available}]`);
-        return { success: false, error: `Device '${deviceId}' not found in polling list. Available: [${available}]` };
-    }
-
-    const { slaveId } = device;
-    const topic = `devices/command/${deviceId}`;
-
-    console.log(`[MQTT-CMD] Action: ${action} -> Device: ${deviceId} (Slave ${slaveId})`);
-
-    let valueToWrite = 0;
-
-    // Logic based on User Documentation / Confirmation
-    // START: Pulse on Reg 99 (0x63). Write 1 -> Wait 500ms -> Write 0.
-
-    if (action === 'start') {
-        // Dynamic generation (Function 16, Reg 0, Val 2)
-        // Works for ANY Slave ID.
-        // If Slave=1, generates: 01 10 00 00 00 01 02 00 02 27 91 (Confirmed)
-
-        const buf = createModbusWriteMultipleRequest(slaveId, 0, [2]);
-
-        const payload = JSON.stringify({
-            modbusCommand: buf.toString('hex').toUpperCase(),
-            modbusPeriodicitySeconds: 0
-        });
-
-        client.publish(topic, payload);
-        console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2). Hex: ${buf.toString('hex').toUpperCase()}`);
-        return { success: true };
-    }
-
-    // Default Logic for Other Commands (Reg 16 - To be confirmed if they move to 99)
-    // Keeping Reg 16 for others for now based on previous config
-    let regAddress = 16;
-
-    switch (action) {
-        case 'stop':
-            valueToWrite = 1;
-            break;
-        case 'auto':
-            valueToWrite = 4;
-            break;
-        case 'ack':
-        case 'reset':
-            valueToWrite = 64; // SGC ACK KEY
-            break;
-        default:
-            console.warn(`[MQTT-CMD] Unknown action: ${action}`);
-            return { success: false, error: `Unknown action '${action}'` };
-    }
-
-    if (valueToWrite > 0) {
-        // CORRECTION: User Datasheet says Reg 16 is "DG mode change command"
-        // Previous value 0 was incorrect.
-        const buffer = createModbusWriteRequest(slaveId, 16, valueToWrite);
-        client.publish(topic, buffer);
-        console.log(`[MQTT-CMD] Sent Modbus Write: Reg 16 = ${valueToWrite} to ${topic}`);
-        return { success: true };
-    }
-
-    return { success: false, error: 'No value to write for this action' };
 };
