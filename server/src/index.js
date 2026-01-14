@@ -264,7 +264,9 @@ router.post('/control', async (req, res) => {
         }
     } catch (err) {
         console.error('[API] Control Error:', err);
-        res.status(500).json({ success: false, error: err.message });
+        // FIX: Ensure we return a string message even if err is not a standard Error object
+        const finalError = (err && err.message) ? err.message : String(err);
+        res.status(500).json({ success: false, error: finalError });
     }
 });
 
