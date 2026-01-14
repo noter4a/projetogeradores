@@ -51,6 +51,7 @@ export const initMqttService = (io) => {
     }
 
     client = mqtt.connect(BROKER_URL, OPTIONS);
+    global.mqttClient = client; // FIX: Expose to global scope for sendControlCommand
 
     client.on('connect', () => {
         console.log('[MQTT] Connected');
