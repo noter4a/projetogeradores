@@ -559,6 +559,28 @@ function createModbusWriteRequest(slaveId, address, value) {
     return buffer;
 }
 
+// Helper for Function 16 (Write Multiple Registers)
+function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
+    const quantity = values.length;
+    const byteCount = quantity * 2;
+    const buffer = Buffer.alloc(7 + byteCount + 2); // 7 header + bytes + 2 crc
+
+    buffer.writeUInt8(slaveId, 0);
+    buffer.writeUInt8(16, 1); // Func 16
+    buffer.writeUInt16BE(startAddress, 2);
+    buffer.writeUInt16BE(quantity, 4);
+    buffer.writeUInt8(byteCount, 6);
+
+    for (let i = 0; i < quantity; i++) {
+        buffer.writeUInt16BE(values[i], 7 + (i * 2));
+    }
+
+    const crc = calculateCRC(buffer.slice(0, 7 + byteCount));
+    buffer.writeUInt16LE(crc, 7 + byteCount);
+
+    return buffer;
+}
+
 // Exported Command Function
 export const sendControlCommand = (deviceId, action) => {
     const client = global.mqttClient;
@@ -587,26 +609,16 @@ export const sendControlCommand = (deviceId, action) => {
     // START: Pulse on Reg 99 (0x63). Write 1 -> Wait 500ms -> Write 0.
 
     if (action === 'start') {
-        // Step 1: Write 1
-        const buf1 = createModbusWriteRequest(slaveId, 99, 1);
-        const payload1 = JSON.stringify({
-            modbusCommand: buf1.toString('hex').toUpperCase(),
+        // Send Function 16 to Register 0 with Value 2 (User Request)
+        const buf = createModbusWriteMultipleRequest(slaveId, 0, [2]);
+
+        const payload = JSON.stringify({
+            modbusCommand: buf.toString('hex').toUpperCase(),
             modbusPeriodicitySeconds: 0
         });
-        client.publish(topic, payload1);
-        console.log(`[MQTT-CMD] START STEP 1: Sent 1 to Reg 99`);
 
-        // Step 2: Write 0 (after 500ms)
-        setTimeout(() => {
-            const buf2 = createModbusWriteRequest(slaveId, 99, 0);
-            const payload2 = JSON.stringify({
-                modbusCommand: buf2.toString('hex').toUpperCase(),
-                modbusPeriodicitySeconds: 0
-            });
-            client.publish(topic, payload2);
-            console.log(`[MQTT-CMD] START STEP 2: Sent 0 to Reg 99`);
-        }, 500);
-
+        client.publish(topic, payload);
+        console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2)`);
         return true;
     }
 
