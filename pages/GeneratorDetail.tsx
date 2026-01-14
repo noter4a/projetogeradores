@@ -186,14 +186,34 @@ const GeneratorDetail: React.FC = () => {
     // If not, I will add `import { socket } from '../context/GeneratorContext';`
 
     // Use gen.ip (which maps to MQTT Device ID e.g., "Ciklo1") if available.
-    // Fallback to gen.id only if IP is missing (though likely configuration error then).
+    // Fallback to gen.id only if IP is missing.
     const targetId = gen.ip || gen.id;
-    socket.emit('control_generator', { generatorId: targetId, action });
 
-    // Simulate delay for UI feedback
-    setTimeout(() => {
-      setControlLoading(null);
-    }, 2000);
+    // Use HTTP API instead of Socket.IO for guaranteed delivery/feedback
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/control`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ generatorId: targetId, action })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) {
+          console.error('Command Failed:', data.message);
+          alert(`Falha ao enviar comando: ${data.message}`);
+        } else {
+          console.log('Command Sent:', data.message);
+        }
+      })
+      .catch(err => {
+        console.error('Network Error:', err);
+        alert('Erro de conexão ao enviar comando.');
+      })
+      .finally(() => {
+        // Minimum loading time for UX
+        setTimeout(() => {
+          setControlLoading(null);
+        }, 500);
+      });
   }
 
 

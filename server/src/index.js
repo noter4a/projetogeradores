@@ -247,6 +247,26 @@ router.post('/auth/login', async (req, res) => {
     }
 });
 
+// Control Route (HTTP > Socket for reliability)
+router.post('/control', async (req, res) => {
+    const { generatorId, action } = req.body;
+    console.log(`[API] Received Control Command (HTTP): ${action} for ${generatorId}`);
+
+    try {
+        const { sendControlCommand } = await import('./services/mqtt.js');
+        const success = sendControlCommand(generatorId, action);
+
+        if (success) {
+            res.json({ success: true, message: `Command ${action} sent to ${generatorId}` });
+        } else {
+            res.status(400).json({ success: false, message: 'Failed to find device or connection.' });
+        }
+    } catch (err) {
+        console.error('[API] Control Error:', err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // Generator Routes
 
 // GET /api/generators
