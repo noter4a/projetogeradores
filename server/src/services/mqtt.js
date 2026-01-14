@@ -596,6 +596,29 @@ function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
     return buffer;
 }
 
+// Helper: Trigger Burst Polling for immediate feedback
+const triggerBurstPolling = (client, topic, slaveId) => {
+    let count = 0;
+    const max = 15; // 30 seconds total (2s interval)
+
+    console.log(`[MQTT-BURST] Iniciando Polling Acelerado para ${topic}`);
+
+    const interval = setInterval(() => {
+        count++;
+        if (count > max || !client.connected) {
+            clearInterval(interval);
+            console.log(`[MQTT-BURST] Fim do Polling Acelerado para ${topic}`);
+            return;
+        }
+
+        // Poll Critical Registers: Alarm (66), Status (78/0), and Voltages (1)
+        client.publish(topic, createModbusReadRequest(slaveId, 66, 1)); // Alarm
+        setTimeout(() => client.publish(topic, createModbusReadRequest(slaveId, 78, 1)), 500); // Status
+        setTimeout(() => client.publish(topic, createModbusReadRequest(slaveId, 1, 9)), 1000); // Voltage Check
+
+    }, 2000); // Every 2 seconds
+};
+
 // Exported Command Function
 export const sendControlCommand = (deviceId, action) => {
     try {
@@ -639,7 +662,12 @@ export const sendControlCommand = (deviceId, action) => {
             });
 
             client.publish(topic, payload);
+            client.publish(topic, payload);
             console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2). Hex: ${buf.toString('hex').toUpperCase()}`);
+
+            // Trigger Burst Polling for immediate feedback
+            triggerBurstPolling(client, topic, slaveId);
+
             return { success: true };
         }
 
