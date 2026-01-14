@@ -17,6 +17,7 @@ if (!fs.existsSync(logDir)) {
 }
 
 let client;
+let lastConnectionError = null;
 
 // Configuration
 const BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtts://painel.ciklogeradores.com.br:8883';
@@ -37,6 +38,7 @@ global.mqttDeviceCache = {};
 
 export const initMqttService = (io) => {
     console.log(`[MQTT] Connecting to ${BROKER_URL}...`);
+    lastConnectionError = null;
 
     // Force create file log on startup to verify volume mapping
     try {
@@ -52,10 +54,20 @@ export const initMqttService = (io) => {
 
     client.on('connect', () => {
         console.log('[MQTT] Connected');
+        lastConnectionError = null;
         client.subscribe(TOPIC, (err) => {
             if (!err) console.log(`[MQTT] Subscribed to ${TOPIC}`);
             else console.error('[MQTT] Subscription error:', err);
         });
+    });
+
+    client.on('error', (err) => {
+        console.error('[MQTT] Connection Error:', err.message);
+        lastConnectionError = err.message;
+    });
+
+    client.on('offline', () => {
+        if (!lastConnectionError) lastConnectionError = "Client went offline";
     });
 
     client.on('message', (topic, message) => {
@@ -585,8 +597,9 @@ function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
 export const sendControlCommand = (deviceId, action) => {
     const client = global.mqttClient;
     if (!client || !client.connected) {
-        console.error('[MQTT-CMD] Client not connected');
-        return { success: false, error: 'MQTT Client not connected to broker' };
+        const reason = lastConnectionError || 'Unknown connection issue';
+        console.error(`[MQTT-CMD] Client not connected. Reason: ${reason}`);
+        return { success: false, error: `MQTT Not Connected. Reason: ${reason}` };
     }
 
     // Since devicesToPoll is local to this module, we can access it.
