@@ -446,6 +446,22 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
+  // Bloco 66 (1 reg): Alarm Code - NEW
+  // Returns hex code of the alarm. 0 = No Alarm.
+  if (startAddress === 66 && regs.length >= 1) {
+    const code = u16(regs, 0);
+    // 0x0131 = Fail to start (Falha de Partida)
+    const isStartFailure = (code === 0x0131);
+
+    console.log(`[PARSER] Alarm (66): Code=0x${code.toString(16).toUpperCase()} (StartFailure=${isStartFailure})`);
+
+    return {
+      block: "ALARM_66",
+      alarmCode: code,
+      startFailure: isStartFailure
+    };
+  }
+
   // Se cair aqui, é um bloco que você ainda não mapeou
   return {
     block: "UNKNOWN",
