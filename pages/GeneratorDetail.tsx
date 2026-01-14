@@ -185,7 +185,10 @@ const GeneratorDetail: React.FC = () => {
     // Let's check imports.
     // If not, I will add `import { socket } from '../context/GeneratorContext';`
 
-    socket.emit('control_generator', { generatorId: gen.id, action });
+    // Use gen.ip (which maps to MQTT Device ID e.g., "Ciklo1") if available.
+    // Fallback to gen.id only if IP is missing (though likely configuration error then).
+    const targetId = gen.ip || gen.id;
+    socket.emit('control_generator', { generatorId: targetId, action });
 
     // Simulate delay for UI feedback
     setTimeout(() => {
