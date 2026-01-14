@@ -18,6 +18,7 @@ if (!fs.existsSync(logDir)) {
 
 let client;
 let lastConnectionError = null;
+let devicesToPoll = [];
 
 // Configuration
 const BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtts://painel.ciklogeradores.com.br:8883';
@@ -436,7 +437,8 @@ export const initMqttService = (io) => {
 
 
     // Dynamic Polling List
-    let devicesToPoll = [];
+    // Dynamic Polling List
+    // Note: devicesToPoll is now module-scoped above
 
     const updatePollingList = async () => {
         try {
