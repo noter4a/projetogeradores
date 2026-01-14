@@ -254,12 +254,13 @@ router.post('/control', async (req, res) => {
 
     try {
         const { sendControlCommand } = await import('./services/mqtt.js');
-        const success = sendControlCommand(generatorId, action);
+        const result = sendControlCommand(generatorId, action); // Returns { success, error }
 
-        if (success) {
+        if (result && result.success) {
             res.json({ success: true, message: `Command ${action} sent to ${generatorId}` });
         } else {
-            res.status(400).json({ success: false, message: 'Failed to find device or connection.' });
+            const errorMessage = result?.error || 'Failed to find device or connection.';
+            res.status(400).json({ success: false, message: errorMessage });
         }
     } catch (err) {
         console.error('[API] Control Error:', err);

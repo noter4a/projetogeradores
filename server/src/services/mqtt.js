@@ -586,16 +586,17 @@ export const sendControlCommand = (deviceId, action) => {
     const client = global.mqttClient;
     if (!client || !client.connected) {
         console.error('[MQTT-CMD] Client not connected');
-        return false;
+        return { success: false, error: 'MQTT Client not connected to broker' };
     }
 
     // Since devicesToPoll is local to this module, we can access it.
     // Ensure we find the slaveId.
-    // devicesToPoll is updated periodically.
     const device = devicesToPoll.find(d => d.id === deviceId);
+
     if (!device) {
-        console.error(`[MQTT-CMD] Device ${deviceId} not found in polling list`);
-        return false;
+        const available = devicesToPoll.map(d => d.id).join(', ');
+        console.error(`[MQTT-CMD] Device ${deviceId} not found. Available: [${available}]`);
+        return { success: false, error: `Device '${deviceId}' not found in polling list. Available: [${available}]` };
     }
 
     const { slaveId } = device;
@@ -622,7 +623,7 @@ export const sendControlCommand = (deviceId, action) => {
 
         client.publish(topic, payload);
         console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2). Hex: ${buf.toString('hex').toUpperCase()}`);
-        return true;
+        return { success: true };
     }
 
     // Default Logic for Other Commands (Reg 16 - To be confirmed if they move to 99)
@@ -642,7 +643,7 @@ export const sendControlCommand = (deviceId, action) => {
             break;
         default:
             console.warn(`[MQTT-CMD] Unknown action: ${action}`);
-            return false;
+            return { success: false, error: `Unknown action '${action}'` };
     }
 
     if (valueToWrite > 0) {
@@ -651,8 +652,8 @@ export const sendControlCommand = (deviceId, action) => {
         const buffer = createModbusWriteRequest(slaveId, 16, valueToWrite);
         client.publish(topic, buffer);
         console.log(`[MQTT-CMD] Sent Modbus Write: Reg 16 = ${valueToWrite} to ${topic}`);
-        return true;
+        return { success: true };
     }
 
-    return false;
+    return { success: false, error: 'No value to write for this action' };
 };
