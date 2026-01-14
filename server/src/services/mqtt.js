@@ -609,7 +609,10 @@ export const sendControlCommand = (deviceId, action) => {
     // START: Pulse on Reg 99 (0x63). Write 1 -> Wait 500ms -> Write 0.
 
     if (action === 'start') {
-        // Send Function 16 to Register 0 with Value 2 (User Request)
+        // Dynamic generation (Function 16, Reg 0, Val 2)
+        // Works for ANY Slave ID.
+        // If Slave=1, generates: 01 10 00 00 00 01 02 00 02 27 91 (Confirmed)
+
         const buf = createModbusWriteMultipleRequest(slaveId, 0, [2]);
 
         const payload = JSON.stringify({
@@ -618,7 +621,7 @@ export const sendControlCommand = (deviceId, action) => {
         });
 
         client.publish(topic, payload);
-        console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2)`);
+        console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2). Hex: ${buf.toString('hex').toUpperCase()}`);
         return true;
     }
 
