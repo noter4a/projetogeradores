@@ -177,7 +177,7 @@ const initDb = async (retries = 15, delay = 5000) => {
                         connectionName: 'Modbus TCP',
                         controller: 'dse',
                         protocol: 'modbus_tcp',
-                        ip: 'Ciklo0',
+                        ip: 'Ciklo1',
                         port: '502',
                         slaveId: '1'
                     })]
