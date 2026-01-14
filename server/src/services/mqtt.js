@@ -3,7 +3,7 @@ import mqtt from 'mqtt';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { decodeSgc120Payload, createModbusReadRequest } from '../utils/sgc120-parser.js';
+import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
 import pool from '../db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -566,7 +566,7 @@ function createModbusWriteRequest(slaveId, address, value) {
     buffer.writeUInt16BE(value, 4);   // Value to write
 
     // CRC
-    const crc = calculateCRC(buffer.slice(0, 6));
+    const crc = crc16Modbus(buffer.slice(0, 6));
     buffer.writeUInt16LE(crc, 6);
 
     return buffer;
@@ -588,7 +588,7 @@ function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
         buffer.writeUInt16BE(values[i], 7 + (i * 2));
     }
 
-    const crc = calculateCRC(buffer.slice(0, 7 + byteCount));
+    const crc = crc16Modbus(buffer.slice(0, 7 + byteCount));
     buffer.writeUInt16LE(crc, 7 + byteCount);
 
     return buffer;
