@@ -19,6 +19,8 @@ services:
       context: ./server
     container_name: ciklo-api
     restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PORT=5000
       - DB_HOST=database
@@ -26,6 +28,7 @@ services:
       - DB_PASSWORD=ciklo_secret_db
       - DB_NAME=ciklo_geradores
       - JWT_SECRET=super_secret_jwt_key_change_me
+      - MQTT_BROKER_URL=mqtts://host.docker.internal:8883
     ports:
       - "5000:5000"
     volumes:
