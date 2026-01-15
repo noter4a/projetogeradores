@@ -677,6 +677,7 @@ export const sendControlCommand = (deviceId, action) => {
 
         switch (action) {
             case 'stop':
+            case 'manual': // FIX: Map manual to Stop/Reset/Manual Mode (Value 1)
                 valueToWrite = 1;
                 break;
             case 'auto':
