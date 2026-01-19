@@ -677,12 +677,37 @@ export const sendControlCommand = (deviceId, action) => {
             return { success: true };
         }
 
+
+
+        // STOP: Pulse on Reg 100 (0x64). Write 1 -> Wait 300ms -> Write 0. (User Request)
+        if (action === 'stop') {
+            const regAddress = 100;
+
+            // Step 1: Write 1
+            const buf1 = createModbusWriteRequest(slaveId, regAddress, 1);
+            client.publish(topic, buf1);
+            console.log(`[MQTT-CMD] STOP (Pulse Start): Sent Func 06 (Reg ${regAddress}, Val 1).`);
+
+            // Step 2: Wait 300ms -> Write 0
+            setTimeout(() => {
+                if (client && client.connected) {
+                    const buf2 = createModbusWriteRequest(slaveId, regAddress, 0);
+                    client.publish(topic, buf2);
+                    console.log(`[MQTT-CMD] STOP (Pulse End): Sent Func 06 (Reg ${regAddress}, Val 0).`);
+
+                    // Trigger Burst Polling to see effect
+                    triggerBurstPolling(client, topic, slaveId);
+                }
+            }, 300);
+
+            return { success: true };
+        }
+
         // Default Logic for Other Commands (Reg 16 - To be confirmed if they move to 99)
         // Keeping Reg 16 for others for now based on previous config
         let regAddress = 16;
 
         switch (action) {
-            case 'stop':
             case 'manual': // FIX: Map manual to Stop/Reset/Manual Mode (Value 1)
                 valueToWrite = 1;
                 break;
