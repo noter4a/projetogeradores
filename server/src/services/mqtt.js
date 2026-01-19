@@ -606,14 +606,17 @@ const triggerBurstPolling = (client, topic, slaveId) => {
     const poll = () => {
         if (!client.connected) return;
         // Poll Critical Registers: Alarm (66), Status (78/0), and Voltages (1)
+        console.log(`[MQTT-BURST] Envia 66 (Alarm) para ${topic}`);
         client.publish(topic, createModbusReadRequest(slaveId, 66, 1)); // Alarm
         setTimeout(() => client.publish(topic, createModbusReadRequest(slaveId, 78, 1)), 500); // Status
         setTimeout(() => client.publish(topic, createModbusReadRequest(slaveId, 1, 9)), 1000); // Voltage Check
         // console.log(`[MQTT-BURST] Ciclo ${count}/${max}`);
     };
 
-    // Execute immediately
-    poll();
+    // Execute with a small safety delay to avoid collision with the Write Command
+    setTimeout(() => {
+        poll();
+    }, 200);
 
     const interval = setInterval(() => {
         count++;
