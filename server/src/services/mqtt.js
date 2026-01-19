@@ -679,26 +679,21 @@ export const sendControlCommand = (deviceId, action) => {
 
 
 
-        // STOP: Pulse on Reg 100 (0x64). Write 1 -> Wait 300ms -> Write 0. (User Request)
+        // STOP: Func 16, Reg 0, Val 1.
+        // Hex: 01 10 00 00 00 01 02 00 01 [CRC]
         if (action === 'stop') {
-            const regAddress = 100;
+            const buf = createModbusWriteMultipleRequest(slaveId, 0, [1]);
 
-            // Step 1: Write 1
-            const buf1 = createModbusWriteRequest(slaveId, regAddress, 1);
-            client.publish(topic, buf1);
-            console.log(`[MQTT-CMD] STOP (Pulse Start): Sent Func 06 (Reg ${regAddress}, Val 1).`);
+            const payload = JSON.stringify({
+                modbusCommand: buf.toString('hex').toUpperCase(),
+                modbusPeriodicitySeconds: 0
+            });
 
-            // Step 2: Wait 300ms -> Write 0
-            setTimeout(() => {
-                if (client && client.connected) {
-                    const buf2 = createModbusWriteRequest(slaveId, regAddress, 0);
-                    client.publish(topic, buf2);
-                    console.log(`[MQTT-CMD] STOP (Pulse End): Sent Func 06 (Reg ${regAddress}, Val 0).`);
+            client.publish(topic, payload);
+            console.log(`[MQTT-CMD] STOP: Sent Func 16 (Reg 0, Val 1). Hex: ${buf.toString('hex').toUpperCase()}`);
 
-                    // Trigger Burst Polling to see effect
-                    triggerBurstPolling(client, topic, slaveId);
-                }
-            }, 300);
+            // Trigger Burst Polling for immediate feedback
+            triggerBurstPolling(client, topic, slaveId);
 
             return { success: true };
         }
