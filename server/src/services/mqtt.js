@@ -613,10 +613,10 @@ const triggerBurstPolling = (client, topic, slaveId) => {
         // console.log(`[MQTT-BURST] Ciclo ${count}/${max}`);
     };
 
-    // Execute with a small safety delay to avoid collision with the Write Command
+    // Execute with a safety delay (User Request: 10s) to avoid collision/processing time
     setTimeout(() => {
         poll();
-    }, 200);
+    }, 10000);
 
     const interval = setInterval(() => {
         count++;
