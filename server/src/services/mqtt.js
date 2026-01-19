@@ -620,20 +620,27 @@ const triggerBurstPolling = (client, topic, slaveId) => {
         // console.log(`[MQTT-BURST] Ciclo ${count}/${max}`);
     };
 
+    console.log(`[MQTT-BURST] Agendando Polling Acelerado para ${topic} (Início em 30s)...`);
+
     // Execute with a safety delay (User Request: 30s) to avoid collision/processing time
     setTimeout(() => {
-        poll();
-    }, 30000);
+        console.log(`[MQTT-BURST] Iniciando CICLO DE LEITURA para ${topic}`);
 
-    const interval = setInterval(() => {
-        count++;
-        if (count > max || !client.connected) {
-            clearInterval(interval);
-            console.log(`[MQTT-BURST] Fim do Polling Acelerado para ${topic}`);
-            return;
-        }
+        // Execute first immediately after delay
         poll();
-    }, 2000); // Every 2 seconds
+
+        // Start interval
+        const interval = setInterval(() => {
+            count++;
+            if (count > max || !client.connected) {
+                clearInterval(interval);
+                console.log(`[MQTT-BURST] Fim do Polling Acelerado para ${topic}`);
+                return;
+            }
+            poll();
+        }, 2000); // Every 2 seconds
+
+    }, 30000);
 };
 
 // Exported Command Function
