@@ -388,6 +388,13 @@ export const initMqttService = (io) => {
                                 WHERE id = $18 OR connection_info->>'ip' = $18
                             `;
 
+                            // Derive Status if missing (Fallback)
+                            // If Frequency > 20Hz -> Running, else Stopped (for burst polling updates)
+                            if (!unifiedData.status && unifiedData.frequency !== undefined) {
+                                unifiedData.status = unifiedData.frequency > 20 ? 'Running' : 'Stopped';
+                                console.log(`[MQTT] Derived status '${unifiedData.status}' from Freq: ${unifiedData.frequency}Hz`);
+                            }
+
                             const values = [
                                 unifiedData.voltageL1,
                                 unifiedData.voltageL2,
@@ -405,7 +412,7 @@ export const initMqttService = (io) => {
                                 unifiedData.mainsVoltageL2,
                                 unifiedData.mainsVoltageL3,
                                 unifiedData.mainsFrequency,
-                                unifiedData.status, // Can be undefined (Coalesce handles it)
+                                unifiedData.status, // Now populated by logic above if undefined
                                 // ID to match
                                 deviceId,
                                 unifiedData.voltageL12,

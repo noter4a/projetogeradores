@@ -225,15 +225,15 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     // Ajuste os nomes conforme a tabela do seu XLSX (algumas tabelas usam ordem levemente diferente).
     return {
       block: "GEN_VOLT_FREQ_1_9",
-      l1n_v: scale01(u16(regs, 0) * 0.1),
-      l2n_v: scale01(u16(regs, 1) * 0.1),
-      l3n_v: scale01(u16(regs, 2) * 0.1),
-      l12_v: scale01(u16(regs, 3) * 0.1), // Tensão Fase-Fase L1-L2 Scaled
-      l23_v: scale01(u16(regs, 4) * 0.1), // Tensão Fase-Fase L2-L3 Scaled
-      l31_v: scale01(u16(regs, 5) * 0.1), // Tensão Fase-Fase L3-L1 Scaled
-      freq_r_hz: scale01(u16(regs, 6) * 0.1),
-      freq_y_hz: scale01(u16(regs, 7) * 0.1),
-      freq_b_hz: scale01(u16(regs, 8) * 0.1),
+      voltageL1: scale01(u16(regs, 0) * 0.1),
+      voltageL2: scale01(u16(regs, 1) * 0.1),
+      voltageL3: scale01(u16(regs, 2) * 0.1),
+      voltageL12: scale01(u16(regs, 3) * 0.1), // Tensão Fase-Fase L1-L2 Scaled
+      voltageL23: scale01(u16(regs, 4) * 0.1), // Tensão Fase-Fase L2-L3 Scaled
+      voltageL31: scale01(u16(regs, 5) * 0.1), // Tensão Fase-Fase L3-L1 Scaled
+      frequency: scale01(u16(regs, 6) * 0.1),
+      // freq_y_hz: scale01(u16(regs, 7) * 0.1), // Ignoring usually same
+      // freq_b_hz: scale01(u16(regs, 8) * 0.1),
       ...result
     };
   }
