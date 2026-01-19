@@ -388,13 +388,6 @@ export const initMqttService = (io) => {
                                 WHERE id = $18 OR connection_info->>'ip' = $18
                             `;
 
-                            // Derive Status if missing (Fallback)
-                            // If Frequency > 20Hz -> Running, else Stopped (for burst polling updates)
-                            if (!unifiedData.status && unifiedData.frequency !== undefined) {
-                                unifiedData.status = unifiedData.frequency > 20 ? 'Running' : 'Stopped';
-                                console.log(`[MQTT] Derived status '${unifiedData.status}' from Freq: ${unifiedData.frequency}Hz`);
-                            }
-
                             const values = [
                                 unifiedData.voltageL1,
                                 unifiedData.voltageL2,
@@ -412,7 +405,7 @@ export const initMqttService = (io) => {
                                 unifiedData.mainsVoltageL2,
                                 unifiedData.mainsVoltageL3,
                                 unifiedData.mainsFrequency,
-                                unifiedData.status, // Now populated by logic above if undefined
+                                unifiedData.status, // Can be undefined (Coalesce handles it)
                                 // ID to match
                                 deviceId,
                                 unifiedData.voltageL12,
@@ -620,27 +613,20 @@ const triggerBurstPolling = (client, topic, slaveId) => {
         // console.log(`[MQTT-BURST] Ciclo ${count}/${max}`);
     };
 
-    console.log(`[MQTT-BURST] Agendando Polling Acelerado para ${topic} (Início em 30s)...`);
-
     // Execute with a safety delay (User Request: 30s) to avoid collision/processing time
     setTimeout(() => {
-        console.log(`[MQTT-BURST] Iniciando CICLO DE LEITURA para ${topic}`);
-
-        // Execute first immediately after delay
         poll();
-
-        // Start interval
-        const interval = setInterval(() => {
-            count++;
-            if (count > max || !client.connected) {
-                clearInterval(interval);
-                console.log(`[MQTT-BURST] Fim do Polling Acelerado para ${topic}`);
-                return;
-            }
-            poll();
-        }, 2000); // Every 2 seconds
-
     }, 30000);
+
+    const interval = setInterval(() => {
+        count++;
+        if (count > max || !client.connected) {
+            clearInterval(interval);
+            console.log(`[MQTT-BURST] Fim do Polling Acelerado para ${topic}`);
+            return;
+        }
+        poll();
+    }, 2000); // Every 2 seconds
 };
 
 // Exported Command Function
