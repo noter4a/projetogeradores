@@ -19,6 +19,7 @@ if (!fs.existsSync(logDir)) {
 let client;
 let lastConnectionError = null;
 let devicesToPoll = [];
+let pausedDevices = new Set(); // Prevent polling collisions during commands
 
 // Configuration
 const BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtts://painel.ciklogeradores.com.br:8883';
@@ -469,6 +470,13 @@ export const initMqttService = (io) => {
 
             devicesToPoll.forEach(device => {
                 const deviceId = device.id;
+
+                // SKIP if device is paused (Command execution in progress)
+                if (pausedDevices.has(deviceId)) {
+                    // console.log(`[MQTT-POLL] Skipping ${deviceId} (Paused for Command execution)`);
+                    return;
+                }
+
                 const slaveId = device.slaveId; // Dynamic Slave ID
                 const topic = `devices/command/${deviceId}`;
 
@@ -597,7 +605,7 @@ function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
 }
 
 // Helper: Restore Polling Configuration (User Request: Send full list after 30s)
-const restorePolling = (client, topic, slaveId) => {
+const restorePolling = (client, topic, slaveId, deviceId) => {
     console.log(`[MQTT-RESTORE] Aguardando 30s para restaurar lista de polling...`);
 
     setTimeout(() => {
@@ -633,6 +641,12 @@ const restorePolling = (client, topic, slaveId) => {
         client.publish(topic, payload);
         console.log(`[MQTT-RESTORE] Configuração enviada! Payload size: ${requests.length} items.`);
 
+        // UNPAUSE Polling
+        if (deviceId && pausedDevices.has(deviceId)) {
+            pausedDevices.delete(deviceId);
+            console.log(`[MQTT-RESTORE] Resuming main polling for ${deviceId}`);
+        }
+
     }, 30000); // 30 seconds delay
 };
 
@@ -645,6 +659,10 @@ export const sendControlCommand = (deviceId, action) => {
             console.error(`[MQTT-CMD] Client not connected. Reason: ${reason}`);
             return { success: false, error: `MQTT Not Connected. Reason: ${reason}` };
         }
+
+        // PAUSE Polling for this device to prevent collisions
+        pausedDevices.add(deviceId);
+        console.log(`[MQTT-CMD] Pausing polling for ${deviceId} (30s timeout)`);
 
         // Since devicesToPoll is local to this module, we can access it.
         // Ensure we find the slaveId.
@@ -703,7 +721,7 @@ export const sendControlCommand = (deviceId, action) => {
             console.log(`[MQTT-CMD] STOP: Sent Func 16 (Reg 0, Val 1). Hex: ${buf.toString('hex').toUpperCase()}`);
 
             // Trigger Restore Polling logic (Send full config after 30s)
-            restorePolling(client, topic, slaveId);
+            restorePolling(client, topic, slaveId, deviceId);
 
             return { success: true };
         }
