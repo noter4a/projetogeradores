@@ -348,8 +348,10 @@ export const initMqttService = (io) => {
 
                         // 3. Broadcast to Real-Time Clients (Moved inside Try block to access currentState)
                         if (currentState[deviceId]) {
+                            // console.log(`[MQTT-SOCKET] Emitting update for ${deviceId}`);
                             io.emit('generator:update', currentState[deviceId]);
                         } else {
+                            // console.log(`[MQTT-SOCKET] Emitting payload for ${deviceId}`);
                             io.emit('generator:update', updatePayload);
                         }
                     } catch (err) {
@@ -660,6 +662,12 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
             pausedDevices.delete(deviceId);
             console.log(`[MQTT-RESTORE] Resuming main polling for ${deviceId}`);
         }
+
+        // FORCE Immediate Status Check (Redundant) to update UI immediately
+        setTimeout(() => {
+            console.log(`[MQTT-RESTORE] Force checking status for ${deviceId}...`);
+            client.publish(topic, createModbusReadRequest(slaveId, 78, 1));
+        }, 2000);
 
     }, 30000); // 30 seconds delay
 };
