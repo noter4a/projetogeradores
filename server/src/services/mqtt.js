@@ -651,17 +651,23 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
 
         const payload = JSON.stringify({
             modbusRequest: requests,
-            modbusPeriodicitySeconds: 10 // User confirmed 10s or similar default
+            modbusPeriodicitySeconds: 30 // User requested 30s
         });
 
         client.publish(topic, payload);
         console.log(`[MQTT-RESTORE] Configuração enviada! Payload size: ${requests.length} items.`);
 
-        // UNPAUSE Polling
+        // UNPAUSE Polling - DISABLED
+        // Reason: We enabled Gateway Internal Polling (Periodicity: 10s) above.
+        // If we also resume Node.js polling, we double-poll and crash the modem.
+        // Leaving this device in 'pausedDevices' ensures Node.js stays silent and lets Gateway work.
+
+        /* 
         if (deviceId && pausedDevices.has(deviceId)) {
             pausedDevices.delete(deviceId);
             console.log(`[MQTT-RESTORE] Resuming main polling for ${deviceId}`);
         }
+        */
 
         // FORCE Immediate Status Check (Redundant) to update UI immediately
         setTimeout(() => {
