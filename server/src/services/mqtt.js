@@ -281,8 +281,24 @@ export const initMqttService = (io) => {
                     // For now, if RPM is 0 or undefined, effectively STOPPED unless we have other logic.
                     // But if it's a MAINS packet (no RPM), we shouldn't overwrite status to STOPPED if it was RUNNING.
                     // Safest: Only set status if RPM is present in this packet.
-                    if (unifiedData.rpm !== undefined) {
-                        unifiedData.status = (unifiedData.rpm > 100) ? 'RUNNING' : 'STOPPED';
+                    // AGENT FIX: Also check Voltage. If Gen Voltage > 50V, it is definitely RUNNING.
+                    if (unifiedData.rpm !== undefined || unifiedData.voltageL1 !== undefined) {
+                        const isRpmRunning = (unifiedData.rpm && unifiedData.rpm > 100);
+                        const isVoltageRunning = (unifiedData.voltageL1 && unifiedData.voltageL1 > 50);
+
+                        // IF either RPM or Voltage indicates running, set RUNNING.
+                        // But be careful: If Voltage is 0 and RPM is undefined, we shouldn't force STOPPED if we don't know RPM.
+                        // Logic:
+                        // If RPM is known: trust RPM.
+                        // If RPM is unknown (undefined) but Voltage > 50: trust Voltage.
+                        // If RPM is 0 and Voltage > 50: Trust Voltage (Sensor fail?).
+
+                        if (isRpmRunning || isVoltageRunning) {
+                            unifiedData.status = 'RUNNING';
+                        } else if (unifiedData.rpm !== undefined && unifiedData.rpm < 100) {
+                            // Only set STOPPED if RPM explicitly says so (and Voltage is low)
+                            if (!isVoltageRunning) unifiedData.status = 'STOPPED';
+                        }
                     }
 
                     const updatePayload = {
@@ -669,9 +685,14 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
         }
         */
 
-        // FORCE Immediate Status Check REMOVED
-        // Reason: It collides with the Gateway's internal polling cycle (T+30s).
-        // relying on the Gateway's natural first packet to update the UI.
+        // FORCE Immediate Status Check REMOVED conflict risk.
+        // AGENT FIX: Re-adding with a SAFE delay (Wait for first 30s cycle to likely finish).
+        // First Gateway Poll: T+0 (relative to restore). Length ~5s.
+        // Safe Window: T+10s.
+        setTimeout(() => {
+            console.log(`[MQTT-RESTORE] Safety Status Poll (T+10s) for ${deviceId}...`);
+            client.publish(topic, createModbusReadRequest(slaveId, 78, 1));
+        }, 10000);
 
     }, 30000); // 30 seconds delay
 };
