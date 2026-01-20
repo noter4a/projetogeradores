@@ -48,6 +48,17 @@ export const initMqttService = (io) => {
             fs.appendFileSync(LOG_FILE, `{"timestamp": "${new Date().toISOString()}", "event": "MQTT_SERVICE_STARTED"}\n`);
             console.log('[MQTT] Log file initialized.');
         }
+
+        // Load State
+        if (fs.existsSync(path.join(logDir, 'mqtt_data_state.json'))) {
+            try {
+                const stateData = fs.readFileSync(path.join(logDir, 'mqtt_data_state.json'), 'utf8');
+                global.mqttDeviceCache = JSON.parse(stateData);
+                console.log(`[MQTT] State Hydrated: cached ${Object.keys(global.mqttDeviceCache).length} devices.`);
+            } catch (err) {
+                console.error('[MQTT] Failed to load state:', err);
+            }
+        }
     } catch (err) {
         console.error('[MQTT] FAILED TO WRITE LOG FILE:', err.message);
     }
@@ -281,25 +292,47 @@ export const initMqttService = (io) => {
                     // For now, if RPM is 0 or undefined, effectively STOPPED unless we have other logic.
                     // But if it's a MAINS packet (no RPM), we shouldn't overwrite status to STOPPED if it was RUNNING.
                     // Safest: Only set status if RPM is present in this packet.
-                    // AGENT FIX: Also check Voltage. If Gen Voltage > 50V, it is definitely RUNNING.
-                    if (unifiedData.rpm !== undefined || unifiedData.voltageL1 !== undefined) {
-                        const isRpmRunning = (unifiedData.rpm && unifiedData.rpm > 100);
-                        const isVoltageRunning = (unifiedData.voltageL1 && unifiedData.voltageL1 > 50);
+                    // Load initial state from file if exists
+                    const loadState = () => {
+                        try {
+                            if (fs.existsSync(LOG_FILE.replace('.json', '_state.json'))) {
+                                const data = fs.readFileSync(LOG_FILE.replace('.json', '_state.json'), 'utf8');
+                                global.mqttDeviceCache = JSON.parse(data);
+                                console.log('[MQTT] Loaded persistent device state from disk.');
+                            }
+                        } catch (e) {
+                            console.warn('[MQTT] Failed to load persistent state:', e.message);
+                        }
+                    };
 
-                        // IF either RPM or Voltage indicates running, set RUNNING.
-                        // But be careful: If Voltage is 0 and RPM is undefined, we shouldn't force STOPPED if we don't know RPM.
-                        // Logic:
-                        // If RPM is known: trust RPM.
-                        // If RPM is unknown (undefined) but Voltage > 50: trust Voltage.
-                        // If RPM is 0 and Voltage > 50: Trust Voltage (Sensor fail?).
+                    // ... inside initMqttService calls loadState() ...
+
+                    // AGENT FIX: Refined Status Logic to prevent "Phantom Stops" on partial packets
+                    // Only calculate status if we have the RELEVANT indicators in this specific packet.
+                    // If we received a packet with ONLY Run Hours, unifiedData.rpm is undefined.
+                    // We must NOT set status to STOPPED in that case.
+
+                    let newStatus = null; // null means "don't change"
+
+                    const hasRpm = unifiedData.rpm !== undefined;
+                    const hasVoltage = unifiedData.voltageL1 !== undefined;
+
+                    if (hasRpm || hasVoltage) {
+                        const isRpmRunning = (hasRpm && unifiedData.rpm > 100);
+                        const isVoltageRunning = (hasVoltage && unifiedData.voltageL1 > 50);
 
                         if (isRpmRunning || isVoltageRunning) {
-                            unifiedData.status = 'RUNNING';
-                        } else if (unifiedData.rpm !== undefined && unifiedData.rpm < 100) {
-                            // Only set STOPPED if RPM explicitly says so (and Voltage is low)
-                            if (!isVoltageRunning) unifiedData.status = 'STOPPED';
+                            newStatus = 'RUNNING';
+                        } else if (hasRpm && !isRpmRunning && (!hasVoltage || !isVoltageRunning)) {
+                            // Only set STOPPED if we have RPM (and it's 0) AND (Voltage is missing or 0)
+                            newStatus = 'STOPPED';
                         }
                     }
+
+                    if (newStatus) {
+                        unifiedData.status = newStatus;
+                    }
+                    // Else: calculated status remains undefined, so it won't overwrite existing state in merge.
 
                     const updatePayload = {
                         id: deviceId,
