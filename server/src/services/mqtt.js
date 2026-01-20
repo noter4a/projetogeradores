@@ -472,92 +472,82 @@ export const initMqttService = (io) => {
                 const slaveId = device.slaveId; // Dynamic Slave ID
                 const topic = `devices/command/${deviceId}`;
 
-                // Helper to send JSON command
-                const sendReq = (buf) => {
-                    const payload = JSON.stringify({
-                        modbusCommand: buf.toString('hex').toUpperCase(),
-                        modbusPeriodicitySeconds: 0
-                    });
-                    // console.log(`[MQTT-POLL] Sending to ${topic}: ${payload}`);
-                    client.publish(topic, payload);
-                };
-
                 // console.log(`[MQTT-POLL] Polling ${deviceId} (Slave ${slaveId})...`);
 
                 // Sequência de Comandos (Relaxada - 2s por request)
                 // 1. Horímetro (60, 2 regs)
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 60, 2));
+                    client.publish(topic, createModbusReadRequest(slaveId, 60, 2));
                 }, 0);
 
                 // 2. Minutos (62, 1 reg)
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 62, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 62, 1));
                 }, 1000); // +1s
 
                 // 3. Motor (51, 9 regs)
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 51, 9));
+                    client.publish(topic, createModbusReadRequest(slaveId, 51, 9));
                 }, 3000); // +2s
 
                 // 4. Tensões Gerador (1, 9 regs)
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 1, 9));
+                    client.publish(topic, createModbusReadRequest(slaveId, 1, 9));
                 }, 5000); // +2s
 
                 // 5. Tensões Rede (14, 9 regs)
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 14, 9));
+                    client.publish(topic, createModbusReadRequest(slaveId, 14, 9));
                 }, 7000); // +2s
 
                 // 6. Active Power (30, 2 regs)
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 30, 2));
+                    client.publish(topic, createModbusReadRequest(slaveId, 30, 2));
                 }, 9000); // +2s
 
                 // 7. Apparent Energy (43, 2 regs)
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 43, 2));
+                    client.publish(topic, createModbusReadRequest(slaveId, 43, 2));
                 }, 11000); // +2s
 
                 // 8. Alarm Code (66, 1 reg) - NEW
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 66, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 66, 1));
                 }, 12000); // +1s
 
                 // 8. Correntes (10, 3 regs) - MOVED TO END
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 10, 3));
+                    client.publish(topic, createModbusReadRequest(slaveId, 10, 3));
                 }, 13000); // +2s
 
                 // 9. STATUS PROBE (23-29) - Finding Breaker Status
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 23, 3)); // Fixed len
+                    client.publish(topic, createModbusReadRequest(slaveId, 23, 3)); // Fixed len
                 }, 15000); // +2s
 
                 // 10. OPERATION MODE (0, 1 reg)
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 0, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 0, 1));
                 }, 16000); // +1s
 
                 // 11. MAINS CURRENT PROBE (116, 3 regs)
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 116, 3));
+                    client.publish(topic, createModbusReadRequest(slaveId, 116, 3));
                 }, 17000); // +1s
 
                 // 12. MODE PROBE (16, 1 reg) - Checking if this is the real status
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 16, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 16, 1));
                 }, 18000); // +1s
 
                 // 13. REAL STATUS PROBE (78, 1 reg) - User confirmed 0x6480 from Reg 78
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 78, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 78, 1));
                 }, 19000); // +1s
 
                 // 14. ACTIVE POWER (29, 1 reg) - User requested new source
                 setTimeout(() => {
-                    sendReq(createModbusReadRequest(slaveId, 29, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 29, 1));
                     console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 20000); // +1s
             });
@@ -617,19 +607,10 @@ const triggerBurstPolling = (client, topic, slaveId) => {
         if (!client.connected) return;
         // Poll Critical Registers: Alarm (66), Status (78/0), and Voltages (1)
         console.log(`[MQTT-BURST] Envia 66 (Alarm) para ${topic}`);
-
-        // Helper to wrap in JSON
-        const sendJson = (requestBuf) => {
-            const payload = JSON.stringify({
-                modbusCommand: requestBuf.toString('hex').toUpperCase(),
-                modbusPeriodicitySeconds: 0
-            });
-            client.publish(topic, payload);
-        };
-
-        sendJson(createModbusReadRequest(slaveId, 66, 1)); // Alarm
-        setTimeout(() => sendJson(createModbusReadRequest(slaveId, 78, 1)), 500); // Status
-        setTimeout(() => sendJson(createModbusReadRequest(slaveId, 1, 9)), 1000); // Voltage Check
+        client.publish(topic, createModbusReadRequest(slaveId, 66, 1)); // Alarm
+        setTimeout(() => client.publish(topic, createModbusReadRequest(slaveId, 78, 1)), 500); // Status
+        setTimeout(() => client.publish(topic, createModbusReadRequest(slaveId, 1, 9)), 1000); // Voltage Check
+        // console.log(`[MQTT-BURST] Ciclo ${count}/${max}`);
     };
 
     // Execute with a safety delay (User Request: 30s) to avoid collision/processing time
