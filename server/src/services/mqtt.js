@@ -669,11 +669,9 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
         }
         */
 
-        // FORCE Immediate Status Check (Redundant) to update UI immediately
-        setTimeout(() => {
-            console.log(`[MQTT-RESTORE] Force checking status for ${deviceId}...`);
-            client.publish(topic, createModbusReadRequest(slaveId, 78, 1));
-        }, 2000);
+        // FORCE Immediate Status Check REMOVED
+        // Reason: It collides with the Gateway's internal polling cycle (T+30s).
+        // relying on the Gateway's natural first packet to update the UI.
 
     }, 30000); // 30 seconds delay
 };
