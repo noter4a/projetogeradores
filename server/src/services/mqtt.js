@@ -596,44 +596,44 @@ function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
     return buffer;
 }
 
-// Helper: Trigger Burst Polling for immediate feedback
-const triggerBurstPolling = (client, topic, slaveId) => {
-    let count = 0;
-    const max = 15; // 30 seconds total
-
-    console.log(`[MQTT-BURST] Iniciando Polling Acelerado para ${topic}`);
-
-    const poll = () => {
-        if (!client.connected) return;
-        // Poll Critical Registers: Alarm (66), Status (78/0), and Voltages (1)
-        console.log(`[MQTT-BURST] Envia 66 (Alarm) para ${topic}`);
-        client.publish(topic, createModbusReadRequest(slaveId, 66, 1)); // Alarm
-        setTimeout(() => client.publish(topic, createModbusReadRequest(slaveId, 78, 1)), 500); // Status
-        setTimeout(() => client.publish(topic, createModbusReadRequest(slaveId, 1, 9)), 1000); // Voltage Check
-        // console.log(`[MQTT-BURST] Ciclo ${count}/${max}`);
-    };
-
-    // Execute with a safety delay (User Request: 30s) to avoid collision/processing time
-    console.log(`[MQTT-BURST] Aguardando 30s para iniciar leituras...`);
+// Helper: Restore Polling Configuration (User Request: Send full list after 30s)
+const restorePolling = (client, topic, slaveId) => {
+    console.log(`[MQTT-RESTORE] Aguardando 30s para restaurar lista de polling...`);
 
     setTimeout(() => {
-        console.log(`[MQTT-BURST] Iniciando sequência de leituras agora!`);
+        if (!client.connected) return;
 
-        // Execute first poll immediately after delay
-        poll();
+        console.log(`[MQTT-RESTORE] Enviando lista de polling completa para ${topic}`);
 
-        // Start interval
-        const interval = setInterval(() => {
-            count++;
-            if (count > max || !client.connected) {
-                clearInterval(interval);
-                console.log(`[MQTT-BURST] Fim do Polling Acelerado para ${topic}`);
-                return;
-            }
-            poll();
-        }, 2000); // Every 2 seconds
+        // Construct the full modbusRequest list based on the polling loop logic
+        // Hex strings for each register query
+        const requests = [
+            createModbusReadRequest(slaveId, 60, 2).toString('hex').toUpperCase(), // 1. Hours
+            createModbusReadRequest(slaveId, 62, 1).toString('hex').toUpperCase(), // 2. Minutes
+            createModbusReadRequest(slaveId, 51, 9).toString('hex').toUpperCase(), // 3. Engine
+            createModbusReadRequest(slaveId, 1, 9).toString('hex').toUpperCase(),  // 4. Gen Voltage
+            createModbusReadRequest(slaveId, 14, 9).toString('hex').toUpperCase(), // 5. Mains Voltage
+            createModbusReadRequest(slaveId, 30, 2).toString('hex').toUpperCase(), // 6. Active Power
+            createModbusReadRequest(slaveId, 43, 2).toString('hex').toUpperCase(), // 7. Apparent Energy
+            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 8. Alarm Code
+            createModbusReadRequest(slaveId, 10, 3).toString('hex').toUpperCase(), // 9. Current
+            createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 10. Status Probe
+            createModbusReadRequest(slaveId, 0, 1).toString('hex').toUpperCase(),  // 11. Op Mode
+            createModbusReadRequest(slaveId, 116, 3).toString('hex').toUpperCase(),// 12. Mains Current
+            createModbusReadRequest(slaveId, 16, 1).toString('hex').toUpperCase(), // 13. Mode Probe
+            createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 14. Real Status
+            createModbusReadRequest(slaveId, 29, 1).toString('hex').toUpperCase()  // 15. Active Power 29
+        ];
 
-    }, 30000);
+        const payload = JSON.stringify({
+            modbusRequest: requests,
+            modbusPeriodicitySeconds: 10 // User confirmed 10s or similar default
+        });
+
+        client.publish(topic, payload);
+        console.log(`[MQTT-RESTORE] Configuração enviada! Payload size: ${requests.length} items.`);
+
+    }, 30000); // 30 seconds delay
 };
 
 // Exported Command Function
@@ -681,8 +681,8 @@ export const sendControlCommand = (deviceId, action) => {
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2). Hex: ${buf.toString('hex').toUpperCase()}`);
 
-            // Trigger Burst Polling for immediate feedback
-            triggerBurstPolling(client, topic, slaveId);
+            // Trigger Restore Polling logic (Send full config after 30s)
+            restorePolling(client, topic, slaveId);
 
             return { success: true };
         }
@@ -702,8 +702,8 @@ export const sendControlCommand = (deviceId, action) => {
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] STOP: Sent Func 16 (Reg 0, Val 1). Hex: ${buf.toString('hex').toUpperCase()}`);
 
-            // Trigger Burst Polling for immediate feedback
-            triggerBurstPolling(client, topic, slaveId);
+            // Trigger Restore Polling logic (Send full config after 30s)
+            restorePolling(client, topic, slaveId);
 
             return { success: true };
         }
