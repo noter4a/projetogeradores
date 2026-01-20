@@ -20,34 +20,6 @@ let client;
 let lastConnectionError = null;
 let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands
-const PAUSED_STATE_FILE = path.join(logDir, 'mqtt_paused_devices.json');
-
-// Helper: Save Paused State
-const savePausedState = () => {
-    try {
-        const data = JSON.stringify([...pausedDevices]);
-        fs.writeFileSync(PAUSED_STATE_FILE, data);
-        console.log(`[MQTT] Persisted ${pausedDevices.size} paused devices to disk.`);
-    } catch (err) {
-        console.error('[MQTT] Failed to save paused state:', err.message);
-    }
-};
-
-// Helper: Load Paused State
-const loadPausedState = () => {
-    try {
-        if (fs.existsSync(PAUSED_STATE_FILE)) {
-            const data = fs.readFileSync(PAUSED_STATE_FILE, 'utf8');
-            const loaded = JSON.parse(data);
-            if (Array.isArray(loaded)) {
-                pausedDevices = new Set(loaded);
-                console.log(`[MQTT] Loaded ${pausedDevices.size} paused devices from disk.`);
-            }
-        }
-    } catch (err) {
-        console.warn('[MQTT] Failed to load paused state:', err.message);
-    }
-};
 
 // Configuration
 const BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtts://painel.ciklogeradores.com.br:8883';
@@ -76,22 +48,9 @@ export const initMqttService = (io) => {
             fs.appendFileSync(LOG_FILE, `{"timestamp": "${new Date().toISOString()}", "event": "MQTT_SERVICE_STARTED"}\n`);
             console.log('[MQTT] Log file initialized.');
         }
-
-        // Load State
-        if (fs.existsSync(path.join(logDir, 'mqtt_data_state.json'))) {
-            try {
-                const stateData = fs.readFileSync(path.join(logDir, 'mqtt_data_state.json'), 'utf8');
-                global.mqttDeviceCache = JSON.parse(stateData);
-                console.log(`[MQTT] State Hydrated: cached ${Object.keys(global.mqttDeviceCache).length} devices.`);
-            } catch (err) {
-                console.error('[MQTT] Failed to load state:', err);
-            }
-        }
     } catch (err) {
         console.error('[MQTT] FAILED TO WRITE LOG FILE:', err.message);
     }
-
-    loadPausedState(); // Restore paused devices (One Master Rule)
 
     client = mqtt.connect(BROKER_URL, OPTIONS);
     global.mqttClient = client; // FIX: Expose to global scope for sendControlCommand
@@ -322,47 +281,25 @@ export const initMqttService = (io) => {
                     // For now, if RPM is 0 or undefined, effectively STOPPED unless we have other logic.
                     // But if it's a MAINS packet (no RPM), we shouldn't overwrite status to STOPPED if it was RUNNING.
                     // Safest: Only set status if RPM is present in this packet.
-                    // Load initial state from file if exists
-                    const loadState = () => {
-                        try {
-                            if (fs.existsSync(LOG_FILE.replace('.json', '_state.json'))) {
-                                const data = fs.readFileSync(LOG_FILE.replace('.json', '_state.json'), 'utf8');
-                                global.mqttDeviceCache = JSON.parse(data);
-                                console.log('[MQTT] Loaded persistent device state from disk.');
-                            }
-                        } catch (e) {
-                            console.warn('[MQTT] Failed to load persistent state:', e.message);
-                        }
-                    };
+                    // AGENT FIX: Also check Voltage. If Gen Voltage > 50V, it is definitely RUNNING.
+                    if (unifiedData.rpm !== undefined || unifiedData.voltageL1 !== undefined) {
+                        const isRpmRunning = (unifiedData.rpm && unifiedData.rpm > 100);
+                        const isVoltageRunning = (unifiedData.voltageL1 && unifiedData.voltageL1 > 50);
 
-                    // ... inside initMqttService calls loadState() ...
-
-                    // AGENT FIX: Refined Status Logic to prevent "Phantom Stops" on partial packets
-                    // Only calculate status if we have the RELEVANT indicators in this specific packet.
-                    // If we received a packet with ONLY Run Hours, unifiedData.rpm is undefined.
-                    // We must NOT set status to STOPPED in that case.
-
-                    let newStatus = null; // null means "don't change"
-
-                    const hasRpm = unifiedData.rpm !== undefined;
-                    const hasVoltage = unifiedData.voltageL1 !== undefined;
-
-                    if (hasRpm || hasVoltage) {
-                        const isRpmRunning = (hasRpm && unifiedData.rpm > 100);
-                        const isVoltageRunning = (hasVoltage && unifiedData.voltageL1 > 50);
+                        // IF either RPM or Voltage indicates running, set RUNNING.
+                        // But be careful: If Voltage is 0 and RPM is undefined, we shouldn't force STOPPED if we don't know RPM.
+                        // Logic:
+                        // If RPM is known: trust RPM.
+                        // If RPM is unknown (undefined) but Voltage > 50: trust Voltage.
+                        // If RPM is 0 and Voltage > 50: Trust Voltage (Sensor fail?).
 
                         if (isRpmRunning || isVoltageRunning) {
-                            newStatus = 'RUNNING';
-                        } else if (hasRpm && !isRpmRunning && (!hasVoltage || !isVoltageRunning)) {
-                            // Only set STOPPED if we have RPM (and it's 0) AND (Voltage is missing or 0)
-                            newStatus = 'STOPPED';
+                            unifiedData.status = 'RUNNING';
+                        } else if (unifiedData.rpm !== undefined && unifiedData.rpm < 100) {
+                            // Only set STOPPED if RPM explicitly says so (and Voltage is low)
+                            if (!isVoltageRunning) unifiedData.status = 'STOPPED';
                         }
                     }
-
-                    if (newStatus) {
-                        unifiedData.status = newStatus;
-                    }
-                    // Else: calculated status remains undefined, so it won't overwrite existing state in merge.
 
                     const updatePayload = {
                         id: deviceId,
@@ -710,21 +647,17 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
 
         // Construct the full modbusRequest list based on the polling loop logic
         // Hex strings for each register query
-        // User's GOLDEN LIST (Proven to work manually) RECONSTRUCTED DYNAMICALLY
-        // "01 03 00 3C 00 05 ..." -> SlaveID, Fn 03, Start 60 (0x3C), Len 5.
-        // We use the helper to generate this string for ANY 'slaveId'.
-
+        // User's GOLDEN LIST (Proven to work manually)
         const requests = [
-            createModbusReadRequest(slaveId, 60, 5).toString('hex').toUpperCase(), // 1. Run Hours (Reg 60, Len 5)
-            createModbusReadRequest(slaveId, 1, 9).toString('hex').toUpperCase(),  // 2. Gen Voltage (Reg 1, Len 9)
-            createModbusReadRequest(slaveId, 51, 9).toString('hex').toUpperCase(), // 3. Engine (Reg 51, Len 9)
-            createModbusReadRequest(slaveId, 14, 9).toString('hex').toUpperCase(), // 4. Mains Voltage (Reg 14, Len 9)
-            createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 5. Current/Breaker (Reg 23, Len 3) (Note: User Hex 0017 is Dec 23)
-            createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29, Len 3) (Note: User Hex 001D is Dec 29)
-            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66, Len 1)
-            createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 8. Status (Reg 78, Len 1)
-            // 9. Write Command 01 06 00 01 00 64 -> Slave, Fn 06, Addr 1, Val 100 (0x64)
-            createModbusWriteRequest(slaveId, 1, 100).toString('hex').toUpperCase()
+            "0103003C000545C5", // 1. Run Hours (Reg 60-64)
+            "010300010009D40C", // 2. Gen Voltage (Reg 1-9)
+            "01030033000975C3", // 3. Engine (Reg 51-59)
+            "0103000E0009E40F", // 4. Mains Voltage (Reg 14-22)
+            "010300170003B5CF", // 5. Current/Breaker (Reg 23-25)
+            "0103001D000395CD", // 6. Active Power (Reg 29-31 ? User asked 29)
+            "010300420001241E", // 7. Alarm (Reg 66)
+            "0103004E0001E41D", // 8. Status (Reg 78) - CRITICAL
+            "010600010064D9E1"  // 9. Write Command (User included this in working list, maybe Keep-Alive?)
         ];
 
         const payload = JSON.stringify({
@@ -767,8 +700,7 @@ export const sendControlCommand = (deviceId, action) => {
 
         // PAUSE Polling for this device to prevent collisions
         pausedDevices.add(deviceId);
-        savePausedState(); // Persist immediately
-        console.log(`[MQTT-CMD] Pausing polling for ${deviceId} (Permanent until manual reset)`);
+        console.log(`[MQTT-CMD] Pausing polling for ${deviceId} (30s timeout)`);
 
         // Since devicesToPoll is local to this module, we can access it.
         // Ensure we find the slaveId.
