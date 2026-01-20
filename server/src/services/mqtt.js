@@ -411,31 +411,31 @@ export const initMqttService = (io) => {
                             `;
 
                             const values = [
-                                unifiedData.voltageL1,
-                                unifiedData.voltageL2,
-                                unifiedData.voltageL3,
-                                unifiedData.currentL1,
-                                unifiedData.currentL2,
-                                unifiedData.currentL3,
-                                unifiedData.frequency,
-                                unifiedData.oilPressure,
-                                unifiedData.engineTemp,
-                                unifiedData.fuelLevel,
-                                unifiedData.rpm,
-                                unifiedData.batteryVoltage,
-                                unifiedData.mainsVoltageL1,
-                                unifiedData.mainsVoltageL2,
-                                unifiedData.mainsVoltageL3,
-                                unifiedData.mainsFrequency,
+                                Math.round(unifiedData.voltageL1),
+                                Math.round(unifiedData.voltageL2),
+                                Math.round(unifiedData.voltageL3),
+                                Math.round(unifiedData.currentL1),
+                                Math.round(unifiedData.currentL2),
+                                Math.round(unifiedData.currentL3),
+                                Math.round(unifiedData.frequency),
+                                Math.round(unifiedData.oilPressure),
+                                Math.round(unifiedData.engineTemp),
+                                Math.round(unifiedData.fuelLevel),
+                                Math.round(unifiedData.rpm),
+                                Math.round(unifiedData.batteryVoltage),
+                                Math.round(unifiedData.mainsVoltageL1),
+                                Math.round(unifiedData.mainsVoltageL2),
+                                Math.round(unifiedData.mainsVoltageL3),
+                                Math.round(unifiedData.mainsFrequency),
                                 unifiedData.status, // Can be undefined (Coalesce handles it)
                                 // ID to match
                                 deviceId,
-                                unifiedData.voltageL12,
-                                unifiedData.voltageL23,
-                                unifiedData.voltageL31,
-                                unifiedData.runHours,
-                                unifiedData.activePower,
-                                unifiedData.powerFactor
+                                Math.round(unifiedData.voltageL12),
+                                Math.round(unifiedData.voltageL23),
+                                Math.round(unifiedData.voltageL31),
+                                Math.round(unifiedData.runHours),
+                                Math.round(unifiedData.activePower),
+                                Math.round(unifiedData.powerFactor)
                             ];
 
                             await pool.query(query, values);
