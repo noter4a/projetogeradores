@@ -58,6 +58,9 @@ export const initMqttService = (io) => {
     client.on('connect', () => {
         console.log('[MQTT] Connected');
         lastConnectionError = null;
+        // AGENT FIX: Clear pausedDevices on reconnect to prevent stuck states
+        pausedDevices.clear();
+        console.log('[MQTT] Connected & Paused Devices Cleared');
         client.subscribe(TOPIC, (err) => {
             if (!err) console.log(`[MQTT] Subscribed to ${TOPIC}`);
             else console.error('[MQTT] Subscription error:', err);
@@ -738,7 +741,7 @@ export const sendControlCommand = (deviceId, action) => {
             console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2). Hex: ${buf.toString('hex').toUpperCase()}`);
 
             // Trigger Restore Polling logic (Send full config after 30s)
-            restorePolling(client, topic, slaveId);
+            restorePolling(client, topic, slaveId, deviceId);
 
             return { success: true };
         }
