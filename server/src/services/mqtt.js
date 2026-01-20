@@ -647,17 +647,21 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
 
         // Construct the full modbusRequest list based on the polling loop logic
         // Hex strings for each register query
-        // User's GOLDEN LIST (Proven to work manually)
+        // User's GOLDEN LIST (Proven to work manually) RECONSTRUCTED DYNAMICALLY
+        // "01 03 00 3C 00 05 ..." -> SlaveID, Fn 03, Start 60 (0x3C), Len 5.
+        // We use the helper to generate this string for ANY 'slaveId'.
+
         const requests = [
-            "0103003C000545C5", // 1. Run Hours (Reg 60-64)
-            "010300010009D40C", // 2. Gen Voltage (Reg 1-9)
-            "01030033000975C3", // 3. Engine (Reg 51-59)
-            "0103000E0009E40F", // 4. Mains Voltage (Reg 14-22)
-            "010300170003B5CF", // 5. Current/Breaker (Reg 23-25)
-            "0103001D000395CD", // 6. Active Power (Reg 29-31 ? User asked 29)
-            "010300420001241E", // 7. Alarm (Reg 66)
-            "0103004E0001E41D", // 8. Status (Reg 78) - CRITICAL
-            "010600010064D9E1"  // 9. Write Command (User included this in working list, maybe Keep-Alive?)
+            createModbusReadRequest(slaveId, 60, 5).toString('hex').toUpperCase(), // 1. Run Hours (Reg 60, Len 5)
+            createModbusReadRequest(slaveId, 1, 9).toString('hex').toUpperCase(),  // 2. Gen Voltage (Reg 1, Len 9)
+            createModbusReadRequest(slaveId, 51, 9).toString('hex').toUpperCase(), // 3. Engine (Reg 51, Len 9)
+            createModbusReadRequest(slaveId, 14, 9).toString('hex').toUpperCase(), // 4. Mains Voltage (Reg 14, Len 9)
+            createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 5. Current/Breaker (Reg 23, Len 3) (Note: User Hex 0017 is Dec 23)
+            createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29, Len 3) (Note: User Hex 001D is Dec 29)
+            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66, Len 1)
+            createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 8. Status (Reg 78, Len 1)
+            // 9. Write Command 01 06 00 01 00 64 -> Slave, Fn 06, Addr 1, Val 100 (0x64)
+            createModbusWriteRequest(slaveId, 1, 100).toString('hex').toUpperCase()
         ];
 
         const payload = JSON.stringify({
