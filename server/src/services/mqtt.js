@@ -647,22 +647,17 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
 
         // Construct the full modbusRequest list based on the polling loop logic
         // Hex strings for each register query
+        // User's GOLDEN LIST (Proven to work manually)
         const requests = [
-            createModbusReadRequest(slaveId, 60, 2).toString('hex').toUpperCase(), // 1. Hours
-            createModbusReadRequest(slaveId, 62, 1).toString('hex').toUpperCase(), // 2. Minutes
-            createModbusReadRequest(slaveId, 51, 9).toString('hex').toUpperCase(), // 3. Engine
-            createModbusReadRequest(slaveId, 1, 9).toString('hex').toUpperCase(),  // 4. Gen Voltage
-            createModbusReadRequest(slaveId, 14, 9).toString('hex').toUpperCase(), // 5. Mains Voltage
-            createModbusReadRequest(slaveId, 30, 2).toString('hex').toUpperCase(), // 6. Active Power
-            createModbusReadRequest(slaveId, 43, 2).toString('hex').toUpperCase(), // 7. Apparent Energy
-            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 8. Alarm Code
-            createModbusReadRequest(slaveId, 10, 3).toString('hex').toUpperCase(), // 9. Current
-            createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 10. Status Probe
-            createModbusReadRequest(slaveId, 0, 1).toString('hex').toUpperCase(),  // 11. Op Mode
-            createModbusReadRequest(slaveId, 116, 3).toString('hex').toUpperCase(),// 12. Mains Current
-            createModbusReadRequest(slaveId, 16, 1).toString('hex').toUpperCase(), // 13. Mode Probe
-            createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 14. Real Status
-            createModbusReadRequest(slaveId, 29, 1).toString('hex').toUpperCase()  // 15. Active Power 29
+            "0103003C000545C5", // 1. Run Hours (Reg 60-64)
+            "010300010009D40C", // 2. Gen Voltage (Reg 1-9)
+            "01030033000975C3", // 3. Engine (Reg 51-59)
+            "0103000E0009E40F", // 4. Mains Voltage (Reg 14-22)
+            "010300170003B5CF", // 5. Current/Breaker (Reg 23-25)
+            "0103001D000395CD", // 6. Active Power (Reg 29-31 ? User asked 29)
+            "010300420001241E", // 7. Alarm (Reg 66)
+            "0103004E0001E41D", // 8. Status (Reg 78) - CRITICAL
+            "010600010064D9E1"  // 9. Write Command (User included this in working list, maybe Keep-Alive?)
         ];
 
         const payload = JSON.stringify({
@@ -690,7 +685,7 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
         // Injecting any extra poll (even at T+10s) risks colliding with the tail of the Bulk Poll.
         // We must trust the Gateway's internal cycle (Periodicity 30s) completely.
 
-    }, 35000); // 35 seconds delay (Increased for safety)
+    }, 30000); // Back to 30 seconds as requested by user
 };
 
 // Exported Command Function
