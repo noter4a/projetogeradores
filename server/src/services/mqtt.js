@@ -20,6 +20,34 @@ let client;
 let lastConnectionError = null;
 let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands
+const PAUSED_STATE_FILE = path.join(logDir, 'mqtt_paused_devices.json');
+
+// Helper: Save Paused State
+const savePausedState = () => {
+    try {
+        const data = JSON.stringify([...pausedDevices]);
+        fs.writeFileSync(PAUSED_STATE_FILE, data);
+        console.log(`[MQTT] Persisted ${pausedDevices.size} paused devices to disk.`);
+    } catch (err) {
+        console.error('[MQTT] Failed to save paused state:', err.message);
+    }
+};
+
+// Helper: Load Paused State
+const loadPausedState = () => {
+    try {
+        if (fs.existsSync(PAUSED_STATE_FILE)) {
+            const data = fs.readFileSync(PAUSED_STATE_FILE, 'utf8');
+            const loaded = JSON.parse(data);
+            if (Array.isArray(loaded)) {
+                pausedDevices = new Set(loaded);
+                console.log(`[MQTT] Loaded ${pausedDevices.size} paused devices from disk.`);
+            }
+        }
+    } catch (err) {
+        console.warn('[MQTT] Failed to load paused state:', err.message);
+    }
+};
 
 // Configuration
 const BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtts://painel.ciklogeradores.com.br:8883';
@@ -62,6 +90,8 @@ export const initMqttService = (io) => {
     } catch (err) {
         console.error('[MQTT] FAILED TO WRITE LOG FILE:', err.message);
     }
+
+    loadPausedState(); // Restore paused devices (One Master Rule)
 
     client = mqtt.connect(BROKER_URL, OPTIONS);
     global.mqttClient = client; // FIX: Expose to global scope for sendControlCommand
@@ -737,7 +767,8 @@ export const sendControlCommand = (deviceId, action) => {
 
         // PAUSE Polling for this device to prevent collisions
         pausedDevices.add(deviceId);
-        console.log(`[MQTT-CMD] Pausing polling for ${deviceId} (30s timeout)`);
+        savePausedState(); // Persist immediately
+        console.log(`[MQTT-CMD] Pausing polling for ${deviceId} (Permanent until manual reset)`);
 
         // Since devicesToPoll is local to this module, we can access it.
         // Ensure we find the slaveId.
