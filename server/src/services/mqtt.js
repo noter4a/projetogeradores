@@ -685,16 +685,12 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
         }
         */
 
-        // FORCE Immediate Status Check REMOVED conflict risk.
-        // AGENT FIX: Re-adding with a SAFE delay (Wait for first 30s cycle to likely finish).
-        // First Gateway Poll: T+0 (relative to restore). Length ~5s.
-        // Safe Window: T+10s.
-        setTimeout(() => {
-            console.log(`[MQTT-RESTORE] Safety Status Poll (T+10s) for ${deviceId}...`);
-            client.publish(topic, createModbusReadRequest(slaveId, 78, 1));
-        }, 10000);
+        // FORCE Immediate Status Check REMOVED
+        // Reason: The Gateway's internal polling (Bulk 15 items) can take 5-10s if timeouts occur.
+        // Injecting any extra poll (even at T+10s) risks colliding with the tail of the Bulk Poll.
+        // We must trust the Gateway's internal cycle (Periodicity 30s) completely.
 
-    }, 30000); // 30 seconds delay
+    }, 35000); // 35 seconds delay (Increased for safety)
 };
 
 // Exported Command Function
