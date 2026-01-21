@@ -191,21 +191,31 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // 0x64 (100) = MANUAL
   if (startAddress === 78 && regs.length >= 1) {
     const raw = u16(regs, 0);
-    const highByte = raw >> 8; // Shift bits to get MSB
-    const lowByte = raw & 0xFF; // Mask to get LSB
+    const highByte = raw >> 8; // Op Mode
+    const lowByte = raw & 0xFF; // Status Flags
 
     let mode = 'UNKNOWN';
-    console.log(`[PARSER] Reg 78 Raw: 0x${raw.toString(16).toUpperCase()} -> ModeByte: ${highByte} (0x${highByte.toString(16)})`);
+    console.log(`[PARSER] Reg 78 Raw: 0x${raw.toString(16).toUpperCase()} -> ModeByte: ${highByte}, FlagsByte: ${lowByte} (Binary: ${lowByte.toString(2).padStart(8, '0')})`);
 
     if (highByte === 100) mode = 'MANUAL'; // 0x64
-    else if (highByte === 0) mode = 'INHIBITED'; // Guessing 0 is stop/inhibit?
-    else if (highByte === 4) mode = 'AUTO';      // Guessing 4 is Auto based on Reg 0 similarity?
-    // We will log the value to find out AUTO code.
+    else if (highByte === 0) mode = 'INHIBITED';
+    else if (highByte === 4) mode = 'AUTO';
+    else if (highByte === 5) mode = 'TEST'; // Guessing
+
+    // Breaker Mapping from Low Byte (User Request)
+    // Assuming Standard SGC Bitmask:
+    // Bit 1 (0x02) = Gen Breaker Closed
+    // Bit 2 (0x04) = Mains Breaker Closed
+    const genClosed = (lowByte & 0x02) !== 0;
+    const mainsClosed = (lowByte & 0x04) !== 0;
 
     return {
       block: "STATUS_78",
       opMode: mode,
-      reg78_hex: raw.toString(16)
+      reg78_hex: raw.toString(16),
+      genBreakerClosed: genClosed,
+      mainsBreakerClosed: mainsClosed,
+      rawFlags: lowByte
     };
   }
 
