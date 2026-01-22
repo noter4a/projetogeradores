@@ -20,7 +20,9 @@ pool.on('error', (err) => {
     // Do not exit, let retry logic handle it or just log it
 });
 
-// Initialize Tables
+
+
+// Initialize Tables (Fire and forget, but catch errors to prevent crash)
 const initDb = async () => {
     try {
         await pool.query(`
@@ -38,11 +40,12 @@ const initDb = async () => {
         `);
         console.log('Database tables initialized (alarm_history checked)');
     } catch (err) {
-        console.error('Error initializing database tables:', err);
+        console.error('Error initializing database tables (Non-critical if retrying):', err.message);
     }
 };
 
-initDb();
+// Execute initDb but don't crash if it fails immediately (Connection might be established later)
+initDb().catch(err => console.error('InitDb Fatal Error:', err));
 
 export const query = (text, params) => pool.query(text, params);
 export default pool;
