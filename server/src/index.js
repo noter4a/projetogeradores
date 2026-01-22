@@ -417,10 +417,11 @@ router.delete('/generators/:id', async (req, res) => {
 
 
 
-app.use('/api/auth', authRoutes);
-app.use('/api/generators', generatorRoutes);
-app.use('/api/control', controlRoutes);
+// Mount Alarm Routes (Imported)
 app.use('/api/alarms', alarmRoutes);
+
+// Mount Main Router (handling Auth, Generators, Control which are defined inline above)
+app.use('/api', router);
 
 // Catch all for API 404
 app.use('/api/*', (req, res) => {
