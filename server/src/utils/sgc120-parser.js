@@ -203,11 +203,11 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     else if (highByte === 5) mode = 'TEST'; // Guessing
 
     // Breaker Mapping from Low Byte (User Request)
-    // Assuming Standard SGC Bitmask:
-    // Bit 1 (0x02) = Gen Breaker Closed
-    // Bit 2 (0x04) = Mains Breaker Closed
-    const genClosed = (lowByte & 0x02) !== 0;
-    const mainsClosed = (lowByte & 0x04) !== 0;
+    // Hypothesis derived from Value 0x10 (Mains Closed) and Reg 24 history (Left Shift 2):
+    // Bit 3 (0x08) = Gen Breaker Closed  (Old Bit 1 << 2)
+    // Bit 4 (0x10) = Mains Breaker Closed (Old Bit 2 << 2)
+    const genClosed = (lowByte & 0x08) !== 0;
+    const mainsClosed = (lowByte & 0x10) !== 0;
 
     return {
       block: "STATUS_78",
