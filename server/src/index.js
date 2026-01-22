@@ -430,5 +430,5 @@ app.use('/api/*', (req, res) => {
 // Start Server
 httpServer.listen(PORT, async () => {
     await initDb();
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT} (Build: Syntax Fixed)`);
 });
