@@ -5,6 +5,7 @@ import { Generator, GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators, socket } from '../context/GeneratorContext'; // Import socket
 import { useAlarms } from '../context/AlarmContext';
+import AlarmPopup from '../components/AlarmPopup'; // NEW
 import {
   Power, AlertOctagon, RotateCcw, Settings, Gauge,
   Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, Lock,
@@ -277,6 +278,9 @@ const GeneratorDetail: React.FC = () => {
         </div>
       )}
 
+      {/* NEW ALARM POPUP */}
+      <AlarmPopup generatorId={gen.ip || gen.id} />
+
       {/* Top Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -339,23 +343,7 @@ const GeneratorDetail: React.FC = () => {
         </nav>
       </div>
 
-      {/* Alarms Banner */}
-      {activeAlarms.length > 0 && (
-        <div className="bg-red-900/20 border border-red-900/50 rounded-lg p-4 flex items-start gap-3">
-          <AlertOctagon className="text-red-500 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-red-500 font-bold">Alarmes Ativos</h3>
-            <ul className="mt-1 space-y-1">
-              {activeAlarms.map(a => (
-                <li key={a.id} className="text-sm text-red-300 flex justify-between">
-                  <span>{a.message}</span>
-                  <span className="text-xs opacity-75">{a.timestamp}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
+
 
       {/* OPERATIONAL TAB */}
       {activeTab === 'operational' && (

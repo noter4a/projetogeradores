@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { initMqttService } from './services/mqtt.js';
+import alarmRoutes from './routes/alarms.js';
 
 dotenv.config();
 
@@ -387,7 +388,10 @@ router.delete('/generators/:id', async (req, res) => {
 
 
 
-app.use('/api', router);
+app.use('/api/auth', authRoutes);
+app.use('/api/generators', generatorRoutes);
+app.use('/api/control', controlRoutes);
+app.use('/api/alarms', alarmRoutes);
 
 // Catch all for API 404
 app.use('/api/*', (req, res) => {

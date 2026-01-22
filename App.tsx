@@ -5,6 +5,7 @@ import { UserRole } from './types';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import GeneratorDetail from './pages/GeneratorDetail';
+import AlarmCenter from './pages/AlarmCenter'; // NEW
 import FleetManagement from './pages/FleetManagement';
 import AddGenerator from './pages/AddGenerator';
 import UserManagement from './pages/UserManagement';
@@ -28,10 +29,10 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
 
   // Check for credits if user is a CLIENT
   if (user.role === UserRole.CLIENT) {
-     const credits = user.credits ?? 0;
-     if (credits <= 0) {
-       return <Navigate to="/no-credits" replace />;
-     }
+    const credits = user.credits ?? 0;
+    if (credits <= 0) {
+      return <Navigate to="/no-credits" replace />;
+    }
   }
 
   return <>{children}</>;
@@ -39,7 +40,7 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
 
 const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
   const { user } = useAuth();
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -67,7 +68,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
 
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
@@ -106,9 +107,9 @@ const AppContent: React.FC = () => {
     <HashRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        
+
         <Route path="/no-credits" element={
-            <NoCredits />
+          <NoCredits />
         } />
 
         <Route path="/" element={
@@ -116,13 +117,19 @@ const AppContent: React.FC = () => {
             <Layout><Dashboard /></Layout>
           </ProtectedRoute>
         } />
-        
+
         <Route path="/generator/:id" element={
           <ProtectedRoute>
             <Layout><GeneratorDetail /></Layout>
           </ProtectedRoute>
         } />
-        
+
+        <Route path="/alarm-center" element={
+          <ProtectedRoute>
+            <Layout><AlarmCenter /></Layout>
+          </ProtectedRoute>
+        } />
+
         <Route path="/maintenance" element={
           <ProtectedRoute>
             <Layout><Maintenance /></Layout>
@@ -159,7 +166,7 @@ const AppContent: React.FC = () => {
             <Layout><AddGenerator /></Layout>
           </AdminRoute>
         } />
-        
+
         <Route path="/users" element={
           <AdminRoute>
             <Layout><UserManagement /></Layout>

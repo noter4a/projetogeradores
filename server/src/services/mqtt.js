@@ -192,6 +192,60 @@ export const initMqttService = (io) => {
                             if (!unifiedData.alarms) unifiedData.alarms = {};
                             unifiedData.alarms.startFailure = d.startFailure;
                             unifiedData.alarmCode = d.alarmCode;
+
+                            // AGENT: DB Alarm Logging Logic
+                            (async () => {
+                                try {
+                                    // 1. Check if there is an OPEN alarm for this generator
+                                    const latestRes = await pool.query(
+                                        `SELECT id, alarm_code FROM alarm_history 
+                                         WHERE generator_id = $1 AND end_time IS NULL 
+                                         ORDER BY start_time DESC LIMIT 1`,
+                                        [deviceId]
+                                    );
+
+                                    const openAlarm = latestRes.rows[0];
+
+                                    // CASE A: NEW ALARM (Code > 0)
+                                    if (d.alarmCode > 0) {
+                                        // If no open alarm OR open alarm has DIFFERENT code -> Insert new
+                                        if (!openAlarm || openAlarm.alarm_code !== d.alarmCode) {
+                                            // Close previous if different
+                                            if (openAlarm) {
+                                                await pool.query(
+                                                    `UPDATE alarm_history SET end_time = NOW() WHERE id = $1`,
+                                                    [openAlarm.id]
+                                                );
+                                            }
+
+                                            // Insert New
+                                            await pool.query(
+                                                `INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) 
+                                                 VALUES ($1, $2, $3)`,
+                                                [
+                                                    deviceId,
+                                                    d.alarmCode,
+                                                    `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`
+                                                ]
+                                            );
+                                            console.log(`[MQTT-ALARM] New Alarm Logged: ${d.alarmCode} for ${deviceId}`);
+                                        }
+                                        // If same code is already open, do nothing (persistence).
+                                    }
+                                    // CASE B: NO ALARM (Code == 0)
+                                    else if (d.alarmCode === 0 && openAlarm) {
+                                        // Close the open alarm
+                                        await pool.query(
+                                            `UPDATE alarm_history SET end_time = NOW() WHERE id = $1`,
+                                            [openAlarm.id]
+                                        );
+                                        console.log(`[MQTT-ALARM] Alarm Cleared for ${deviceId}`);
+                                    }
+
+                                } catch (err) {
+                                    console.error('[MQTT-ALARM] DB Error:', err.message);
+                                }
+                            })();
                         }
 
                         // Map ENERGY_43 (Apparent Energy)
