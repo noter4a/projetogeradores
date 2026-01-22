@@ -101,15 +101,44 @@ const initDb = async (retries = 15, delay = 5000) => {
             await client.query(`
                 CREATE TABLE IF NOT EXISTS generators (
                     id VARCHAR(50) PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL,
-                    location VARCHAR(255),
+                    name VARCHAR(255),
                     model VARCHAR(255),
-                    power_kva INTEGER,
                     status VARCHAR(50),
                     connection_info JSONB,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    last_seen TIMESTAMP,
+                    
+                    voltage_l1 NUMERIC, voltage_l2 NUMERIC, voltage_l3 NUMERIC,
+                    current_l1 NUMERIC, current_l2 NUMERIC, current_l3 NUMERIC,
+                    frequency NUMERIC,
+                    
+                    mains_voltage_l1 NUMERIC, mains_voltage_l2 NUMERIC, mains_voltage_l3 NUMERIC,
+                    mains_frequency NUMERIC,
+                    
+                    oil_pressure NUMERIC, engine_temp NUMERIC, fuel_level NUMERIC,
+                    rpm NUMERIC, battery_voltage NUMERIC,
+                    
+                    run_hours NUMERIC, total_hours NUMERIC,
+                    active_power NUMERIC, power_factor NUMERIC,
+                    
+                    voltage_l12 NUMERIC, voltage_l23 NUMERIC, voltage_l31 NUMERIC
                 );
             `);
+
+            // Create Alarm History Table (Moved from db.js for safety)
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS alarm_history (
+                    id SERIAL PRIMARY KEY,
+                    generator_id VARCHAR(50) NOT NULL,
+                    alarm_code INT NOT NULL,
+                    alarm_message TEXT,
+                    start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    end_time TIMESTAMP,
+                    acknowledged BOOLEAN DEFAULT FALSE,
+                    acknowledged_at TIMESTAMP,
+                    acknowledged_by VARCHAR(100)
+                );
+            `);
+
 
             // Add Real-Time Columns if they don't exist (Migration)
             const columnsToAdd = [
@@ -147,7 +176,7 @@ const initDb = async (retries = 15, delay = 5000) => {
                     const colDef = col.substring(col.indexOf(' ') + 1);
                     await client.query(`ALTER TABLE generators ADD COLUMN IF NOT EXISTS ${colName} ${colDef}`);
                 } catch (e) {
-                    console.log(`Column migration check for ${col} ignored or failed:`, e.message);
+                    console.log(`Column migration check for ${col} ignored or failed: `, e.message);
                 }
             }
 

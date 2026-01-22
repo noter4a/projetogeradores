@@ -22,30 +22,7 @@ pool.on('error', (err) => {
 
 
 
-// Initialize Tables (Fire and forget, but catch errors to prevent crash)
-const initDb = async () => {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS alarm_history (
-                id SERIAL PRIMARY KEY,
-                generator_id VARCHAR(50) NOT NULL,
-                alarm_code INT NOT NULL,
-                alarm_message TEXT,
-                start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                end_time TIMESTAMP,
-                acknowledged BOOLEAN DEFAULT FALSE,
-                acknowledged_at TIMESTAMP,
-                acknowledged_by VARCHAR(100)
-            );
-        `);
-        console.log('Database tables initialized (alarm_history checked)');
-    } catch (err) {
-        console.error('Error initializing database tables (Non-critical if retrying):', err.message);
-    }
-};
 
-// Execute initDb but don't crash if it fails immediately (Connection might be established later)
-initDb().catch(err => console.error('InitDb Fatal Error:', err));
 
 export const query = (text, params) => pool.query(text, params);
 export default pool;
