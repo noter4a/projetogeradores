@@ -196,48 +196,70 @@ export const initMqttService = (io) => {
                             // AGENT: DB Alarm Logging Logic
                             (async () => {
                                 try {
-                                    // 1. Check if there is an OPEN alarm for this generator
+                                    // 1. Fetch LATEST alarm (Open or Closed)
                                     const latestRes = await pool.query(
-                                        `SELECT id, alarm_code FROM alarm_history 
-                                         WHERE generator_id = $1 AND end_time IS NULL 
+                                        `SELECT id, alarm_code, end_time, acknowledged 
+                                         FROM alarm_history 
+                                         WHERE generator_id = $1 
                                          ORDER BY start_time DESC LIMIT 1`,
                                         [deviceId]
                                     );
 
-                                    const openAlarm = latestRes.rows[0];
+                                    const latestAlarm = latestRes.rows[0];
+                                    const now = new Date();
 
-                                    // CASE A: NEW ALARM (Code > 0)
+                                    // CASE A: NEW ALARM SIGNAL (Code > 0)
                                     if (d.alarmCode > 0) {
-                                        // If no open alarm OR open alarm has DIFFERENT code -> Insert new
-                                        if (!openAlarm || openAlarm.alarm_code !== d.alarmCode) {
-                                            // Close previous if different
-                                            if (openAlarm) {
-                                                await pool.query(
-                                                    `UPDATE alarm_history SET end_time = NOW() WHERE id = $1`,
-                                                    [openAlarm.id]
-                                                );
-                                            }
-
-                                            // Insert New
+                                        if (!latestAlarm) {
+                                            // No history -> Insert New
                                             await pool.query(
                                                 `INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) 
                                                  VALUES ($1, $2, $3)`,
-                                                [
-                                                    deviceId,
-                                                    d.alarmCode,
-                                                    `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`
-                                                ]
+                                                [deviceId, d.alarmCode, `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`]
                                             );
                                             console.log(`[MQTT-ALARM] New Alarm Logged: ${d.alarmCode} for ${deviceId}`);
+                                        } else {
+                                            const isSameCode = latestAlarm.alarm_code === d.alarmCode;
+                                            const isOpen = latestAlarm.end_time === null;
+
+                                            if (isOpen) {
+                                                if (!isSameCode) {
+                                                    // Different code -> Close old, Insert New
+                                                    await pool.query(`UPDATE alarm_history SET end_time = NOW() WHERE id = $1`, [latestAlarm.id]);
+                                                    await pool.query(
+                                                        `INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) 
+                                                         VALUES ($1, $2, $3)`,
+                                                        [deviceId, d.alarmCode, `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`]
+                                                    );
+                                                    console.log(`[MQTT-ALARM] Switched Alarm: ${latestAlarm.alarm_code} -> ${d.alarmCode}`);
+                                                }
+                                                // If same code is open -> Do nothing (Persistence)
+                                            } else {
+                                                // CLOSED - Check for Debounce/Re-open
+                                                const timeSinceClose = now - new Date(latestAlarm.end_time);
+                                                // If same code AND closed less than 60s ago -> RE-OPEN
+                                                // This preserves 'acknowledged' status!
+                                                if (isSameCode && timeSinceClose < 60000) {
+                                                    await pool.query(`UPDATE alarm_history SET end_time = NULL WHERE id = $1`, [latestAlarm.id]);
+                                                    console.log(`[MQTT-ALARM] Re-opened Flapping Alarm: ${d.alarmCode} (Ack: ${latestAlarm.acknowledged})`);
+                                                } else {
+                                                    // New instance
+                                                    await pool.query(
+                                                        `INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) 
+                                                         VALUES ($1, $2, $3)`,
+                                                        [deviceId, d.alarmCode, `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`]
+                                                    );
+                                                    console.log(`[MQTT-ALARM] New Alarm Instance: ${d.alarmCode}`);
+                                                }
+                                            }
                                         }
-                                        // If same code is already open, do nothing (persistence).
                                     }
-                                    // CASE B: NO ALARM (Code == 0)
-                                    else if (d.alarmCode === 0 && openAlarm) {
+                                    // CASE B: NO ALARM SIGNAL (Code == 0)
+                                    else if (d.alarmCode === 0 && latestAlarm && latestAlarm.end_time === null) {
                                         // Close the open alarm
                                         await pool.query(
                                             `UPDATE alarm_history SET end_time = NOW() WHERE id = $1`,
-                                            [openAlarm.id]
+                                            [latestAlarm.id]
                                         );
                                         console.log(`[MQTT-ALARM] Alarm Cleared for ${deviceId}`);
                                     }
