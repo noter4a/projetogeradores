@@ -135,10 +135,7 @@ export const initMqttService = (io) => {
                             unifiedData.voltageL31 = d.l31_v || 0;
                         }
 
-                        // Map MODE_0
-                        if (d.block === 'MODE_0') {
-                            unifiedData.operationMode = d.opMode;
-                        }
+
 
                         // Map ENGINE_51_59
                         // Map ENGINE_51_59
