@@ -864,14 +864,31 @@ export const sendControlCommand = (deviceId, action) => {
             return { success: true };
         }
 
+        // MANUAL: User requested same command as Auto (Toggle logic?)
+        // Hex: 01 10 00 00 00 01 02 00 04 [CRC]
+        if (action === 'manual') {
+            const buf = createModbusWriteMultipleRequest(slaveId, 0, [4]);
+
+            const payload = JSON.stringify({
+                modbusCommand: buf.toString('hex').toUpperCase(),
+                modbusPeriodicitySeconds: 0
+            });
+
+            client.publish(topic, payload);
+            console.log(`[MQTT-CMD] MANUAL: Sent Func 16 (Reg 0, Val 4) [Same as Auto]. Hex: ${buf.toString('hex').toUpperCase()}`);
+
+            // Trigger Restore Polling logic (Send full config after 30s)
+            restorePolling(client, topic, slaveId, deviceId);
+
+            return { success: true };
+        }
+
         // Default Logic for Other Commands (Reg 16 - To be confirmed if they move to 99)
         // Keeping Reg 16 for others for now based on previous config
         let regAddress = 16;
 
         switch (action) {
-            case 'manual': // FIX: Map manual to Stop/Reset/Manual Mode (Value 1)
-                valueToWrite = 1;
-                break;
+            // 'manual' removed (handled above)
             // 'auto' removed (handled above)
             case 'ack':
             case 'reset':
