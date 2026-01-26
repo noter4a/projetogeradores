@@ -719,7 +719,7 @@ function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
 
 // Helper: Restore Polling Configuration (User Request: Send full list after 30s)
 const restorePolling = (client, topic, slaveId, deviceId) => {
-    console.log(`[MQTT-RESTORE] Aguardando 30s para restaurar lista de polling...`);
+    console.log(`[MQTT-RESTORE] Aguardando 20s para restaurar lista de polling...`);
 
     setTimeout(() => {
         if (!client.connected) return;
@@ -743,7 +743,7 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
 
         const payload = JSON.stringify({
             modbusRequest: requests,
-            modbusPeriodicitySeconds: 30 // User requested 30s
+            modbusPeriodicitySeconds: 20 // User requested 20s
         });
 
         client.publish(topic, payload);
@@ -766,7 +766,7 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
         // Injecting any extra poll (even at T+10s) risks colliding with the tail of the Bulk Poll.
         // We must trust the Gateway's internal cycle (Periodicity 30s) completely.
 
-    }, 30000); // Back to 30 seconds as requested by user
+    }, 20000); // Back to 20 seconds as requested by user
 };
 
 // Exported Command Function
@@ -781,7 +781,7 @@ export const sendControlCommand = (deviceId, action) => {
 
         // PAUSE Polling for this device to prevent collisions
         pausedDevices.add(deviceId);
-        console.log(`[MQTT-CMD] Pausing polling for ${deviceId} (30s timeout)`);
+        console.log(`[MQTT-CMD] Pausing polling for ${deviceId} (20s timeout)`);
 
         // Since devicesToPoll is local to this module, we can access it.
         // Ensure we find the slaveId.
