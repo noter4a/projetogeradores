@@ -199,7 +199,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
 
     if (highByte === 100) mode = 'MANUAL'; // 0x64
     else if (highByte === 0) mode = 'INHIBITED';
-    else if (highByte === 4) mode = 'AUTO';
+    else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C (New)
     else if (highByte === 5) mode = 'TEST'; // Guessing
 
     // Breaker Mapping from Low Byte (User Request)
