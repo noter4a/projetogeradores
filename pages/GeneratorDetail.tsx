@@ -354,6 +354,7 @@ const GeneratorDetail: React.FC = () => {
               <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
                 <h3 className="text-white font-bold flex items-center gap-2 text-sm uppercase tracking-wider">
                   <Radio size={18} className="text-ciklo-orange" /> Painel de Controle Remoto
+                  {gen.reg78_hex && <span className="text-[10px] text-yellow-500 font-mono ml-2">(DEBUG: Reg78=0x{gen.reg78_hex.toUpperCase()})</span>}
                 </h3>
                 <div className="flex items-center gap-2">
                   <div className="px-2 py-1 rounded bg-gray-900 border border-gray-700 text-[10px] font-mono text-ciklo-yellow flex items-center gap-1">
