@@ -202,12 +202,12 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C (New)
     else if (highByte === 5) mode = 'TEST'; // Guessing
 
-    // Breaker Mapping from Low Byte (User Request)
-    // Hypothesis derived from Value 0x10 (Mains Closed) and Reg 24 history (Left Shift 2):
-    // Bit 3 (0x08) = Gen Breaker Closed  (Old Bit 1 << 2)
-    // Bit 4 (0x10) = Mains Breaker Closed (Old Bit 2 << 2)
-    const genClosed = (lowByte & 0x08) !== 0;
-    const mainsClosed = (lowByte & 0x10) !== 0;
+    // Breaker Mapping from Low Byte (User Reported 0x80 = Mains Closed)
+    // Bit 7 (0x80) = Mains Breaker Closed (Confirmed)
+    // Bit 6 (0x40) = Gen Breaker Closed (Hypothesis: Adjacent bit)
+    // Previous assumptions (0x08, 0x10) were incorrect.
+    const genClosed = (lowByte & 0x40) !== 0;
+    const mainsClosed = (lowByte & 0x80) !== 0;
 
     return {
       block: "STATUS_78",
