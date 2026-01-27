@@ -726,20 +726,29 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
 
         console.log(`[MQTT-RESTORE] Enviando lista de polling completa para ${topic}`);
 
-        // Construct the full modbusRequest list based on the polling loop logic
-        // Hex strings for each register query
-        // User's GOLDEN LIST (Proven to work manually)
+        // DYNAMICALLY Construct the full modbusRequest list using the correct slaveId
         const requests = [
-            "0103003C000545C5", // 1. Run Hours (Reg 60-64)
-            "010300010009D40C", // 2. Gen Voltage (Reg 1-9)
-            "01030033000975C3", // 3. Engine (Reg 51-59)
-            "0103000E0009E40F", // 4. Mains Voltage (Reg 14-22)
-            "010300170003B5CF", // 5. Current/Breaker (Reg 23-25)
-            "0103001D000395CD", // 6. Active Power (Reg 29-31 ? User asked 29)
-            "010300420001241E", // 7. Alarm (Reg 66)
-            "0103004E0001E41D", // 8. Status (Reg 78) - CRITICAL
-            "010600010064D9E1"  // 9. Write Command (User included this in working list, maybe Keep-Alive?)
+            createModbusReadRequest(slaveId, 60, 5).toString('hex').toUpperCase(), // 1. Run Hours (Reg 60-64)
+            createModbusReadRequest(slaveId, 1, 9).toString('hex').toUpperCase(),  // 2. Gen Voltage (Reg 1-9)
+            createModbusReadRequest(slaveId, 51, 9).toString('hex').toUpperCase(), // 3. Engine (Reg 51-59)
+            createModbusReadRequest(slaveId, 14, 9).toString('hex').toUpperCase(), // 4. Mains Voltage (Reg 14-22)
+            createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 5. Current/Breaker (Reg 23-25)
+            createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29-31)
+            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66)
+            createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 8. Status (Reg 78)
         ];
+
+        // 9. Keep-Alive / Config Write (Func 6, Reg 1, Val 100 - 0x0064)
+        // Manual construction since createModbusReadRequest is only for reads
+        // Buffer: Slave(1) + Func(1) + Reg(2) + Val(2) + CRC(2) = 8 bytes
+        const writeBuf = Buffer.alloc(8);
+        writeBuf.writeUInt8(slaveId, 0);
+        writeBuf.writeUInt8(6, 1);
+        writeBuf.writeUInt16BE(1, 2);   // Reg 1
+        writeBuf.writeUInt16BE(100, 4); // Val 100
+        const crc = crc16Modbus(writeBuf.slice(0, 6));
+        writeBuf.writeUInt16LE(crc, 6);
+        requests.push(writeBuf.toString('hex').toUpperCase());
 
         const payload = JSON.stringify({
             modbusRequest: requests,
@@ -883,6 +892,25 @@ export const sendControlCommand = (deviceId, action) => {
             return { success: true };
         }
 
+        // RESET / ACK: User requested Func 16, Reg 0, Val 64 (0x40).
+        // Hex: 01 10 00 00 00 01 02 00 40 [CRC]
+        if (action === 'reset' || action === 'ack') {
+            const buf = createModbusWriteMultipleRequest(slaveId, 0, [64]);
+
+            const payload = JSON.stringify({
+                modbusCommand: buf.toString('hex').toUpperCase(),
+                modbusPeriodicitySeconds: 0
+            });
+
+            client.publish(topic, payload);
+            console.log(`[MQTT-CMD] RESET/ACK: Sent Func 16 (Reg 0, Val 64). Hex: ${buf.toString('hex').toUpperCase()}`);
+
+            // Trigger Restore Polling logic (Send full config after 10s)
+            restorePolling(client, topic, slaveId, deviceId);
+
+            return { success: true };
+        }
+
         // Default Logic for Other Commands (Reg 16 - To be confirmed if they move to 99)
         // Keeping Reg 16 for others for now based on previous config
         let regAddress = 16;
@@ -890,10 +918,7 @@ export const sendControlCommand = (deviceId, action) => {
         switch (action) {
             // 'manual' removed (handled above)
             // 'auto' removed (handled above)
-            case 'ack':
-            case 'reset':
-                valueToWrite = 64; // SGC ACK KEY
-                break;
+            // 'reset'/'ack' removed (handled above)
             default:
                 console.warn(`[MQTT-CMD] Unknown action: ${action}`);
                 return { success: false, error: `Unknown action '${action}'` };
