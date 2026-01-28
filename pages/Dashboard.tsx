@@ -5,6 +5,7 @@ import { GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock } from 'lucide-react';
+import AlarmPopup from '../components/AlarmPopup';
 
 const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
   const styles = {
@@ -160,6 +161,9 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Global Alarm Popup (Monitors All Generators) */}
+      <AlarmPopup />
     </div>
   );
 };
