@@ -63,38 +63,54 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
   if (alarms.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 max-w-sm w-full z-50 animate-in slide-in-from-right duration-300">
-      <div className="bg-red-900 border border-red-500 rounded-lg shadow-2xl overflow-hidden">
-        <div className="p-4 bg-red-950 flex items-center justify-between border-b border-red-800">
-          <h3 className="text-white font-bold flex items-center gap-2">
-            <AlertOctagon className="text-red-500 animate-pulse" /> ALARME ATIVO
-          </h3>
-          <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">{alarms.length}</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="w-full max-w-md bg-gray-900 border border-red-900/50 rounded-2xl shadow-2xl overflow-hidden scale-100 animate-in zoom-in-95 duration-300">
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-red-950 to-gray-900 p-6 border-b border-red-900/30 flex items-center gap-4">
+          <div className="p-3 bg-red-500/10 rounded-full animate-pulse">
+            <AlertOctagon className="text-red-500 w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white tracking-wide">ALARME DETECTADO</h3>
+            <p className="text-red-400 text-xs uppercase font-bold tracking-wider">Ação Necessária</p>
+          </div>
         </div>
 
-        <div className="p-4 max-h-60 overflow-y-auto space-y-3">
+        {/* Content */}
+        <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
           {alarms.map(alarm => (
-            <div key={alarm.id} className="bg-red-950/50 p-3 rounded border border-red-800/50">
-              <p className="text-red-200 text-sm font-mono">{alarm.alarm_message}</p>
-              <p className="text-xs text-red-400 mt-1">{new Date(alarm.start_time).toLocaleTimeString()}</p>
+            <div key={alarm.id} className="bg-red-500/5 p-4 rounded-xl border border-red-500/10 flex flex-col gap-2">
+              <div className="flex justify-between items-start">
+                <span className="text-red-200 font-medium text-lg leading-tight">{alarm.alarm_message}</span>
+                <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded border border-gray-700 font-mono">
+                  {new Date(alarm.start_time).toLocaleTimeString()}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500">Código do Evento: <span font-mono text-gray-400>{alarm.alarm_code}</span></p>
+
               <button
                 onClick={() => handleAcknowledge(alarm.id)}
-                className="mt-2 w-full py-1 bg-red-800 hover:bg-red-700 text-white text-xs rounded transition-colors flex items-center justify-center gap-2"
+                className="mt-3 w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-all shadow-lg shadow-red-900/20 active:scale-95 flex items-center justify-center gap-2"
               >
-                <CheckCircle size={12} /> Reconhecer
+                <CheckCircle size={18} />
+                RECONHECER ALARME
               </button>
             </div>
           ))}
         </div>
 
-        <div className="p-3 bg-red-950 border-t border-red-800">
-          <button
-            onClick={handleAcknowledgeAll}
-            className="w-full py-2 bg-white text-red-900 font-bold text-sm rounded hover:bg-gray-100 transition-colors"
-          >
-            Reconhecer Todos
-          </button>
-        </div>
+        {/* Footer */}
+        {alarms.length > 1 && (
+          <div className="p-4 bg-gray-950 border-t border-gray-800">
+            <button
+              onClick={handleAcknowledgeAll}
+              className="w-full py-3 bg-gray-800 text-gray-300 font-semibold rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Reconhecer Todos ({alarms.length})
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
