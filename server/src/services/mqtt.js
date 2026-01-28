@@ -209,10 +209,13 @@ export const initMqttService = (io) => {
                                     if (d.alarmCode > 0) {
                                         if (!latestAlarm) {
                                             // No history -> Insert New
+                                            // Use decoded message or fallback
+                                            const finalMessage = d.alarmMessage || `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`;
+
                                             await pool.query(
                                                 `INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) 
-                                                 VALUES ($1, $2, $3)`,
-                                                [deviceId, d.alarmCode, `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`]
+     VALUES ($1, $2, $3)`,
+                                                [deviceId, d.alarmCode, finalMessage]
                                             );
                                             console.log(`[MQTT-ALARM] New Alarm Logged: ${d.alarmCode} for ${deviceId}`);
                                         } else {
@@ -223,10 +226,12 @@ export const initMqttService = (io) => {
                                                 if (!isSameCode) {
                                                     // Different code -> Close old, Insert New
                                                     await pool.query(`UPDATE alarm_history SET end_time = NOW() WHERE id = $1`, [latestAlarm.id]);
+                                                    const finalMessage = d.alarmMessage || `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`;
+
                                                     await pool.query(
                                                         `INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) 
-                                                         VALUES ($1, $2, $3)`,
-                                                        [deviceId, d.alarmCode, `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`]
+     VALUES ($1, $2, $3)`,
+                                                        [deviceId, d.alarmCode, finalMessage]
                                                     );
                                                     console.log(`[MQTT-ALARM] Switched Alarm: ${latestAlarm.alarm_code} -> ${d.alarmCode}`);
                                                 }
@@ -241,10 +246,12 @@ export const initMqttService = (io) => {
                                                     console.log(`[MQTT-ALARM] Re-opened Flapping Alarm: ${d.alarmCode} (Ack: ${latestAlarm.acknowledged})`);
                                                 } else {
                                                     // New instance
+                                                    const finalMessage = d.alarmMessage || `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`;
+
                                                     await pool.query(
                                                         `INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) 
-                                                         VALUES ($1, $2, $3)`,
-                                                        [deviceId, d.alarmCode, `Alarm Code: ${d.alarmCode} (Hex: 0x${d.alarmCode.toString(16).toUpperCase()})`]
+     VALUES ($1, $2, $3)`,
+                                                        [deviceId, d.alarmCode, finalMessage]
                                                     );
                                                     console.log(`[MQTT-ALARM] New Alarm Instance: ${d.alarmCode}`);
                                                 }

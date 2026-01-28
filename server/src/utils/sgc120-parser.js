@@ -452,19 +452,31 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // Bloco 66 (1 reg): Alarm Code - NEW
-  // Returns hex code of the alarm. 0 = No Alarm.
+  // Bloco 66 (1 reg): Alarm Code
   if (startAddress === 66 && regs.length >= 1) {
     const code = u16(regs, 0);
-    // 0x0131 = Fail to start (Falha de Partida)
-    const isStartFailure = (code === 0x0131);
 
-    console.log(`[PARSER] Alarm (66): Code=0x${code.toString(16).toUpperCase()} (StartFailure=${isStartFailure})`);
+    // Decode Bit-Packed Alarms (Nibbles)
+    // Fail to Stop: Bits 0-3 (1/16 - 4/16)
+    // Fail to Start: Bits 4-7 (5/16 - 8/16)
+    // Emergency Stop: Bits 8-11 (9/16 - 12/16) -> Assumption based on pattern? Or just OverSpeed?
+    // User image only confirmed Start/Stop.
+
+    const failToStopStatus = code & 0x000F;
+    const failToStartStatus = (code >> 4) & 0x000F;
+
+    let message = "";
+
+    // Status 3 usually means "Shutdown Alarm" (Active)
+    if (failToStartStatus === 3 || failToStartStatus === 2) message = "Falha na Partida (Fail to Start)";
+    else if (failToStopStatus === 3 || failToStopStatus === 2) message = "Falha na Parada (Fail to Stop)";
+    else if (code > 0) message = `Alarme Genérico (Código: 0x${code.toString(16).toUpperCase()})`;
 
     return {
       block: "ALARM_66",
       alarmCode: code,
-      startFailure: isStartFailure
+      alarmMessage: message,
+      startFailure: (failToStartStatus === 3)
     };
   }
 
