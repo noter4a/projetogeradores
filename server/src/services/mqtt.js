@@ -309,10 +309,6 @@ export const initMqttService = (io) => {
 
                             console.log(`[MQTT-DEBUG] Mapping LOAD_CURRENT_23 -> unifiedData: ${d.loadCurr_l1}A`);
 
-                            // RESTORED: Map Breaker Status from Legacy Bits
-                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
-                            unifiedData.genBreakerClosed = d.genBreakerClosed;
-
                             // Also map to reg23/24 for debug view
                             unifiedData.reg23 = d.reg23;
                             unifiedData.reg24 = d.reg24;
