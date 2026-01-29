@@ -314,18 +314,19 @@ export const initMqttService = (io) => {
                             unifiedData.reg24 = d.reg24;
                         }
 
-                        // Map STATUS_78 (Correct Mode Status + Breakers)
+                        // Map STATUS_77 (Authoritative Breaker Status)
+                        if (d.block === 'STATUS_77') {
+                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = d.genBreakerClosed;
+                            unifiedData.reg77_hex = d.reg77_hex;
+                        }
+
+                        // Map STATUS_78 (Correct Mode Status)
                         if (d.block === 'STATUS_78') {
                             if (d.opMode !== 'UNKNOWN') {
                                 unifiedData.operationMode = d.opMode;
                             }
                             unifiedData.reg78_hex = d.reg78_hex;
-
-                            // AGENT FIX: User requested Breaker Status from Reg 78
-                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
-                            unifiedData.genBreakerClosed = d.genBreakerClosed;
-
-                            console.log(`[MQTT-DEBUG] Mapping STATUS_78 -> Mode: ${d.opMode}, GCB: ${d.genBreakerClosed}, MCB: ${d.mainsBreakerClosed}, Hex: ${d.reg78_hex}`);
                         }
 
                         // Map PROBE_16
@@ -662,10 +663,15 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 16, 1));
                 }, 18000); // +1s
 
-                // 13. REAL STATUS PROBE (78, 1 reg) - User confirmed 0x6480 from Reg 78
+                // 13. REAL STATUS PROBE (78, 1 reg)
                 setTimeout(() => {
                     if (pausedDevices.has(deviceId)) return;
-                    client.publish(topic, createModbusReadRequest(slaveId, 78, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 77, 1)); // 77 = Breaker Status
+                }, 18500); // Intermediary step
+
+                setTimeout(() => {
+                    if (pausedDevices.has(deviceId)) return;
+                    client.publish(topic, createModbusReadRequest(slaveId, 78, 1)); // 78 = Mode Status
                 }, 19000); // +1s
 
                 // 14. ACTIVE POWER (29, 1 reg) - User requested new source
@@ -738,7 +744,8 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
             createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 5. Current/Breaker (Reg 23-25)
             createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29-31)
             createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66)
-            createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 8. Status (Reg 78)
+            createModbusReadRequest(slaveId, 77, 1).toString('hex').toUpperCase(), // 8. Status (Reg 77)
+            createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 9. Mode (Reg 78)
         ];
 
         // 9. Keep-Alive / Config Write (Func 6, Reg 1, Val 100 - 0x0064)

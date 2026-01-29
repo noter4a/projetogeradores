@@ -182,7 +182,26 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // STATUS REGISTER 78 Parsing
+  // STATUS REGISTER 77 (0x4D) - Authoritative Breaker Status
+  // User confirmed: 0103004D0001D41F (Request for Reg 77)
+  // Mains Closed: Bit 11
+  // Gen Closed: Bit 10
+  if (startAddress === 77 && regs.length >= 1) {
+    const raw = u16(regs, 0);
+    const mainsClosed = (raw & (1 << 11)) !== 0; // Bit 11
+    const genClosed = (raw & (1 << 10)) !== 0;   // Bit 10
+
+    console.log(`[PARSER] Reg 77 Status: 0x${raw.toString(16).toUpperCase()} -> Mains=${mainsClosed} (Bit11), Gen=${genClosed} (Bit10)`);
+
+    return {
+      block: "STATUS_77",
+      reg77_hex: raw.toString(16).toUpperCase(),
+      mainsBreakerClosed: mainsClosed,
+      genBreakerClosed: genClosed
+    };
+  }
+
+  // STATUS REGISTER 78 Parsing (Legacy/Fallback)
   // High Byte = Mode, Low Byte = Flags
   // 0x64 (100) = MANUAL
   if (startAddress === 78 && regs.length >= 1) {
@@ -191,27 +210,17 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     const lowByte = raw & 0xFF; // Status Flags
 
     let mode = 'UNKNOWN';
-    console.log(`[PARSER] Reg 78 Raw: 0x${raw.toString(16).toUpperCase()} -> ModeByte: ${highByte}, FlagsByte: ${lowByte} (Binary: ${lowByte.toString(2).padStart(8, '0')})`);
+    // console.log(`[PARSER] Reg 78 Raw: 0x${raw.toString(16).toUpperCase()} -> ModeByte: ${highByte}`);
 
     if (highByte === 100) mode = 'MANUAL'; // 0x64
     else if (highByte === 0) mode = 'INHIBITED';
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C (New)
-    else if (highByte === 5) mode = 'TEST'; // Guessing
-
-    // Breaker Mapping from Low Byte (User Reported 0x80 = Mains Closed)
-    // Bit 7 (0x80) = Mains Breaker Closed (Confirmed)
-    // Bit 6 (0x40) = Gen Breaker Closed (Hypothesis: Adjacent bit)
-    // Previous assumptions (0x08, 0x10) were incorrect.
-    const genClosed = (lowByte & 0x40) !== 0;
-    const mainsClosed = (lowByte & 0x80) !== 0;
+    else if (highByte === 5) mode = 'TEST';
 
     return {
       block: "STATUS_78",
       opMode: mode,
-      reg78_hex: raw.toString(16),
-      genBreakerClosed: genClosed,
-      mainsBreakerClosed: mainsClosed,
-      rawFlags: lowByte
+      reg78_hex: raw.toString(16)
     };
   }
 
