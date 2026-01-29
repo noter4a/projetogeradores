@@ -462,53 +462,144 @@ const GeneratorDetail: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between relative px-2 md:px-4 py-8 bg-gray-900/30 rounded-xl border border-dashed border-gray-800">
-                    {/* Grid Line */}
-                    <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-700 -z-0"></div>
+                  <div className="flex flex-col items-center justify-center relative px-2 md:px-4 py-8 bg-gray-900/30 rounded-xl border border-dashed border-gray-800">
 
-                    {/* Mains Breaker */}
-                    <div className="relative z-10 flex flex-col items-center gap-2 md:gap-3 bg-ciklo-card p-2 md:p-3 rounded-xl border border-gray-800 shadow-lg">
-                      <div className={`p-1.5 md:p-2 rounded-full ${gen.mainsBreakerClosed ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-red-500/20 text-red-500'}`}>
-                        <UtilityPole size={20} className="md:w-6 md:h-6" />
-                      </div>
-                      <button
-                        onClick={() => handleControl('toggleMains')}
-                        disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
-                        className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.mainsBreakerClosed
-                          ? 'bg-green-900/30 text-green-400 border-green-500'
-                          : 'bg-red-900/30 text-red-400 border-red-500 hover:border-red-400'
-                          } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
-                      >
-                        {gen.mainsBreakerClosed ? 'REDE FECHADA' : 'REDE ABERTA'}
-                      </button>
-                    </div>
+                    {/* SVG Single Line Diagram */}
+                    <div className="w-full max-w-[500px] h-[120px] relative">
+                      <svg viewBox="0 0 500 120" className="w-full h-full drop-shadow-lg">
+                        {/* DEFS for Glows */}
+                        <defs>
+                          <filter id="glow-green" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                            <feMerge>
+                              <feMergeNode in="coloredBlur" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                          <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                            <feMerge>
+                              <feMergeNode in="coloredBlur" />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                        </defs>
 
-                    {/* Load Center */}
-                    <div className="relative z-10 flex flex-col items-center">
-                      <div className={`w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-lg border-4 transition-all duration-500 ${(gen.mainsBreakerClosed || gen.genBreakerClosed)
-                        ? 'bg-ciklo-orange border-ciklo-orange text-black shadow-orange-500/20'
-                        : 'bg-gray-800 border-gray-700 text-gray-500'
-                        }`}>
-                        <Zap size={20} className={`md:w-7 md:h-7 ${(gen.mainsBreakerClosed || gen.genBreakerClosed) ? 'fill-current' : ''}`} />
-                      </div>
-                      <span className="mt-2 text-[9px] md:text-[10px] font-bold text-gray-500 uppercase">Carga</span>
-                    </div>
+                        {/* --- STATIC LINES --- */}
+                        {/* Main Line Left (Mains to Breaker) */}
+                        <line x1="50" y1="80" x2="130" y2="80" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"} strokeWidth="4" className="transition-colors duration-500" />
 
-                    {/* Gen Breaker */}
-                    <div className="relative z-10 flex flex-col items-center gap-2 md:gap-3 bg-ciklo-card p-2 md:p-3 rounded-xl border border-gray-800 shadow-lg">
-                      <div className={`p-1.5 md:p-2 rounded-full ${gen.genBreakerClosed ? 'bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'bg-red-500/20 text-red-500'}`}>
-                        <Power size={20} className="md:w-6 md:h-6" />
+                        {/* Main Line Middle (Breakers to Load) */}
+                        <line x1="170" y1="80" x2="200" y2="80" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#374151"} strokeWidth="4" className="transition-colors duration-500" />
+                        <line x1="300" y1="80" x2="330" y2="80" stroke={gen.genBreakerClosed ? "#22c55e" : "#374151"} strokeWidth="4" className="transition-colors duration-500" />
+
+                        {/* Main Line Right (Breaker to Gen) */}
+                        <line x1="370" y1="80" x2="450" y2="80" stroke={gen.genBreakerClosed ? "#22c55e" : "#ef4444"} strokeWidth="4" className="transition-colors duration-500" />
+
+
+                        {/* --- ICONS --- */}
+
+                        {/* MAINS ICON (Left) - Tower */}
+                        <g transform="translate(10, 50)" className={gen.mainsBreakerClosed ? "text-green-500" : "text-gray-500"}>
+                          <UtilityPole size={40} className="text-current" strokeWidth={1.5} />
+                          {/* Label */}
+                          <text x="20" y="-10" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold">REDE</text>
+                        </g>
+
+                        {/* GEN ICON (Right) - Circle G */}
+                        <g transform="translate(450, 55)">
+                          <circle cx="20" cy="20" r="22" fill="none" stroke={gen.status === GeneratorStatus.RUNNING ? "#22c55e" : "#6b7280"} strokeWidth="3" />
+                          <text x="20" y="26" textAnchor="middle" fill={gen.status === GeneratorStatus.RUNNING ? "#22c55e" : "#6b7280"} fontSize="20" fontWeight="bold">G</text>
+                          {/* Dynamic Spinner ring if running */}
+                          {gen.status === GeneratorStatus.RUNNING && (
+                            <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
+                          )}
+                          <text x="20" y="-15" textAnchor="middle" fill="currentColor" className="text-gray-400" fontSize="12" fontWeight="bold">GERADOR</text>
+                        </g>
+
+                        {/* LOAD ICON (Center) - Box */}
+                        <g transform="translate(200, 55)">
+                          <rect x="0" y="0" width="100" height="50" rx="4" fill="#1f2937" stroke={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#374151"} strokeWidth="3" />
+                          <text x="50" y="30" textAnchor="middle" fill={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#6b7280"} fontSize="14" fontWeight="bold" letterSpacing="2">LOAD</text>
+                        </g>
+
+                        {/* --- ACTUATOR/BREAKERS (Switches) --- */}
+
+                        {/* MAINS BREAKER (Left Switch) */}
+                        {/* Pivot at 130,80. End at 170,80 if closed */}
+                        <g
+                          className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' ? 'cursor-not-allowed opacity-50' : ''}`}
+                          onClick={() => { if (gen.operationMode !== 'AUTO') handleControl('toggleMains'); }}
+                        >
+                          {/* Hit area for easier clicking */}
+                          <rect x="120" y="30" width="60" height="60" fill="transparent" />
+
+                          {/* Switch Arm */}
+                          {/* If Open: Rotate -35deg from pivot 130,80 */}
+                          <line
+                            x1="130" y1="80" x2="170" y2="80"
+                            stroke={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"}
+                            strokeWidth="6"
+                            strokeLinecap="round"
+                            className="transition-all duration-500 ease-in-out"
+                            transform={gen.mainsBreakerClosed ? "rotate(0 130 80)" : "rotate(-35 130 80)"}
+                          />
+                          {/* Contact points */}
+                          <circle cx="130" cy="80" r="4" fill="#fff" />
+                          <circle cx="170" cy="80" r="4" fill="#fff" />
+
+                          {/* Status Label */}
+                          <text x="150" y="110" textAnchor="middle" fontSize="10" fill={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"} fontWeight="bold">
+                            {gen.mainsBreakerClosed ? 'FECHADO' : 'ABERTO'}
+                          </text>
+                        </g>
+
+
+                        {/* GEN BREAKER (Right Switch) */}
+                        {/* Pivot at 370,80 (Mirroring: Line comes from 330,80 to 370,80) */}
+                        {/* Actually, structurally: Line from Gen (Right) comes to 370. Switch goes from 370 to 330 (Load) */}
+                        {/* Let's pivot at 370,80 (Gen Side) and swing left to 330,80 (Load Side) */}
+
+                        <g
+                          className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' ? 'cursor-not-allowed opacity-50' : ''}`}
+                          onClick={() => { if (gen.operationMode !== 'AUTO') handleControl('toggleGen'); }}
+                        >
+                          {/* Hit area */}
+                          <rect x="320" y="30" width="60" height="60" fill="transparent" />
+
+                          {/* Switch Arm */}
+                          {/* Pivot 370,80. Target 330,80 */}
+                          {/* Closed: Line 370,80 to 330,80 */}
+                          {/* Open: Rotate 35deg (Clockwise) from 370,80 so it lifts UP towards left */}
+                          <line
+                            x1="370" y1="80" x2="330" y2="80"
+                            stroke={gen.genBreakerClosed ? "#22c55e" : "#ef4444"}
+                            strokeWidth="6"
+                            strokeLinecap="round"
+                            className="transition-all duration-500 ease-in-out"
+                            transform={gen.genBreakerClosed ? "rotate(0 370 80)" : "rotate(35 370 80)"}
+                          />
+
+                          {/* Contact points */}
+                          <circle cx="370" cy="80" r="4" fill="#fff" />
+                          <circle cx="330" cy="80" r="4" fill="#fff" />
+
+                          {/* Status Label */}
+                          <text x="350" y="110" textAnchor="middle" fontSize="10" fill={gen.genBreakerClosed ? "#22c55e" : "#ef4444"} fontWeight="bold">
+                            {gen.genBreakerClosed ? 'FECHADO' : 'ABERTO'}
+                          </text>
+                        </g>
+
+                      </svg>
+
+                      {/* Interactive Tooltips/Badges */}
+                      <div className="absolute top-0 right-0">
+                        {gen.operationMode === 'AUTO' && (
+                          <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">
+                            Controle Automático (Chaves Bloqueadas)
+                          </span>
+                        )}
                       </div>
-                      <button
-                        onClick={() => handleControl('toggleGen')}
-                        disabled={gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
-                        className={`px-2 md:px-3 py-1.5 rounded text-[9px] md:text-[10px] font-bold border transition-all w-20 sm:w-24 md:w-28 text-center ${gen.genBreakerClosed
-                          ? 'bg-green-900/30 text-green-400 border-green-500'
-                          : 'bg-red-900/30 text-red-400 border-red-500 hover:border-red-400'
-                          } ${(gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED') ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
-                      >
-                        {gen.genBreakerClosed ? 'GER. FECHADO' : 'GER. ABERTO'}
-                      </button>
                     </div>
                   </div>
                   {/* DEBUG BREAKER STATUS */}
