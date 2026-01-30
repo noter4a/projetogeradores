@@ -182,27 +182,17 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // STATUS REGISTER 11000 (0x2AF8) - Mains Breaker Status
-  // User confirmed Request: 01032AF80001865E
+  // STATUS REGISTER 11000 & 11001 (REMOVED)
+  /*
   if (startAddress === 11000 && regs.length >= 1) {
     const val = u16(regs, 0);
-    console.log(`[PARSER] Reg 11000 (Mains): ${val}`);
-    return {
-      block: "MAINS_BREAKER_11000",
-      mainsBreakerClosed: val === 1
-    };
+    return { block: "MAINS_BREAKER_11000", mainsBreakerClosed: val === 1 };
   }
-
-  // STATUS REGISTER 11001 (0x2AF9) - Gen Breaker Status
-  // User confirmed Request: 01032AF90001D79E
   if (startAddress === 11001 && regs.length >= 1) {
     const val = u16(regs, 0);
-    console.log(`[PARSER] Reg 11001 (Gen): ${val}`);
-    return {
-      block: "GEN_BREAKER_11001",
-      genBreakerClosed: val === 1
-    };
+    return { block: "GEN_BREAKER_11001", genBreakerClosed: val === 1 };
   }
+  */
 
   // STATUS REGISTER 78 Parsing (Authoritative Mode & Breaker Status)
   // High Byte = Mode, Low Byte = Flags

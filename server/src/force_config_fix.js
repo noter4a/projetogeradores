@@ -55,8 +55,8 @@ client.on('connect', () => {
         createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 5. Current/Breaker (Reg 23-25)
         createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29-31)
         createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66)
-        createModbusReadRequest(slaveId, 11000, 1).toString('hex').toUpperCase(), // 8. Mains Status (Reg 11000)
-        createModbusReadRequest(slaveId, 11001, 1).toString('hex').toUpperCase(), // 9. Gen Status (Reg 11001)
+        // createModbusReadRequest(slaveId, 11000, 1).toString('hex').toUpperCase(), // 8. Mains Status (REMOVED)
+        // createModbusReadRequest(slaveId, 11001, 1).toString('hex').toUpperCase(), // 9. Gen Status (REMOVED)
         createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 10. Mode (Reg 78)
     ];
 
