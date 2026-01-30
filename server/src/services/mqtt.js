@@ -777,17 +777,8 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
             createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 10. Mode (Reg 78)
         ];
 
-        // 9. Keep-Alive / Config Write (Func 6, Reg 1, Val 100 - 0x0064)
-        // Manual construction since createModbusReadRequest is only for reads
-        // Buffer: Slave(1) + Func(1) + Reg(2) + Val(2) + CRC(2) = 8 bytes
-        const writeBuf = Buffer.alloc(8);
-        writeBuf.writeUInt8(slaveId, 0);
-        writeBuf.writeUInt8(6, 1);
-        writeBuf.writeUInt16BE(1, 2);   // Reg 1
-        writeBuf.writeUInt16BE(100, 4); // Val 100
-        const crc = crc16Modbus(writeBuf.slice(0, 6));
-        writeBuf.writeUInt16LE(crc, 6);
-        requests.push(writeBuf.toString('hex').toUpperCase());
+        // REMOVED: Keep-Alive / Config Write (Func 6) - caused "Inhibited" state
+
 
         const payload = JSON.stringify({
             modbusRequest: requests,
