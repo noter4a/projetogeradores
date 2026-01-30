@@ -314,20 +314,21 @@ export const initMqttService = (io) => {
                             unifiedData.reg24 = d.reg24;
                         }
 
-                        // Map STATUS_77 (Debug Only now)
-                        if (d.block === 'STATUS_77') {
-                            unifiedData.reg77_hex = d.reg77_hex;
-                        }
-
-                        // Map STATUS_78 (Correct Mode Status & Breaker Status)
+                        // Map STATUS_78 (Correct Mode Status)
                         if (d.block === 'STATUS_78') {
                             if (d.opMode !== 'UNKNOWN') {
                                 unifiedData.operationMode = d.opMode;
                             }
                             unifiedData.reg78_hex = d.reg78_hex;
+                        }
 
-                            // Restore Breaker Mapping from Reg 78
+                        // Map MAINS BREAKER (11000)
+                        if (d.block === 'MAINS_BREAKER_11000') {
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                        }
+
+                        // Map GEN BREAKER (11001)
+                        if (d.block === 'GEN_BREAKER_11001') {
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
                         }
 
@@ -665,11 +666,16 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 16, 1));
                 }, 18000); // +1s
 
-                // 13. REAL STATUS PROBE (78, 1 reg)
+                // 13. BREAKER STATUS PROBE (11000 & 11001)
                 setTimeout(() => {
                     if (pausedDevices.has(deviceId)) return;
-                    client.publish(topic, createModbusReadRequest(slaveId, 77, 1)); // 77 = Breaker Status
-                }, 18500); // Intermediary step
+                    client.publish(topic, createModbusReadRequest(slaveId, 11000, 1)); // Mains Breaker
+                }, 18400);
+
+                setTimeout(() => {
+                    if (pausedDevices.has(deviceId)) return;
+                    client.publish(topic, createModbusReadRequest(slaveId, 11001, 1)); // Gen Breaker
+                }, 18800);
 
                 setTimeout(() => {
                     if (pausedDevices.has(deviceId)) return;

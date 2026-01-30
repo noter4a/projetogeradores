@@ -182,22 +182,25 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // STATUS REGISTER 77 (0x4D) - Authoritative Breaker Status
-  // User confirmed: 0103004D0001D41F (Request for Reg 77)
-  // Mains Closed: Bit 11
-  // Gen Closed: Bit 10
-  if (startAddress === 77 && regs.length >= 1) {
-    const raw = u16(regs, 0);
-    const mainsClosed = (raw & (1 << 0)) !== 0;  // Bit 0: Mains Closed (Active = 1)
-    const genClosed = (raw & (1 << 1)) !== 0;    // Bit 1: Gen Closed (Hypothesis: Adjacent, Active = 1)
-
-    console.log(`[PARSER] Reg 77 Status: 0x${raw.toString(16).toUpperCase()} -> Mains=${mainsClosed} (Bit11), Gen=${genClosed} (Bit10)`);
-
+  // STATUS REGISTER 11000 (0x2AF8) - Mains Breaker Status
+  // User confirmed Request: 01032AF80001865E
+  if (startAddress === 11000 && regs.length >= 1) {
+    const val = u16(regs, 0);
+    console.log(`[PARSER] Reg 11000 (Mains): ${val}`);
     return {
-      block: "STATUS_77",
-      reg77_hex: raw.toString(16).toUpperCase(),
-      // mainsBreakerClosed: mainsClosed, // Disabled: Reg 77 stuck
-      // genBreakerClosed: genClosed      // Disabled: Reg 77 stuck
+      block: "MAINS_BREAKER_11000",
+      mainsBreakerClosed: val === 1
+    };
+  }
+
+  // STATUS REGISTER 11001 (0x2AF9) - Gen Breaker Status
+  // User confirmed Request: 01032AF90001D79E
+  if (startAddress === 11001 && regs.length >= 1) {
+    const val = u16(regs, 0);
+    console.log(`[PARSER] Reg 11001 (Gen): ${val}`);
+    return {
+      block: "GEN_BREAKER_11001",
+      genBreakerClosed: val === 1
     };
   }
 
@@ -218,15 +221,15 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C (New)
     else if (highByte === 5) mode = 'TEST';
 
-    const mainsClosed = (lowByte & 0x80) !== 0; // Bit 7
-    const genClosed = (lowByte & 0x10) !== 0;   // Bit 4
+    // const mainsClosed = (lowByte & 0x80) !== 0; // Bit 7 (Legacy)
+    // const genClosed = (lowByte & 0x10) !== 0;   // Bit 4 (Legacy)
 
     return {
       block: "STATUS_78",
       opMode: mode,
       reg78_hex: raw.toString(16),
-      mainsBreakerClosed: mainsClosed,
-      genBreakerClosed: genClosed
+      // mainsBreakerClosed: mainsClosed,
+      // genBreakerClosed: genClosed
     };
   }
 
