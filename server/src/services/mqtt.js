@@ -333,7 +333,7 @@ export const initMqttService = (io) => {
                             unifiedData.reg24 = d.reg24;
                         }
 
-                        // Map STATUS_78
+                        // Map STATUS_78 (Operation Mode Only)
                         if (d.block === 'STATUS_78') {
                             if (d.opMode !== 'UNKNOWN') {
                                 unifiedData.operationMode = d.opMode;
@@ -341,9 +341,12 @@ export const initMqttService = (io) => {
                             unifiedData.reg78_hex = d.reg78_hex;
                         }
 
-                        // Map STATUS_32 (New Breaker Status)
+                        // Map STATUS_32 (Authoritative Breaker Status)
+                        // Value 0 = All Open. Logic: Bit 0 = Mains? Bit 1 = Gen? (TBD)
                         if (d.block === 'STATUS_32') {
                             unifiedData.reg32_hex = d.reg32_hex;
+                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = d.genBreakerClosed;
                         }
 
                         // Map MAINS BREAKER (11000)

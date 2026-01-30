@@ -182,14 +182,21 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // STATUS REGISTER 32 (0x20) - Breaker Status (User Provided)
-  // Request: 01030020000185C0
+  // STATUS REGISTER 32 (0x20) - Breaker Status (Use Provided)
+  // Request: 01030020000185C0 -> Resp: 0000 (Open)
   if (startAddress === 32 && regs.length >= 1) {
     const raw = u16(regs, 0);
-    console.log(`[PARSER] Reg 32 Status: 0x${raw.toString(16).toUpperCase()}`);
+    // Hypothesis: Bit 0 = Mains, Bit 1 = Gen (Common Pattern)
+    // Adjust after user verifies non-zero value.
+    const mainsClosed = (raw & 1) !== 0;
+    const genClosed = (raw & 2) !== 0;
+
+    console.log(`[PARSER] Reg 32: 0x${raw.toString(16).toUpperCase()} -> M=${mainsClosed}, G=${genClosed}`);
     return {
       block: "STATUS_32",
       reg32_hex: raw.toString(16).toUpperCase(),
+      mainsBreakerClosed: mainsClosed,
+      genBreakerClosed: genClosed
     };
   }
 
@@ -228,9 +235,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     return {
       block: "STATUS_78",
       opMode: mode,
-      reg78_hex: raw.toString(16),
-      // mainsBreakerClosed: mainsClosed,
-      // genBreakerClosed: genClosed
+      reg78_hex: raw.toString(16)
     };
   }
 
