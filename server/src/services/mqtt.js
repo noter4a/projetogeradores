@@ -61,6 +61,25 @@ export const initMqttService = (io) => {
         // AGENT FIX: Clear pausedDevices on reconnect to prevent stuck states
         pausedDevices.clear();
         console.log('[MQTT] Connected & Paused Devices Cleared');
+        client.subscribe('devices/data/+');
+        console.log('[MQTT] Subscribed to devices/data/+');
+
+        // FORCE CONFIG UPDATE ON CONNECT
+        // Validates that the Modem has the latest "Golden List" immediately upon server start.
+        setTimeout(async () => {
+            if (devicesToPoll.length === 0) {
+                console.log('[MQTT] No devices to configure on startup.');
+                // If list is empty, try to fetch it first
+                await updatePollingList();
+            }
+
+            console.log(`[MQTT] Sending Initial Configuration to ${devicesToPoll.length} devices...`);
+
+            devicesToPoll.forEach(device => {
+                const topic = `devices/command/${device.id}`;
+                restorePolling(client, topic, device.slaveId, device.id);
+            });
+        }, 5000); // Wait 5s for DB fetch and Connection Stability
         client.subscribe(TOPIC, (err) => {
             if (!err) console.log(`[MQTT] Subscribed to ${TOPIC}`);
             else console.error('[MQTT] Subscription error:', err);
