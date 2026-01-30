@@ -1,6 +1,6 @@
 
-const mqtt = require('mqtt');
-const { Buffer } = require('buffer');
+import mqtt from 'mqtt';
+import { Buffer } from 'buffer';
 
 // CRC Function
 function crc16Modbus(buf) {
