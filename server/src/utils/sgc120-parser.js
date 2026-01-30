@@ -182,6 +182,17 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
+  // STATUS REGISTER 32 (0x20) - Breaker Status (User Provided)
+  // Request: 01030020000185C0
+  if (startAddress === 32 && regs.length >= 1) {
+    const raw = u16(regs, 0);
+    console.log(`[PARSER] Reg 32 Status: 0x${raw.toString(16).toUpperCase()}`);
+    return {
+      block: "STATUS_32",
+      reg32_hex: raw.toString(16).toUpperCase(),
+    };
+  }
+
   // STATUS REGISTER 11000 & 11001 (REMOVED)
   /*
   if (startAddress === 11000 && regs.length >= 1) {

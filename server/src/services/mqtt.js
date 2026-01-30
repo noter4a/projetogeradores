@@ -333,12 +333,17 @@ export const initMqttService = (io) => {
                             unifiedData.reg24 = d.reg24;
                         }
 
-                        // Map STATUS_78 (Correct Mode Status)
+                        // Map STATUS_78
                         if (d.block === 'STATUS_78') {
                             if (d.opMode !== 'UNKNOWN') {
                                 unifiedData.operationMode = d.opMode;
                             }
                             unifiedData.reg78_hex = d.reg78_hex;
+                        }
+
+                        // Map STATUS_32 (New Breaker Status)
+                        if (d.block === 'STATUS_32') {
+                            unifiedData.reg32_hex = d.reg32_hex;
                         }
 
                         // Map MAINS BREAKER (11000)
@@ -685,9 +690,11 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 16, 1));
                 }, 18000); // +1s
 
-                // 13. BREAKER STATUS PROBE (REMOVED)
-                // Removed 11000/11001 per user request
-
+                // 13. BREAKER STATUS (Reg 32)
+                setTimeout(() => {
+                    if (pausedDevices.has(deviceId)) return;
+                    client.publish(topic, createModbusReadRequest(slaveId, 32, 1));
+                }, 18400);
 
                 setTimeout(() => {
                     if (pausedDevices.has(deviceId)) return;
@@ -765,8 +772,7 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
             createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29-31)
             createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66)
             createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66)
-            // createModbusReadRequest(slaveId, 11000, 1).toString('hex').toUpperCase(), // 8. Mains Status (REMOVED)
-            // createModbusReadRequest(slaveId, 11001, 1).toString('hex').toUpperCase(), // 9. Gen Status (REMOVED)
+            createModbusReadRequest(slaveId, 32, 1).toString('hex').toUpperCase(), // 8. Breaker Status (Reg 32)
             createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 10. Mode (Reg 78)
         ];
 
