@@ -82,6 +82,7 @@ export interface Generator {
 
   reg23?: number; // Debug Status 1
   reg24?: number; // Debug Status 2
+  reg77_hex?: string;
   reg78_hex?: string; // Debug Status 78
 
   // Connectivity Fields

@@ -189,7 +189,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   if (startAddress === 77 && regs.length >= 1) {
     const raw = u16(regs, 0);
     const mainsClosed = (raw & (1 << 11)) === 0; // Bit 11 (Inverted: 0 = Closed)
-    const genClosed = (raw & (1 << 10)) === 0;   // Bit 10 (Inverted: 0 = Closed)
+    const genClosed = (raw & (1 << 10)) !== 0;   // Bit 10 (Standard: 1 = Closed)
 
     console.log(`[PARSER] Reg 77 Status: 0x${raw.toString(16).toUpperCase()} -> Mains=${mainsClosed} (Bit11), Gen=${genClosed} (Bit10)`);
 
