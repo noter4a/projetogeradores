@@ -196,14 +196,15 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     return {
       block: "STATUS_77",
       reg77_hex: raw.toString(16).toUpperCase(),
-      mainsBreakerClosed: mainsClosed,
-      genBreakerClosed: genClosed
+      // mainsBreakerClosed: mainsClosed, // Disabled: Reg 77 stuck
+      // genBreakerClosed: genClosed      // Disabled: Reg 77 stuck
     };
   }
 
-  // STATUS REGISTER 78 Parsing (Legacy/Fallback)
+  // STATUS REGISTER 78 Parsing (Authoritative Mode & Breaker Status)
   // High Byte = Mode, Low Byte = Flags
-  // 0x64 (100) = MANUAL
+  // Mains Closed: Bit 7 (0x80)
+  // Gen Closed: Bit 4 (0x10)
   if (startAddress === 78 && regs.length >= 1) {
     const raw = u16(regs, 0);
     const highByte = raw >> 8; // Op Mode
@@ -217,10 +218,15 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C (New)
     else if (highByte === 5) mode = 'TEST';
 
+    const mainsClosed = (lowByte & 0x80) !== 0; // Bit 7
+    const genClosed = (lowByte & 0x10) !== 0;   // Bit 4
+
     return {
       block: "STATUS_78",
       opMode: mode,
-      reg78_hex: raw.toString(16)
+      reg78_hex: raw.toString(16),
+      mainsBreakerClosed: mainsClosed,
+      genBreakerClosed: genClosed
     };
   }
 

@@ -314,19 +314,21 @@ export const initMqttService = (io) => {
                             unifiedData.reg24 = d.reg24;
                         }
 
-                        // Map STATUS_77 (Authoritative Breaker Status)
+                        // Map STATUS_77 (Debug Only now)
                         if (d.block === 'STATUS_77') {
-                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
-                            unifiedData.genBreakerClosed = d.genBreakerClosed;
                             unifiedData.reg77_hex = d.reg77_hex;
                         }
 
-                        // Map STATUS_78 (Correct Mode Status)
+                        // Map STATUS_78 (Correct Mode Status & Breaker Status)
                         if (d.block === 'STATUS_78') {
                             if (d.opMode !== 'UNKNOWN') {
                                 unifiedData.operationMode = d.opMode;
                             }
                             unifiedData.reg78_hex = d.reg78_hex;
+
+                            // Restore Breaker Mapping from Reg 78
+                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = d.genBreakerClosed;
                         }
 
                         // Map PROBE_16
