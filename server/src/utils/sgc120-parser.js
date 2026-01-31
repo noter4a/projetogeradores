@@ -182,21 +182,15 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // STATUS REGISTER 32 (0x20) - Breaker Status (Use Provided)
-  // Request: 01030020000185C0 -> Resp: 0000 (Open)
+  // STATUS REGISTER 32 (0x20) - Breaker Status (Debug Only)
+  // Request: 01030020000185C0 -> Resp: 0000 (Open) - FAILED TO WORK
   if (startAddress === 32 && regs.length >= 1) {
     const raw = u16(regs, 0);
-    // Hypothesis: Bit 0 = Mains, Bit 1 = Gen (Common Pattern)
-    // Adjust after user verifies non-zero value.
-    const mainsClosed = (raw & 1) !== 0;
-    const genClosed = (raw & 2) !== 0;
-
-    console.log(`[PARSER] Reg 32: 0x${raw.toString(16).toUpperCase()} -> M=${mainsClosed}, G=${genClosed}`);
+    // console.log(`[PARSER] Reg 32: 0x${raw.toString(16).toUpperCase()}`);
     return {
       block: "STATUS_32",
       reg32_hex: raw.toString(16).toUpperCase(),
-      mainsBreakerClosed: mainsClosed,
-      genBreakerClosed: genClosed
+      // Removed authoritative status because it returns 0 incorrectly.
     };
   }
 
@@ -214,7 +208,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
 
   // STATUS REGISTER 78 Parsing (Authoritative Mode & Breaker Status)
   // High Byte = Mode, Low Byte = Flags
-  // Mains Closed: Bit 7 (0x80)
+  // Mains Closed: Bit 7 (0x80) -> Confirmed by user (0x6480)
   // Gen Closed: Bit 4 (0x10)
   if (startAddress === 78 && regs.length >= 1) {
     const raw = u16(regs, 0);
@@ -222,20 +216,22 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     const lowByte = raw & 0xFF; // Status Flags
 
     let mode = 'UNKNOWN';
-    // console.log(`[PARSER] Reg 78 Raw: 0x${raw.toString(16).toUpperCase()} -> ModeByte: ${highByte}`);
-
     if (highByte === 100) mode = 'MANUAL'; // 0x64
     else if (highByte === 0) mode = 'INHIBITED';
-    else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C (New)
+    else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
     else if (highByte === 5) mode = 'TEST';
 
-    // const mainsClosed = (lowByte & 0x80) !== 0; // Bit 7 (Legacy)
-    // const genClosed = (lowByte & 0x10) !== 0;   // Bit 4 (Legacy)
+    const mainsClosed = (lowByte & 0x80) !== 0; // Bit 7 (0x80)
+    const genClosed = (lowByte & 0x10) !== 0;   // Bit 4 (0x10)
+
+    console.log(`[PARSER] Reg 78: 0x${raw.toString(16).toUpperCase()} -> M=${mainsClosed}, G=${genClosed}, Mode=${mode}`);
 
     return {
       block: "STATUS_78",
       opMode: mode,
-      reg78_hex: raw.toString(16)
+      reg78_hex: raw.toString(16),
+      mainsBreakerClosed: mainsClosed,
+      genBreakerClosed: genClosed
     };
   }
 
