@@ -236,6 +236,28 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
+  // STATUS REGISTER 77 (Digital Inputs) - User Provided
+  // Bit 15 = Input A (Mains Breaker Feedback?)
+  // Bit 14 = Input B (Gen Breaker Feedback?)
+  if (startAddress === 77 && regs.length >= 1) {
+    const raw = u16(regs, 0);
+    const inputA = (raw & 0x8000) !== 0; // Bit 15 (16/16)
+    const inputB = (raw & 0x4000) !== 0; // Bit 14 (15/16)
+
+    console.log(`[INPUT-DEBUG] Reg 77 Hex: 0x${raw.toString(16).toUpperCase().padStart(4, '0')} | Input A (Bit15): ${inputA} | Input B (Bit14): ${inputB}`);
+
+    return {
+      block: "STATUS_77_INPUTS",
+      reg77_hex: raw.toString(16).toUpperCase(),
+      inputA: inputA,
+      inputB: inputB,
+      // Temporarily Mapping to Breakers for testing
+      // Hypothesis: Input A = Mains Closed, Input B = Gen Closed
+      mainsBreakerClosed: inputA,
+      genBreakerClosed: inputB
+    };
+  }
+
   // DEBUG PROBE: Address 16
   if (startAddress === 16 && regs.length >= 1) {
     const val = u16(regs, 0);
