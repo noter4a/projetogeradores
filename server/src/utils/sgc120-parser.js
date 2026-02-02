@@ -227,7 +227,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     let mode = 'UNKNOWN';
     if (highByte === 100) mode = 'MANUAL';      // 0x64
     else if (highByte === 96) mode = 'MANUAL';  // 0x60
-    else if (highByte === 0) mode = 'INHIBITED';
+    else if (highByte === 0) mode = 'MANUAL';   // 0x00 (Remapped from INHIBITED per user request)
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
     else if (highByte === 5) mode = 'TEST';
 
@@ -253,7 +253,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     let mode = 'UNKNOWN';
     if (highByte === 100) mode = 'MANUAL';      // 0x64
     else if (highByte === 96) mode = 'MANUAL';  // 0x60
-    else if (highByte === 0) mode = 'INHIBITED';
+    else if (highByte === 0) mode = 'MANUAL';   // 0x00 (Remapped from INHIBITED per user request)
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
     else if (highByte === 5) mode = 'TEST';
 

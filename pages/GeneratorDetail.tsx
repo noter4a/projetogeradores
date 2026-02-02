@@ -400,32 +400,16 @@ const GeneratorDetail: React.FC = () => {
                           <Settings size={14} className={gen.operationMode === 'MANUAL' ? 'animate-spin-slow' : ''} /> MANUAL
                         </button>
 
-                        {/* INHIBIT BUTTON */}
-                        <button
-                          onClick={() => handleControl('inhibit')}
-                          // Note: SGC 120 Stop is equiv to Inhibit in some contexts, but usually Inhibit is Mode.
-                          className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'INHIBITED'
-                            ? 'bg-red-600 text-white shadow-lg shadow-red-900/20'
-                            : 'text-gray-400 hover:text-white hover:bg-white/5'
-                            }`}
-                        >
-                          <Ban size={14} /> INIBIDO
-                        </button>
+
                       </div>
                     </div>
 
                     <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800 relative">
-                      {gen.operationMode === 'INHIBITED' && (
-                        <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center rounded-lg backdrop-blur-[1px]">
-                          <span className="bg-red-900/80 text-red-200 px-3 py-1 rounded border border-red-500/50 text-xs font-bold uppercase flex items-center gap-2">
-                            <Lock size={12} /> Comandos Bloqueados
-                          </span>
-                        </div>
-                      )}
+
                       <label className="text-[10px] text-gray-500 uppercase font-bold mb-3 block text-center">Comando Remoto</label>
                       <div className="flex gap-3">
                         <button
-                          disabled={gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'INHIBITED'}
+                          disabled={gen.status === GeneratorStatus.RUNNING}
                           onClick={() => handleControl('start')}
                           className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.RUNNING
                             ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
@@ -435,7 +419,7 @@ const GeneratorDetail: React.FC = () => {
                           <Play size={18} fill="currentColor" /> PARTIDA
                         </button>
                         <button
-                          disabled={gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'INHIBITED'}
+                          disabled={gen.status === GeneratorStatus.STOPPED}
                           onClick={() => handleControl('stop')}
                           className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.STOPPED
                             ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
@@ -457,8 +441,7 @@ const GeneratorDetail: React.FC = () => {
                   <div className="text-center mb-6">
                     <label className="text-[10px] text-gray-500 uppercase font-bold block">Status da Transferência (QTA)</label>
                     <span className="text-xs font-mono text-gray-400">
-                      {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' :
-                        gen.operationMode === 'INHIBITED' ? 'Transferência Bloqueada' : 'Controle Manual Habilitado'}
+                      {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' : 'Controle Manual Habilitado'}
                     </span>
                   </div>
 
