@@ -215,10 +215,10 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     const rawMode = u16(regs, 2); // Reg 78 (offset 2 bytes)
 
     // Process Inputs (User Confirmed: A=Gen, B=Mains)
-    // Bit 15 = Input A (Gen Breaker)
-    // Bit 14 = Input B (Mains Breaker)
+    // Bit 15 = Input A (Gen Breaker). Logic: Positive (1=Closed, 0=Open)
+    // Bit 14 = Input B (Mains Breaker). Logic: NEGATIVE (1=Open, 0=Closed) - Based on 0x4011 while Open
     const inputA = (rawInputs & 0x8000) !== 0;
-    const inputB = (rawInputs & 0x4000) !== 0;
+    const inputB = (rawInputs & 0x4000) === 0;
 
     // Process Mode (Reg 78)
     const highByte = rawMode >> 8;
