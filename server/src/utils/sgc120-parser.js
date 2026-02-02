@@ -226,7 +226,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     const genClosed = (lowByte & 0x10) !== 0;   // Bit 4 (0x10)
 
     // TARGETED DEBUG FOR BREAKER STATUS
-    console.log(`[BREAKER-DEBUG] Reg78 Hex: 0x${raw.toString(16).toUpperCase().padStart(4, '0')} | Mains(Bit7): ${mainsClosed ? 'CLOSED' : 'OPEN'} | Gen(Bit4): ${genClosed ? 'CLOSED' : 'OPEN'} | Mode: ${mode}`);
+    console.log(`[BREAKER-DEBUG-V2] Reg78 Hex: 0x${raw.toString(16).toUpperCase().padStart(4, '0')} | Mains(Bit7): ${mainsClosed ? 'CLOSED' : 'OPEN'} | Gen(Bit4): ${genClosed ? 'CLOSED' : 'OPEN'} | Mode: ${mode}`);
 
     return {
       block: "STATUS_78",
