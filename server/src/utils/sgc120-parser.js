@@ -257,12 +257,21 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
     else if (highByte === 5) mode = 'TEST';
 
-    console.log(`[STATUS-DEBUG-FALLBACK] Reg78 Valid! Mode: ${mode}`);
+    // FALLBACK BREAKER LOGIC (Since Modem enforces Reg 78)
+    // Based on previous observation: 0x6480 (Mains Closed) vs 0x6512 (Gen Closed?)
+    // Mains Closed: Bit 7 (0x80)
+    // Gen Closed: Bit 4 (0x10)
+    const mainsClosed = (raw & 0x80) !== 0;
+    const genClosed = (raw & 0x10) !== 0;
+
+    console.log(`[STATUS-DEBUG-FALLBACK] Reg78 Valid! Mode: ${mode} | Mains(Bit7): ${mainsClosed} | Gen(Bit4): ${genClosed}`);
 
     return {
       block: "STATUS_78",
       opMode: mode,
-      reg78_hex: raw.toString(16).toUpperCase()
+      reg78_hex: raw.toString(16).toUpperCase(),
+      mainsBreakerClosed: mainsClosed,
+      genBreakerClosed: genClosed
     };
   }
 

@@ -353,12 +353,15 @@ export const initMqttService = (io) => {
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
                         }
 
-                        // Map STATUS_78 (Legacy / Standalone)
+                        // Map STATUS_78 (Legacy / Fallback)
                         if (d.block === 'STATUS_78') {
                             if (d.opMode !== 'UNKNOWN') {
                                 unifiedData.operationMode = d.opMode;
                             }
                             unifiedData.reg78_hex = d.reg78_hex;
+                            // Fallback Mapping
+                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = d.genBreakerClosed;
                         }
 
                         // Map STATUS_77 (Legacy) - REMOVED
