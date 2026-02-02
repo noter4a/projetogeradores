@@ -355,8 +355,8 @@ export const initMqttService = (io) => {
                         // Map STATUS_77_INPUTS (Authoritative Breaker Status)
                         if (d.block === 'STATUS_77_INPUTS') {
                             unifiedData.reg77_hex = d.reg77_hex;
-                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed; // Input A
-                            unifiedData.genBreakerClosed = d.genBreakerClosed;     // Input B
+                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed; // Input B
+                            unifiedData.genBreakerClosed = d.genBreakerClosed;     // Input A
                         }
 
                         // Map STATUS_32 (Debug Only)

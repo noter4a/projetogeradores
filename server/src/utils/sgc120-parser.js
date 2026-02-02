@@ -251,10 +251,9 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
       reg77_hex: raw.toString(16).toUpperCase(),
       inputA: inputA,
       inputB: inputB,
-      // Temporarily Mapping to Breakers for testing
-      // Hypothesis: Input A = Mains Closed, Input B = Gen Closed
-      mainsBreakerClosed: inputA,
-      genBreakerClosed: inputB
+      // User Confirmed: Input A = Gen, Input B = Mains
+      mainsBreakerClosed: inputB, // Bit 14
+      genBreakerClosed: inputA    // Bit 15
     };
   }
 
