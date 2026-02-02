@@ -258,11 +258,11 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     else if (highByte === 5) mode = 'TEST';
 
     // FALLBACK BREAKER LOGIC (Since Modem enforces Reg 78)
-    // Based on previous observation: 0x6480 (Mains Closed) vs 0x6512 (Gen Closed?)
-    // Mains Closed: Bit 7 (0x80)
-    // Gen Closed: Bit 4 (0x10)
-    const mainsClosed = (raw & 0x80) !== 0;
-    const genClosed = (raw & 0x10) !== 0;
+    // Update based on user feedback:
+    // Log showed 0x6080 (Bit 7 ON) -> User said Mains is OPEN.
+    // Hypothesis: Mains is NEGATIVE LOGIC (1=Open, 0=Closed) in this register.
+    const mainsClosed = (raw & 0x80) === 0; // Bit 7 (0=Closed)
+    const genClosed = (raw & 0x10) !== 0; // Bit 4 (1=Closed)
 
     console.log(`[STATUS-DEBUG-FALLBACK] Reg78 Valid! Mode: ${mode} | Mains(Bit7): ${mainsClosed} | Gen(Bit4): ${genClosed}`);
 
