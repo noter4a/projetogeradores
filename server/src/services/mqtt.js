@@ -790,8 +790,9 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
             createModbusReadRequest(slaveId, 14, 9).toString('hex').toUpperCase(), // 4. Mains Voltage (Reg 14-22)
             createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 5. Current/Breaker (Reg 23-25)
             createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29-31)
-            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66)
-            createModbusReadRequest(slaveId, 77, 2).toString('hex').toUpperCase(), // 8. Status (Reg 77-78: Inputs + Mode)
+            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarms 2 (Reg 66)
+            createModbusReadRequest(slaveId, 77, 2).toString('hex').toUpperCase(), // 8. Inputs + Mode (Reg 77-78)
+            createModbusReadRequest(slaveId, 16, 1).toString('hex').toUpperCase(), // 9. Status (Discovery)
         ];
 
         console.log(`[MQTT-RESTORE] Payload para ${deviceId}:`, JSON.stringify(requests)); // DEBUG LOG

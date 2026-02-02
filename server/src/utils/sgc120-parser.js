@@ -207,6 +207,13 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   */
 
   // STATUS REGISTER 77-78 (Digital Inputs + Mode)
+  // Block 16: Status Discovery
+  if (startAddress === 16 && regs.length >= 1) {
+    const raw = u16(regs, 0);
+    console.log(`[DISCOVERY] Reg 16 Value: ${raw} (0x${raw.toString(16).toUpperCase()})`);
+    return { block: "STATUS_16", val: raw };
+  }
+
   // Optimization: Reading 2 registers at once to save polling slots.
   // Reg 77 (Offset 0): Digital Inputs
   // Reg 78 (Offset 1): Operation Mode
@@ -227,7 +234,8 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     let mode = 'UNKNOWN';
     if (highByte === 100) mode = 'MANUAL';      // 0x64
     else if (highByte === 96) mode = 'MANUAL';  // 0x60
-    else if (highByte === 0) mode = 'MANUAL';   // 0x00 (Remapped from INHIBITED per user request)
+    else if (highByte === 0) mode = 'MANUAL';   // 0x00 (Remapped)
+    else if (highByte === 32) mode = 'AUTO';    // 0x20 (Tentative mapping based on logs)
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
     else if (highByte === 5) mode = 'TEST';
 
