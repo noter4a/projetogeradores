@@ -224,7 +224,8 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     const mainsClosed = (lowByte & 0x80) !== 0; // Bit 7 (0x80)
     const genClosed = (lowByte & 0x10) !== 0;   // Bit 4 (0x10)
 
-    console.log(`[PARSER] Reg 78: 0x${raw.toString(16).toUpperCase()} -> M=${mainsClosed}, G=${genClosed}, Mode=${mode}`);
+    // TARGETED DEBUG FOR BREAKER STATUS
+    console.log(`[BREAKER-DEBUG] Reg78 Hex: 0x${raw.toString(16).toUpperCase().padStart(4, '0')} | Mains(Bit7): ${mainsClosed ? 'CLOSED' : 'OPEN'} | Gen(Bit4): ${genClosed ? 'CLOSED' : 'OPEN'} | Mode: ${mode}`);
 
     return {
       block: "STATUS_78",

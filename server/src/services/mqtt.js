@@ -314,7 +314,7 @@ export const initMqttService = (io) => {
 
                         // Map CURRENT_10
                         if (d.block === 'CURRENT_10') {
-                            console.log(`[MQTT-DEBUG] Mapping CURRENT_10: L1=${d.curr_l1}, L2=${d.curr_l2}, L3=${d.curr_l3}`);
+                            // console.log(`[MQTT-DEBUG] Mapping CURRENT_10: L1=${d.curr_l1}, L2=${d.curr_l2}, L3=${d.curr_l3}`);
                             unifiedData.currentL1 = d.curr_l1 || 0;
                             unifiedData.currentL2 = d.curr_l2 || 0;
                             unifiedData.currentL3 = d.curr_l3 || 0;
@@ -323,10 +323,7 @@ export const initMqttService = (io) => {
                         // Map MAINS_CURRENT_116
                         if (d.block === 'MAINS_CURRENT_116') {
                             // User request: Use Generator Current for Mains. Disabling this to prevent overwrite.
-                            // unifiedData.mainsCurrentL1 = d.mainsCurr_l1 || 0;
-                            // unifiedData.mainsCurrentL2 = d.mainsCurr_l2 || 0;
-                            // unifiedData.mainsCurrentL3 = d.mainsCurr_l3 || 0;
-                            console.log(`[MQTT-DEBUG] IGNORED MAINS_CURRENT_116: ${d.mainsCurr_l1}, ${d.mainsCurr_l2}, ${d.mainsCurr_l3}`);
+                            // console.log(`[MQTT-DEBUG] IGNORED MAINS_CURRENT_116: ${d.mainsCurr_l1}, ${d.mainsCurr_l2}, ${d.mainsCurr_l3}`);
                         }
 
                         // Map LOAD_CURRENT_23 (New Authority for Current)
@@ -340,7 +337,7 @@ export const initMqttService = (io) => {
                             unifiedData.mainsCurrentL2 = unifiedData.currentL2;
                             unifiedData.mainsCurrentL3 = unifiedData.currentL3;
 
-                            console.log(`[MQTT-DEBUG] Mapping LOAD_CURRENT_23 -> unifiedData: ${d.loadCurr_l1}A`);
+                            // console.log(`[MQTT-DEBUG] Mapping LOAD_CURRENT_23 -> unifiedData: ${d.loadCurr_l1}A`);
 
                             // Also map to reg23/24 for debug view
                             unifiedData.reg23 = d.reg23;
