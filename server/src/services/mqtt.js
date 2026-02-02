@@ -800,6 +800,8 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
             createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 10. Mode (Reg 78)
         ];
 
+        console.log(`[MQTT-RESTORE] Payload para ${deviceId}:`, JSON.stringify(requests)); // DEBUG LOG
+
         // REMOVED: Keep-Alive / Config Write (Func 6) - caused "Inhibited" state
 
 
