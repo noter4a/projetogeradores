@@ -206,57 +206,44 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   }
   */
 
-  // STATUS REGISTER 78 Parsing (Authoritative Mode & Breaker Status)
-  // High Byte = Mode, Low Byte = Flags
-  // Mains Closed: Bit 7 (0x80) -> Confirmed by user (0x6480)
-  // Gen Closed: Bit 4 (0x10)
-  if (startAddress === 78 && regs.length >= 1) {
-    const raw = u16(regs, 0);
-    const highByte = raw >> 8; // Op Mode
-    const lowByte = raw & 0xFF; // Status Flags
+  // STATUS REGISTER 77-78 (Digital Inputs + Mode)
+  // Optimization: Reading 2 registers at once to save polling slots.
+  // Reg 77 (Offset 0): Digital Inputs
+  // Reg 78 (Offset 1): Operation Mode
+  if (startAddress === 77 && regs.length >= 2) {
+    const rawInputs = u16(regs, 0); // Reg 77
+    const rawMode = u16(regs, 2); // Reg 78 (offset 2 bytes)
+
+    // Process Inputs (User Confirmed: A=Gen, B=Mains)
+    // Bit 15 = Input A (Gen Breaker)
+    // Bit 14 = Input B (Mains Breaker)
+    const inputA = (rawInputs & 0x8000) !== 0;
+    const inputB = (rawInputs & 0x4000) !== 0;
+
+    // Process Mode (Reg 78)
+    const highByte = rawMode >> 8;
+    // const lowByte  = rawMode & 0xFF; // Not used anymore for breakers
 
     let mode = 'UNKNOWN';
-    if (highByte === 100) mode = 'MANUAL'; // 0x64
-    else if (highByte === 96) mode = 'MANUAL'; // 0x60 (Observed in logs)
+    if (highByte === 100) mode = 'MANUAL';      // 0x64
+    else if (highByte === 96) mode = 'MANUAL';  // 0x60
     else if (highByte === 0) mode = 'INHIBITED';
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
     else if (highByte === 5) mode = 'TEST';
 
-    const mainsClosed = (lowByte & 0x80) !== 0; // Bit 7 (0x80)
-    const genClosed = (lowByte & 0x10) !== 0;   // Bit 4 (0x10)
-
-    // TARGETED DEBUG FOR BREAKER STATUS
-    console.log(`[BREAKER-DEBUG-V2] Reg78 Hex: 0x${raw.toString(16).toUpperCase().padStart(4, '0')} | Mains(Bit7): ${mainsClosed ? 'CLOSED' : 'OPEN'} | Gen(Bit4): ${genClosed ? 'CLOSED' : 'OPEN'} | Mode: ${mode}`);
+    console.log(`[STATUS-DEBUG] Reg77(Inputs): 0x${rawInputs.toString(16)} | Reg78(Mode): 0x${rawMode.toString(16)} | Mains(InB): ${inputB} | Gen(InA): ${inputA} | Mode: ${mode}`);
 
     return {
-      block: "STATUS_78",
+      block: "STATUS_COMBINED_77_78",
+      reg77_hex: rawInputs.toString(16).toUpperCase(),
+      reg78_hex: rawMode.toString(16).toUpperCase(),
       opMode: mode,
-      reg78_hex: raw.toString(16),
-      mainsBreakerClosed: mainsClosed,
-      genBreakerClosed: genClosed
+      mainsBreakerClosed: inputB,
+      genBreakerClosed: inputA
     };
   }
 
-  // STATUS REGISTER 77 (Digital Inputs) - User Provided
-  // Bit 15 = Input A (Mains Breaker Feedback?)
-  // Bit 14 = Input B (Gen Breaker Feedback?)
-  if (startAddress === 77 && regs.length >= 1) {
-    const raw = u16(regs, 0);
-    const inputA = (raw & 0x8000) !== 0; // Bit 15 (16/16)
-    const inputB = (raw & 0x4000) !== 0; // Bit 14 (15/16)
 
-    console.log(`[INPUT-DEBUG] Reg 77 Hex: 0x${raw.toString(16).toUpperCase().padStart(4, '0')} | Input A (Bit15): ${inputA} | Input B (Bit14): ${inputB}`);
-
-    return {
-      block: "STATUS_77_INPUTS",
-      reg77_hex: raw.toString(16).toUpperCase(),
-      inputA: inputA,
-      inputB: inputB,
-      // User Confirmed: Input A = Gen, Input B = Mains
-      mainsBreakerClosed: inputB, // Bit 14
-      genBreakerClosed: inputA    // Bit 15
-    };
-  }
 
   // DEBUG PROBE: Address 16
   if (startAddress === 16 && regs.length >= 1) {

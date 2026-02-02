@@ -344,7 +344,16 @@ export const initMqttService = (io) => {
                             unifiedData.reg24 = d.reg24;
                         }
 
-                        // Map STATUS_78 (Operation Mode Only)
+                        // Map STATUS_COMBINED_77_78 (New Consolidated Block)
+                        if (d.block === 'STATUS_COMBINED_77_78') {
+                            unifiedData.reg77_hex = d.reg77_hex;
+                            unifiedData.reg78_hex = d.reg78_hex;
+                            unifiedData.operationMode = d.opMode;
+                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = d.genBreakerClosed;
+                        }
+
+                        // Map STATUS_78 (Legacy / Standalone)
                         if (d.block === 'STATUS_78') {
                             if (d.opMode !== 'UNKNOWN') {
                                 unifiedData.operationMode = d.opMode;
@@ -352,12 +361,7 @@ export const initMqttService = (io) => {
                             unifiedData.reg78_hex = d.reg78_hex;
                         }
 
-                        // Map STATUS_77_INPUTS (Authoritative Breaker Status)
-                        if (d.block === 'STATUS_77_INPUTS') {
-                            unifiedData.reg77_hex = d.reg77_hex;
-                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed; // Input B
-                            unifiedData.genBreakerClosed = d.genBreakerClosed;     // Input A
-                        }
+                        // Map STATUS_77 (Legacy) - REMOVED
 
                         // Map STATUS_32 (Debug Only)
                         if (d.block === 'STATUS_32') {
@@ -714,16 +718,11 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 32, 1));
                 }, 18400);
 
-                // 13b. INPUT STATUS (Reg 77 - Real Breakers)
+                // 13b. STATUS 77-78 (Inputs + Mode)
                 setTimeout(() => {
                     if (pausedDevices.has(deviceId)) return;
-                    client.publish(topic, createModbusReadRequest(slaveId, 77, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 77, 2));
                 }, 19000);
-
-                setTimeout(() => {
-                    if (pausedDevices.has(deviceId)) return;
-                    client.publish(topic, createModbusReadRequest(slaveId, 78, 1)); // 78 = Mode Status
-                }, 19600); // 14. Status 78
 
                 // 14. ACTIVE POWER (29, 1 reg) - User requested new source
                 setTimeout(() => {
@@ -795,9 +794,8 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
             createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 5. Current/Breaker (Reg 23-25)
             createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29-31)
             createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66)
-            createModbusReadRequest(slaveId, 77, 1).toString('hex').toUpperCase(), // 8. Inputs (Reg 77 - Breaker Status)
+            createModbusReadRequest(slaveId, 77, 2).toString('hex').toUpperCase(), // 8. Status (Reg 77-78: Inputs + Mode)
             createModbusReadRequest(slaveId, 32, 1).toString('hex').toUpperCase(), // 9. Breaker Status (Reg 32 - Debug)
-            createModbusReadRequest(slaveId, 78, 1).toString('hex').toUpperCase(), // 10. Mode (Reg 78)
         ];
 
         console.log(`[MQTT-RESTORE] Payload para ${deviceId}:`, JSON.stringify(requests)); // DEBUG LOG
