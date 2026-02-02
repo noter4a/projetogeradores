@@ -243,6 +243,29 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
+  // FALLBACK: STATUS REGISTER 78 (Legacy/Old Config Support)
+  // If the modem rejects the new "Reg 77 (Len 2)" config and keeps sending "Reg 78 (Len 1)",
+  // we must catch it here to at least show the Operation Mode.
+  if (startAddress === 78 && regs.length >= 1) {
+    const raw = u16(regs, 0);
+    const highByte = raw >> 8; // Op Mode
+
+    let mode = 'UNKNOWN';
+    if (highByte === 100) mode = 'MANUAL';      // 0x64
+    else if (highByte === 96) mode = 'MANUAL';  // 0x60
+    else if (highByte === 0) mode = 'INHIBITED';
+    else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
+    else if (highByte === 5) mode = 'TEST';
+
+    console.log(`[STATUS-DEBUG-FALLBACK] Reg78 Valid! Mode: ${mode}`);
+
+    return {
+      block: "STATUS_78",
+      opMode: mode,
+      reg78_hex: raw.toString(16).toUpperCase()
+    };
+  }
+
 
 
   // DEBUG PROBE: Address 16

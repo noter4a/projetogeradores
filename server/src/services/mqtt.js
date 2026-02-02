@@ -712,12 +712,6 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 16, 1));
                 }, 18000); // +1s
 
-                // 13. BREAKER STATUS (Reg 32 - Debug)
-                setTimeout(() => {
-                    if (pausedDevices.has(deviceId)) return;
-                    client.publish(topic, createModbusReadRequest(slaveId, 32, 1));
-                }, 18400);
-
                 // 13b. STATUS 77-78 (Inputs + Mode)
                 setTimeout(() => {
                     if (pausedDevices.has(deviceId)) return;
@@ -795,7 +789,6 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
             createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29-31)
             createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarm (Reg 66)
             createModbusReadRequest(slaveId, 77, 2).toString('hex').toUpperCase(), // 8. Status (Reg 77-78: Inputs + Mode)
-            createModbusReadRequest(slaveId, 32, 1).toString('hex').toUpperCase(), // 9. Breaker Status (Reg 32 - Debug)
         ];
 
         console.log(`[MQTT-RESTORE] Payload para ${deviceId}:`, JSON.stringify(requests)); // DEBUG LOG
