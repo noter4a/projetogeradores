@@ -381,9 +381,15 @@ export const initMqttService = (io) => {
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
                         }
 
-                        // Map PROBE_16
-                        if (d.block === 'PROBE_16') {
-                            unifiedData.reg16 = d.reg16;
+                        // Map STATUS_16 (Discovery/Auto Probe)
+                        if (d.block === 'STATUS_16') {
+                            unifiedData.reg16 = d.val;
+                            // OVERRIDE: If Reg 16 is 2256 (0x8D0), it confirms AUTO MODE.
+                            // This fixes the issue where Reg 78 reports 0 (Manual) even when in Auto.
+                            if (d.val === 2256 || d.val === 0x8D0) {
+                                unifiedData.operationMode = 'AUTO';
+                                // console.log(`[MODE-FIX] Forced AUTO based on Reg 16 value ${d.val}`);
+                            }
                         }
 
                         // Recalculate Combined Decimal Run Hours if cache has data
