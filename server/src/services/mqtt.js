@@ -347,6 +347,12 @@ export const initMqttService = (io) => {
                             unifiedData.reg77_hex = d.reg77_hex;
                             unifiedData.reg78_hex = d.reg78_hex;
 
+                            // Cache Reg 78 Integer for Hybrid Logic (Reg 16 + Reg 78 Validation)
+                            if (global.mqttDeviceCache[deviceId]) {
+                                const reg78_int = parseInt(d.reg78_hex, 16);
+                                global.mqttDeviceCache[deviceId].reg78_int = reg78_int;
+                            }
+
                             // EXGLUSIVE REG 16 MODE:
                             // We DO NOT set operationMode here anymore.
                             // Reg 78 is broken (returns 0/Manual in Auto).
@@ -398,13 +404,29 @@ export const initMqttService = (io) => {
                             }
                             // OVERRIDE: Bitwise Logic for Auto Mode (Refined)
                             // Rule: Bits 2 (0x04) and 3 (0x08) MUST be OFF for Auto.
-                            // If they are ON, it is Manual.
                             // Mask: 0x0C (0000 1100). Target: 0x00.
                             if ((d.val & 0x0C) === 0) {
                                 unifiedData.operationMode = 'AUTO';
                             } else {
-                                // Explicitly set MANUAL if the mask fails (Reg 16 Authority)
-                                unifiedData.operationMode = 'MANUAL';
+                                // HYBRID LATCH: Only switch to MANUAL if Reg 78 confirms it.
+                                // If Reg 16 bitmask fails (e.g. glitch) but Reg 78 is 0 (Broken/Auto),
+                                // we should NOT switch to Manual.
+
+                                let confirmedManual = false;
+                                if (global.mqttDeviceCache[deviceId]) {
+                                    const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
+                                    const highByte = reg78 >> 8;
+                                    // Manual Codes: 100 (0x64), 96 (0x60).
+                                    // 0 (0x00) is ambiguous/broken, so we treat it as "Don't Change".
+                                    if (highByte === 100 || highByte === 96) {
+                                        confirmedManual = true;
+                                    }
+                                }
+
+                                if (confirmedManual) {
+                                    unifiedData.operationMode = 'MANUAL';
+                                }
+                                // Else: Do nothing. Keep previous state (which was likely Auto).
                             }
                         }
 
