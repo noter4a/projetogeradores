@@ -350,7 +350,9 @@ export const initMqttService = (io) => {
                             // MODE PRIORITY:
                             // 1. If Reg 16 says AUTO ((Reg16 & 0x0C) == 0), FORCE AUTO.
                             // 2. Else use Reg 78/77 value.
-                            const reg16_val = unifiedData.reg16 || 0;
+                            // Get Reg 16 from CACHE (Persistence)
+                            const cachedReg16 = global.mqttDeviceCache[deviceId] ? global.mqttDeviceCache[deviceId].reg16 : 0;
+                            const reg16_val = cachedReg16 || 0;
                             const isAutoOverride = (reg16_val & 0x0C) === 0 && reg16_val !== 0; // Check override
 
                             if (isAutoOverride) {
@@ -365,7 +367,8 @@ export const initMqttService = (io) => {
 
                         // Map STATUS_78 (Legacy / Fallback)
                         if (d.block === 'STATUS_78') {
-                            const reg16_val = unifiedData.reg16 || 0;
+                            const cachedReg16 = global.mqttDeviceCache[deviceId] ? global.mqttDeviceCache[deviceId].reg16 : 0;
+                            const reg16_val = cachedReg16 || 0;
                             const isAutoOverride = (reg16_val & 0x0C) === 0 && reg16_val !== 0;
 
                             if (isAutoOverride) {
