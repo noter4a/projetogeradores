@@ -384,11 +384,12 @@ export const initMqttService = (io) => {
                         // Map STATUS_16 (Discovery/Auto Probe)
                         if (d.block === 'STATUS_16') {
                             unifiedData.reg16 = d.val;
-                            // OVERRIDE: If Reg 16 is 2256 (0x8D0) or 2257 (0x8D1), it confirms AUTO MODE.
-                            // This fixes the issue where Reg 78 reports 0 (Manual) even when in Auto.
-                            if (d.val === 2256 || d.val === 0x8D0 || d.val === 2257) {
+                            // OVERRIDE: Bitwise Logic for Auto Mode
+                            // Rule: Bit 4 (0x10) MUST be ON. Bits 2 (0x04) and 3 (0x08) MUST be OFF.
+                            // Mask: 0x1C (0001 1100). Target: 0x10 (0001 0000).
+                            if ((d.val & 0x1C) === 0x10) {
                                 unifiedData.operationMode = 'AUTO';
-                                // console.log(`[MODE-FIX] Forced AUTO based on Reg 16 value ${d.val}`);
+                                // console.log(`[MODE-FIX] Forced AUTO based on Reg 16 Bitmask (0x${d.val.toString(16)})`);
                             }
                         }
 
