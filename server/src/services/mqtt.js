@@ -413,12 +413,14 @@ export const initMqttService = (io) => {
                                 global.mqttDeviceCache[deviceId].reg16 = d.val;
                             }
                             // OVERRIDE: Bitwise Logic for Auto Mode (Refined)
-                            // Rule: Bits 2 (0x04) and 3 (0x08) MUST be OFF.
-                            // We ignored Bit 4 (0x10) because 2240 (0x8C0) is Auto and has Bit 4 OFF.
+                            // Rule: Bits 2 (0x04) and 3 (0x08) MUST be OFF for Auto.
+                            // If they are ON, it is Manual.
                             // Mask: 0x0C (0000 1100). Target: 0x00.
                             if ((d.val & 0x0C) === 0) {
                                 unifiedData.operationMode = 'AUTO';
-                                // console.log(`[MODE-FIX] Forced AUTO based on Reg 16 Mask 0x0C (0x${d.val.toString(16)})`);
+                            } else {
+                                // Explicitly set MANUAL if the mask fails (Reg 16 Authority)
+                                unifiedData.operationMode = 'MANUAL';
                             }
                         }
 
