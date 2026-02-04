@@ -404,6 +404,11 @@ export const initMqttService = (io) => {
                             if (d.val === 0) return;
 
                             unifiedData.reg16 = d.val;
+
+                            // PERSIST REG 16 IN CACHE (Critical for Anti-Flicker)
+                            if (global.mqttDeviceCache[deviceId]) {
+                                global.mqttDeviceCache[deviceId].reg16 = d.val;
+                            }
                             // OVERRIDE: Bitwise Logic for Auto Mode (Refined)
                             // Rule: Bits 2 (0x04) and 3 (0x08) MUST be OFF.
                             // We ignored Bit 4 (0x10) because 2240 (0x8C0) is Auto and has Bit 4 OFF.
