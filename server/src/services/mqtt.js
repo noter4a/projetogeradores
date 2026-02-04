@@ -298,16 +298,14 @@ export const initMqttService = (io) => {
                             unifiedData.apparentEnergy = d.apparentEnergy_kvah || 0;
                         }
 
-                        // Map RUNHOURS_60
+                        // Map RUNHOURS_60 (Consolidated Hours + Minutes)
                         if (d.block === 'RUNHOURS_60') {
+                            unifiedData.runHours = d.totalHours; // Use the decimal value (e.g. 66.50)
+                            unifiedData.totalHours = d.totalHours;
+
+                            // Update Cache (Optional, but good for persistence)
                             if (global.mqttDeviceCache[deviceId]) {
                                 global.mqttDeviceCache[deviceId].runHours = d.runHours;
-                            }
-                        }
-
-                        // Map RUNMINUTES_62
-                        if (d.block === 'RUNMINUTES_62') {
-                            if (global.mqttDeviceCache[deviceId]) {
                                 global.mqttDeviceCache[deviceId].runMinutes = d.runMinutes;
                             }
                         }

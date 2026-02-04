@@ -122,23 +122,20 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
 
   let result = {};
 
-  // Check for Run Hours (Reg 22 - 32bit) inside this block?
-  // 22 is Running Hours (Int32/Uint32).
-  const idx22 = 22 - startAddress;
-  if (idx22 >= 0 && idx22 + 1 < regs.length) {
-    // Found Run Hours candidates
-    const rhUpper = u16(regs, idx22 + 1); // Order depends on Little/Big Endian. DEIF usually Little?
-    // Actually Modbus Standard: Registers are Big Endian. But 32-bit values can be Hi-Low or Low-Hi words.
-    // SGC 120 manual usually says. Let's try Hi-Low (Big Endian words).
-    const rhLower = u16(regs, idx22);
-    // Wait, usually it is (Hi << 16) | Low.
-    // Let's assume (Reg22 << 16) | Reg23 ? Or Reg23 << 16 | Reg22?
-    // Standard Modbus is often Big Endian Words order too.
-    // Let's try default: 
-    const val32 = (u16(regs, idx22) << 16) | u16(regs, idx22 + 1);
+  // Block 60: Run Hours (Reg 60=Hours, Reg 62=Minutes)
+  if (startAddress === 60 && regs.length >= 3) {
+    const hours = u16(regs, 0);   // Reg 60
+    const minutes = u16(regs, 2); // Reg 62 (Skipping 61)
 
-    // If the value looks crazy, maybe swap. But 0 is 0.
-    result.runHours = val32;
+    // Calculate decimal for easier display/DB
+    const decimal = hours + (minutes / 60.0);
+
+    return {
+      block: "RUNHOURS_60",
+      runHours: hours,
+      runMinutes: minutes,
+      totalHours: Number(decimal.toFixed(2))
+    };
   }
 
   // Bloco 66 (1 reg): Alarm Code
