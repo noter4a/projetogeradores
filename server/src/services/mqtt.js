@@ -347,19 +347,10 @@ export const initMqttService = (io) => {
                             unifiedData.reg77_hex = d.reg77_hex;
                             unifiedData.reg78_hex = d.reg78_hex;
 
-                            // MODE PRIORITY:
-                            // 1. If Reg 16 says AUTO ((Reg16 & 0x0C) == 0), FORCE AUTO.
-                            // 2. Else use Reg 78/77 value.
-                            // Get Reg 16 from CACHE (Persistence)
-                            const cachedReg16 = global.mqttDeviceCache[deviceId] ? global.mqttDeviceCache[deviceId].reg16 : 0;
-                            const reg16_val = cachedReg16 || 0;
-                            const isAutoOverride = (reg16_val & 0x0C) === 0 && reg16_val !== 0; // Check override
-
-                            if (isAutoOverride) {
-                                unifiedData.operationMode = 'AUTO';
-                            } else {
-                                unifiedData.operationMode = d.opMode;
-                            }
+                            // EXGLUSIVE REG 16 MODE:
+                            // We DO NOT set operationMode here anymore.
+                            // Reg 78 is broken (returns 0/Manual in Auto).
+                            // We rely 100% on STATUS_16 packet to set mode.
 
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
@@ -367,15 +358,8 @@ export const initMqttService = (io) => {
 
                         // Map STATUS_78 (Legacy / Fallback)
                         if (d.block === 'STATUS_78') {
-                            const cachedReg16 = global.mqttDeviceCache[deviceId] ? global.mqttDeviceCache[deviceId].reg16 : 0;
-                            const reg16_val = cachedReg16 || 0;
-                            const isAutoOverride = (reg16_val & 0x0C) === 0 && reg16_val !== 0;
-
-                            if (isAutoOverride) {
-                                unifiedData.operationMode = 'AUTO';
-                            } else if (d.opMode !== 'UNKNOWN') {
-                                unifiedData.operationMode = d.opMode;
-                            }
+                            // EXCLUSIVE REG 16 MODE:
+                            // Ignore d.opMode from Reg 78 completely.
 
                             unifiedData.reg78_hex = d.reg78_hex;
                             // Fallback Mapping
