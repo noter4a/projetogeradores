@@ -382,12 +382,13 @@ export const initMqttService = (io) => {
                         // Map STATUS_16 (Discovery/Auto Probe)
                         if (d.block === 'STATUS_16') {
                             unifiedData.reg16 = d.val;
-                            // OVERRIDE: Bitwise Logic for Auto Mode
-                            // Rule: Bit 4 (0x10) MUST be ON. Bits 2 (0x04) and 3 (0x08) MUST be OFF.
-                            // Mask: 0x1C (0001 1100). Target: 0x10 (0001 0000).
-                            if ((d.val & 0x1C) === 0x10) {
+                            // OVERRIDE: Bitwise Logic for Auto Mode (Refined)
+                            // Rule: Bits 2 (0x04) and 3 (0x08) MUST be OFF.
+                            // We ignored Bit 4 (0x10) because 2240 (0x8C0) is Auto and has Bit 4 OFF.
+                            // Mask: 0x0C (0000 1100). Target: 0x00.
+                            if ((d.val & 0x0C) === 0) {
                                 unifiedData.operationMode = 'AUTO';
-                                // console.log(`[MODE-FIX] Forced AUTO based on Reg 16 Bitmask (0x${d.val.toString(16)})`);
+                                // console.log(`[MODE-FIX] Forced AUTO based on Reg 16 Mask 0x0C (0x${d.val.toString(16)})`);
                             }
                         }
 
