@@ -346,16 +346,34 @@ export const initMqttService = (io) => {
                         if (d.block === 'STATUS_COMBINED_77_78') {
                             unifiedData.reg77_hex = d.reg77_hex;
                             unifiedData.reg78_hex = d.reg78_hex;
-                            unifiedData.operationMode = d.opMode;
+
+                            // MODE PRIORITY:
+                            // 1. If Reg 16 says AUTO ((Reg16 & 0x0C) == 0), FORCE AUTO.
+                            // 2. Else use Reg 78/77 value.
+                            const reg16_val = unifiedData.reg16 || 0;
+                            const isAutoOverride = (reg16_val & 0x0C) === 0 && reg16_val !== 0; // Check override
+
+                            if (isAutoOverride) {
+                                unifiedData.operationMode = 'AUTO';
+                            } else {
+                                unifiedData.operationMode = d.opMode;
+                            }
+
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
                         }
 
                         // Map STATUS_78 (Legacy / Fallback)
                         if (d.block === 'STATUS_78') {
-                            if (d.opMode !== 'UNKNOWN') {
+                            const reg16_val = unifiedData.reg16 || 0;
+                            const isAutoOverride = (reg16_val & 0x0C) === 0 && reg16_val !== 0;
+
+                            if (isAutoOverride) {
+                                unifiedData.operationMode = 'AUTO';
+                            } else if (d.opMode !== 'UNKNOWN') {
                                 unifiedData.operationMode = d.opMode;
                             }
+
                             unifiedData.reg78_hex = d.reg78_hex;
                             // Fallback Mapping
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
