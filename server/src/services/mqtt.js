@@ -399,6 +399,10 @@ export const initMqttService = (io) => {
 
                         // Map STATUS_16 (Discovery/Auto Probe)
                         if (d.block === 'STATUS_16') {
+                            // GLITCH FILTER: Ignore 0. Reg 16 should never be 0 in valid operation.
+                            // This prevents falling back to Manual if a bad read occurs.
+                            if (d.val === 0) return;
+
                             unifiedData.reg16 = d.val;
                             // OVERRIDE: Bitwise Logic for Auto Mode (Refined)
                             // Rule: Bits 2 (0x04) and 3 (0x08) MUST be OFF.
