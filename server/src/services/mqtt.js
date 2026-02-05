@@ -393,9 +393,8 @@ export const initMqttService = (io) => {
 
                         // Map STATUS_16 (Discovery/Auto Probe)
                         if (d.block === 'STATUS_16') {
-                            // GLITCH FILTER: Ignore 0. Reg 16 should never be 0 in valid operation.
-                            // This prevents falling back to Manual if a bad read occurs.
-                            if (d.val === 0) return;
+                            // GLITCH FILTER: REMOVED. 0 is a valid value (Manual/Stop).
+                            // if (d.val === 0) return;
 
                             unifiedData.reg16 = d.val;
 
@@ -405,13 +404,13 @@ export const initMqttService = (io) => {
                             }
                             // OVERRIDE: Bitwise Logic for Auto Mode (Refined)
                             // Rule: Bits 2 (0x04) and 3 (0x08) MUST be OFF for Auto.
-                            // Mask: 0x0C (0000 1100). Target: 0x00.
+                            // BUT Reg 16 value 0 (0x00) is MANUAL/STOP, so it must be excluded.
                             const maskResult = (d.val & 0x0C);
                             console.log(`[DEBUG-MODE] ${deviceId} Reg16=${d.val} (0x${d.val.toString(16)}) | Mask(0x0C)=${maskResult}`);
 
-                            if (maskResult === 0) {
+                            if (maskResult === 0 && d.val !== 0) {
                                 unifiedData.operationMode = 'AUTO';
-                                console.log(`[DEBUG-MODE] ${deviceId} -> FORCED AUTO (Mask 0x0C passed)`);
+                                console.log(`[DEBUG-MODE] ${deviceId} -> FORCED AUTO (Mask 0x0C passed && Val!=0)`);
                             } else {
                                 // HYBRID LATCH: Only switch to MANUAL if Reg 78 confirms it.
                                 // If Reg 16 bitmask fails (e.g. glitch) but Reg 78 is 0 (Broken/Auto),
@@ -421,9 +420,9 @@ export const initMqttService = (io) => {
                                 if (global.mqttDeviceCache[deviceId]) {
                                     const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
                                     const highByte = reg78 >> 8;
-                                    // Manual Codes: 100 (0x64), 96 (0x60).
+                                    // Manual Codes: 100 (0x64), 96 (0x60), 32 (0x20).
                                     // 0 (0x00) is ambiguous/broken, so we treat it as "Don't Change".
-                                    if (highByte === 100 || highByte === 96) {
+                                    if (highByte === 100 || highByte === 96 || highByte === 32) {
                                         confirmedManual = true;
                                     }
                                     console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78Val} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);

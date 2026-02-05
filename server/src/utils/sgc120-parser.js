@@ -232,7 +232,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     if (highByte === 100) mode = 'MANUAL';      // 0x64
     else if (highByte === 96) mode = 'MANUAL';  // 0x60
     else if (highByte === 0) mode = 'INHIBITED';   // 0x00 (Restored to INHIBITED)
-    else if (highByte === 32) mode = 'AUTO';    // 0x20 (Tentative mapping based on logs)
+    else if (highByte === 32) mode = 'MANUAL';    // 0x20 (Remapped from AUTO -> MANUAL per User Feedback)
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
     else if (highByte === 5) mode = 'TEST';
 
