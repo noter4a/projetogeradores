@@ -430,9 +430,9 @@ export const initMqttService = (io) => {
                                 if (global.mqttDeviceCache[deviceId]) {
                                     const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
                                     const highByte = reg78 >> 8;
-                                    // Manual Codes: 100 (0x64), 96 (0x60). 32 (0x20) removed.
-                                    // restored 100 because user couldn't switch to manual with alarm active.
-                                    if (highByte === 100 || highByte === 96) {
+                                    // Manual Codes: 100 (0x64), 96 (0x60), 32 (0x20).
+                                    // 32 is restored because we now explicitly filter Reg16 glitch 2316.
+                                    if (highByte === 100 || highByte === 96 || highByte === 32) {
                                         confirmedManual = true;
                                     }
                                     console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);
@@ -985,10 +985,10 @@ export const sendControlCommand = (deviceId, action) => {
             return { success: true };
         }
 
-        // MANUAL: User requested same command as Auto (Toggle logic?)
-        // Hex: 01 10 00 00 00 01 02 00 04 [CRC]
+        // MANUAL: User requested Manual Mode (Usually maps to STOP mode in SGC 120, waiting for Start)
+        // Hex: 01 10 00 00 00 01 02 00 01 [CRC] (Was incorrectly sending 4/Auto)
         if (action === 'manual') {
-            const buf = createModbusWriteMultipleRequest(slaveId, 0, [4]);
+            const buf = createModbusWriteMultipleRequest(slaveId, 0, [1]);
 
             const payload = JSON.stringify({
                 modbusCommand: buf.toString('hex').toUpperCase(),
@@ -996,7 +996,7 @@ export const sendControlCommand = (deviceId, action) => {
             });
 
             client.publish(topic, payload);
-            console.log(`[MQTT-CMD] MANUAL: Sent Func 16 (Reg 0, Val 4) [Same as Auto]. Hex: ${buf.toString('hex').toUpperCase()}`);
+            console.log(`[MQTT-CMD] MANUAL: Sent Func 16 (Reg 0, Val 1) [STOP/MANUAL]. Hex: ${buf.toString('hex').toUpperCase()}`);
 
             // Trigger Restore Polling logic (Send full config after 30s)
             restorePolling(client, topic, slaveId, deviceId);
