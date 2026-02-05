@@ -415,36 +415,47 @@ export const initMqttService = (io) => {
 
                             if (maskResult === 0 && d.val !== 0) {
                                 unifiedData.operationMode = 'AUTO';
+                                if (global.mqttDeviceCache[deviceId]) {
+                                    global.mqttDeviceCache[deviceId].lastAutoTime = Date.now();
+                                }
                                 console.log(`[DEBUG-MODE] ${deviceId} -> FORCED AUTO (Mask 0x0C passed && Val!=0)`);
                             } else if (d.val === 0 || d.val === 2316) {
-                                // REFINED LOGIC: 
-                                // - 0 (0x00): Manual/Stop state (or glitch).
-                                // - 2316 (0x90C): Transitional Glitch that appears during Auto (0x910).
-                                // FIX: Treat both as "NO CHANGE" to prevent falling through to Reg 78 check, which causes flicker.
                                 console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16=${d.val} Ignored to prevent flicker)`);
                             } else {
-                                // HYBRID LATCH: Only switch to MANUAL if Reg 78 confirms it.
-                                // We only reach here if Reg 16 is Non-Zero AND indicates Manual (e.g. Mask 0x0C failed).
-
-                                let confirmedManual = false;
-                                if (global.mqttDeviceCache[deviceId]) {
-                                    const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
-                                    const highByte = reg78 >> 8;
-                                    // Manual Codes: 100 (0x64), 96 (0x60), 32 (0x20).
-                                    // 32 is restored because we now explicitly filter Reg16 glitch 2316.
-                                    if (highByte === 100 || highByte === 96 || highByte === 32) {
-                                        confirmedManual = true;
+                                // DEBOUNCE CHECK:
+                                // If we were in AUTO recently (last 4 seconds), ignore this potential MANUAL signal.
+                                // This bridges the gap over any glitches/noise.
+                                let isGlitch = false;
+                                if (global.mqttDeviceCache[deviceId] && global.mqttDeviceCache[deviceId].lastAutoTime) {
+                                    const timeSinceAuto = Date.now() - global.mqttDeviceCache[deviceId].lastAutoTime;
+                                    if (timeSinceAuto < 4000) {
+                                        isGlitch = true;
                                     }
-                                    console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);
                                 }
 
-                                if (confirmedManual) {
-                                    unifiedData.operationMode = 'MANUAL';
-                                    console.log(`[DEBUG-MODE] ${deviceId} -> SWITCHED TO MANUAL (Confirmed by Reg78)`);
+                                if (isGlitch) {
+                                    unifiedData.operationMode = 'AUTO'; // Force sticking to Auto
+                                    console.log(`[DEBUG-MODE] ${deviceId} -> MAINTAINING AUTO (Debounce Active - Glitch detected)`);
                                 } else {
-                                    console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16 says Manual but Reg78 didn't confirm)`);
+                                    // HYBRID LATCH: Only switch to MANUAL if Reg 78 confirms it.
+                                    let confirmedManual = false;
+                                    if (global.mqttDeviceCache[deviceId]) {
+                                        const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
+                                        const highByte = reg78 >> 8;
+                                        // Manual Codes: 100, 96, 32.
+                                        if (highByte === 100 || highByte === 96 || highByte === 32) {
+                                            confirmedManual = true;
+                                        }
+                                        console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);
+                                    }
+
+                                    if (confirmedManual) {
+                                        unifiedData.operationMode = 'MANUAL';
+                                        console.log(`[DEBUG-MODE] ${deviceId} -> SWITCHED TO MANUAL (Confirmed by Reg78)`);
+                                    } else {
+                                        console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16 says Manual but Reg78 didn't confirm)`);
+                                    }
                                 }
-                                // Else: Do nothing. Keep previous state (which was likely Auto).
                             }
                         }
 
