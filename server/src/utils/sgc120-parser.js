@@ -374,9 +374,13 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     // Reg 60 = High Word (MSW), Reg 61 = Low Word (LSW)
     const hi = u16(regs, 0);
     const lo = u16(regs, 1);
+    const min = u16(regs, 2);
+    const r3 = u16(regs, 3);
+    const r4 = u16(regs, 4);
     const engHrs = (hi << 16) | lo;
 
-    console.log(`[PARSER] Engine Hours Debug - Reg60(Hi): ${hi}, Reg61(Lo): ${lo} -> Total: ${engHrs}h`);
+    console.log(`[PARSER] Block 60 Raw: Reg60=${hi} Reg61=${lo} Reg62=${min} Reg63=${r3} Reg64=${r4}`);
+    console.log(`[PARSER] Engine Hours Debug - Reg60(Hi): ${hi}, Reg61(Lo): ${lo} -> Total: ${engHrs}h, Min=${min}`);
 
     return {
       block: "RUNHOURS_60",
