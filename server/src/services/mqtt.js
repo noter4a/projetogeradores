@@ -429,9 +429,9 @@ export const initMqttService = (io) => {
                                 if (global.mqttDeviceCache[deviceId]) {
                                     const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
                                     const highByte = reg78 >> 8;
-                                    // Manual Codes: 100 (0x64), 96 (0x60). 32 (0x20) removed to prevent lock-in.
+                                    // Manual Codes: 96 (0x60). 100 (0x64) and 32 (0x20) removed to prevent lock-in/flicker.
                                     // 0 (0x00) is ambiguous/broken, so we treat it as "Don't Change".
-                                    if (highByte === 100 || highByte === 96) {
+                                    if (highByte === 96) {
                                         confirmedManual = true;
                                     }
                                     console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);
