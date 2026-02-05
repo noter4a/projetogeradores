@@ -689,10 +689,10 @@ export const initMqttService = (io) => {
                 // Sequência de Comandos (Relaxada - 2s por request)
                 // Checa 'pausedDevices' DENTRO de cada timeout para cancelar se o usuário mandou comando
 
-                // 1. Horímetro (60, 2 regs)
+                // 1. Horímetro (60, 5 regs) - Expanded for DEBUG
                 setTimeout(() => {
                     if (pausedDevices.has(deviceId)) return;
-                    client.publish(topic, createModbusReadRequest(slaveId, 60, 2));
+                    client.publish(topic, createModbusReadRequest(slaveId, 60, 5));
                 }, 0);
 
                 // 2. Minutos (62, 1 reg)
