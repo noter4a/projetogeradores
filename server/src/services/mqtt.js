@@ -416,11 +416,12 @@ export const initMqttService = (io) => {
                             if (maskResult === 0 && d.val !== 0) {
                                 unifiedData.operationMode = 'AUTO';
                                 console.log(`[DEBUG-MODE] ${deviceId} -> FORCED AUTO (Mask 0x0C passed && Val!=0)`);
-                            } else if (d.val === 0) {
-                                // REFINED LOGIC: Reg 16 = 0 (0x00) is often a glitch or momentary state.
-                                // If we are flickering, it's because 0 falls through to the Reg 78 check below.
-                                // FIX: Treat 0 as "NO CHANGE" explicitly. prevent falling to Reg 78 check.
-                                console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16=0 Ignored to prevent flicker)`);
+                            } else if (d.val === 0 || d.val === 2316) {
+                                // REFINED LOGIC: 
+                                // - 0 (0x00): Manual/Stop state (or glitch).
+                                // - 2316 (0x90C): Transitional Glitch that appears during Auto (0x910).
+                                // FIX: Treat both as "NO CHANGE" to prevent falling through to Reg 78 check, which causes flicker.
+                                console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16=${d.val} Ignored to prevent flicker)`);
                             } else {
                                 // HYBRID LATCH: Only switch to MANUAL if Reg 78 confirms it.
                                 // We only reach here if Reg 16 is Non-Zero AND indicates Manual (e.g. Mask 0x0C failed).
@@ -429,9 +430,9 @@ export const initMqttService = (io) => {
                                 if (global.mqttDeviceCache[deviceId]) {
                                     const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
                                     const highByte = reg78 >> 8;
-                                    // Manual Codes: 96 (0x60). 100 (0x64) and 32 (0x20) removed to prevent lock-in/flicker.
-                                    // 0 (0x00) is ambiguous/broken, so we treat it as "Don't Change".
-                                    if (highByte === 96) {
+                                    // Manual Codes: 100 (0x64), 96 (0x60). 32 (0x20) removed.
+                                    // restored 100 because user couldn't switch to manual with alarm active.
+                                    if (highByte === 100 || highByte === 96) {
                                         confirmedManual = true;
                                     }
                                     console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);
