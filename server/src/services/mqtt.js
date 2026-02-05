@@ -410,50 +410,65 @@ export const initMqttService = (io) => {
                             // OVERRIDE: Bitwise Logic for Auto Mode (Refined)
                             // Rule: Bits 2 (0x04) and 3 (0x08) MUST be OFF for Auto.
                             // BUT Reg 16 value 0 (0x00) is MANUAL/STOP, so it must be excluded.
-                            const maskResult = (d.val & 0x0C);
-                            console.log(`[DEBUG-MODE] ${deviceId} Reg16=${d.val} (0x${d.val.toString(16)}) | Mask(0x0C)=${maskResult}`);
+                            // ---------------------------------------------------------
+                            // PRIORITY 1: CHECK REG 78 (MANUAL CONFIRMATION)
+                            // ---------------------------------------------------------
+                            // User Feedback: "Reg 78 says Manual, but Reg 16 forces Auto".
+                            // Fix: If Reg 78 explicitly reports a Manual state (32, 96, 100), we MUST respect it.
+                            // We do this BEFORE looking at Reg 16's bitmask.
 
-                            if (maskResult === 0 && d.val !== 0) {
-                                unifiedData.operationMode = 'AUTO';
-                                if (global.mqttDeviceCache[deviceId]) {
-                                    global.mqttDeviceCache[deviceId].lastAutoTime = Date.now();
+                            let priorityManual = false;
+                            if (global.mqttDeviceCache[deviceId]) {
+                                const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
+                                const highByte = reg78 >> 8;
+                                // Manual Codes: 100 (0x64), 96 (0x60), 32 (0x20).
+                                // 32 is common during alarms/stop. 
+                                if (highByte === 100 || highByte === 96 || highByte === 32) {
+                                    priorityManual = true;
                                 }
-                                console.log(`[DEBUG-MODE] ${deviceId} -> FORCED AUTO (Mask 0x0C passed && Val!=0)`);
-                            } else if (d.val === 0 || d.val === 2316) {
-                                console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16=${d.val} Ignored to prevent flicker)`);
+                                console.log(`[DEBUG-MODE] ${deviceId} Reg78 Priority Check: Reg78=${reg78} (Hi=${highByte}) -> Manual? ${priorityManual}`);
+                            }
+
+                            if (priorityManual) {
+                                unifiedData.operationMode = 'MANUAL';
+                                console.log(`[DEBUG-MODE] ${deviceId} -> FORCED MANUAL (Priority: Reg78 says Manual - Overrides Reg16)`);
+
+                                // ---------------------------------------------------------
+                                // PRIORITY 2: CHECK REG 16 (AUTO DETECTION)
+                                // ---------------------------------------------------------
+                                // Only runs if Reg 78 did NOT claim Manual (i.e., Reg 78 is 0 or ambiguous).
                             } else {
-                                // DEBOUNCE CHECK:
-                                // If we were in AUTO recently (last 4 seconds), ignore this potential MANUAL signal.
-                                // This bridges the gap over any glitches/noise.
-                                let isGlitch = false;
-                                if (global.mqttDeviceCache[deviceId] && global.mqttDeviceCache[deviceId].lastAutoTime) {
-                                    const timeSinceAuto = Date.now() - global.mqttDeviceCache[deviceId].lastAutoTime;
-                                    if (timeSinceAuto < 4000) {
-                                        isGlitch = true;
-                                    }
-                                }
+                                const maskResult = (d.val & 0x0C);
+                                console.log(`[DEBUG-MODE] ${deviceId} Reg16=${d.val} (0x${d.val.toString(16)}) | Mask(0x0C)=${maskResult}`);
 
-                                if (isGlitch) {
-                                    unifiedData.operationMode = 'AUTO'; // Force sticking to Auto
-                                    console.log(`[DEBUG-MODE] ${deviceId} -> MAINTAINING AUTO (Debounce Active - Glitch detected)`);
-                                } else {
-                                    // HYBRID LATCH: Only switch to MANUAL if Reg 78 confirms it.
-                                    let confirmedManual = false;
+                                if (maskResult === 0 && d.val !== 0) {
+                                    unifiedData.operationMode = 'AUTO';
                                     if (global.mqttDeviceCache[deviceId]) {
-                                        const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
-                                        const highByte = reg78 >> 8;
-                                        // Manual Codes: 100, 96, 32.
-                                        if (highByte === 100 || highByte === 96 || highByte === 32) {
-                                            confirmedManual = true;
+                                        global.mqttDeviceCache[deviceId].lastAutoTime = Date.now();
+                                    }
+                                    console.log(`[DEBUG-MODE] ${deviceId} -> FORCED AUTO (Reg16 Mask Passed & Reg78 not Manual)`);
+                                } else if (d.val === 0 || d.val === 2316) {
+                                    console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16=${d.val} Ignored - Flicker Prevention)`);
+                                } else {
+                                    // Fallback: Reg 16 says "Not Auto" (Mask Failed), but Reg 78 didn't confirm Manual earlier.
+                                    // This is the implementation of "Debounce" / "Glitch" logic.
+                                    // If we were recently in Auto, assume Glitch.
+
+                                    let isGlitch = false;
+                                    if (global.mqttDeviceCache[deviceId] && global.mqttDeviceCache[deviceId].lastAutoTime) {
+                                        const timeSinceAuto = Date.now() - global.mqttDeviceCache[deviceId].lastAutoTime;
+                                        if (timeSinceAuto < 4000) {
+                                            isGlitch = true;
                                         }
-                                        console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);
                                     }
 
-                                    if (confirmedManual) {
-                                        unifiedData.operationMode = 'MANUAL';
-                                        console.log(`[DEBUG-MODE] ${deviceId} -> SWITCHED TO MANUAL (Confirmed by Reg78)`);
+                                    if (isGlitch) {
+                                        unifiedData.operationMode = 'AUTO';
+                                        console.log(`[DEBUG-MODE] ${deviceId} -> MAINTAINING AUTO (Debounce Active - Reg16 noise)`);
                                     } else {
-                                        console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16 says Manual but Reg78 didn't confirm)`);
+                                        console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16 says Not Auto, but Reg78 didn't confirm Manual)`);
+                                        // Ideally, if Reg 16 fails mask AND debounce expires, we *could* switch to Manual, 
+                                        // but without Reg 78 confirmation, it's safer to stay put or let the Priority 1 catch it next time.
                                     }
                                 }
                             }
