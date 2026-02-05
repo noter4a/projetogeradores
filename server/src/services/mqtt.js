@@ -416,10 +416,14 @@ export const initMqttService = (io) => {
                             if (maskResult === 0 && d.val !== 0) {
                                 unifiedData.operationMode = 'AUTO';
                                 console.log(`[DEBUG-MODE] ${deviceId} -> FORCED AUTO (Mask 0x0C passed && Val!=0)`);
+                            } else if (d.val === 0) {
+                                // REFINED LOGIC: Reg 16 = 0 (0x00) is often a glitch or momentary state.
+                                // If we are flickering, it's because 0 falls through to the Reg 78 check below.
+                                // FIX: Treat 0 as "NO CHANGE" explicitly. prevent falling to Reg 78 check.
+                                console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16=0 Ignored to prevent flicker)`);
                             } else {
                                 // HYBRID LATCH: Only switch to MANUAL if Reg 78 confirms it.
-                                // If Reg 16 bitmask fails (e.g. glitch) but Reg 78 is 0 (Broken/Auto),
-                                // we should NOT switch to Manual.
+                                // We only reach here if Reg 16 is Non-Zero AND indicates Manual (e.g. Mask 0x0C failed).
 
                                 let confirmedManual = false;
                                 if (global.mqttDeviceCache[deviceId]) {
