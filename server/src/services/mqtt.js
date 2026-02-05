@@ -351,6 +351,7 @@ export const initMqttService = (io) => {
                             if (global.mqttDeviceCache[deviceId]) {
                                 const reg78_int = parseInt(d.reg78_hex, 16);
                                 global.mqttDeviceCache[deviceId].reg78_int = reg78_int;
+                                console.log(`[DEBUG-CACHE] ${deviceId} cached Reg78: ${reg78_int} (Hex: 0x${d.reg78_hex})`);
                             }
 
                             // EXGLUSIVE REG 16 MODE:
