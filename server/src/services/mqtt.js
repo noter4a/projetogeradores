@@ -422,8 +422,8 @@ export const initMqttService = (io) => {
                                 const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
                                 const highByte = reg78 >> 8;
                                 // Manual Codes: 100 (0x64), 96 (0x60), 32 (0x20).
-                                // 32 is common during alarms/stop. 
-                                if (highByte === 100 || highByte === 96 || highByte === 32) {
+                                // 101 (0x65) added: "Manual Start" sequence.
+                                if (highByte === 100 || highByte === 96 || highByte === 32 || highByte === 101) {
                                     priorityManual = true;
                                 }
                                 console.log(`[DEBUG-MODE] ${deviceId} Reg78 Priority Check: Reg78=${reg78} (Hi=${highByte}) -> Manual? ${priorityManual}`);
