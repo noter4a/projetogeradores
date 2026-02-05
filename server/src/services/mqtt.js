@@ -425,7 +425,7 @@ export const initMqttService = (io) => {
                                     if (highByte === 100 || highByte === 96 || highByte === 32) {
                                         confirmedManual = true;
                                     }
-                                    console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78Val} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);
+                                    console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);
                                 }
 
                                 if (confirmedManual) {
