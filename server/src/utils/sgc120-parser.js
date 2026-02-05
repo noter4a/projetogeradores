@@ -330,6 +330,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
       // If 60 is MSW and 61 is LSW:
       const val32config1 = (u16(regs, 9) << 16) | u16(regs, 10);
       result.runHours = val32config1;
+      console.log(`[PARSER] Block 51 detected RunHours (Reg 60/61): ${val32config1}h (Hi:${u16(regs, 9)} Lo:${u16(regs, 10)})`);
     }
 
     return {

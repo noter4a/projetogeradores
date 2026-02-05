@@ -701,10 +701,10 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 62, 1));
                 }, 1000); // +1s
 
-                // 3. Motor (51, 9 regs)
+                // 3. Motor (51, 11 regs) - Expanded to include Run Hours (60-61)
                 setTimeout(() => {
                     if (pausedDevices.has(deviceId)) return;
-                    client.publish(topic, createModbusReadRequest(slaveId, 51, 9));
+                    client.publish(topic, createModbusReadRequest(slaveId, 51, 11));
                 }, 3000); // +2s
 
                 // 4. Tensões Gerador (1, 9 regs)
