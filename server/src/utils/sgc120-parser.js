@@ -216,7 +216,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // Reg 78 (Offset 1): Operation Mode
   if (startAddress === 77 && regs.length >= 2) {
     const rawInputs = u16(regs, 0); // Reg 77
-    const rawMode = u16(regs, 2); // Reg 78 (offset 2 bytes)
+    const rawMode = u16(regs, 1); // Reg 78 (Offset 1) - FIXED from 2
 
     // Process Inputs (User Confirmed: A=Gen, B=Mains)
     // Bit 15 = Input A (Gen Breaker). Logic: Positive (1=Closed, 0=Open)
@@ -231,7 +231,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     let mode = 'UNKNOWN';
     if (highByte === 100) mode = 'MANUAL';      // 0x64
     else if (highByte === 96) mode = 'MANUAL';  // 0x60
-    else if (highByte === 0) mode = 'MANUAL';   // 0x00 (Remapped)
+    else if (highByte === 0) mode = 'INHIBITED';   // 0x00 (Restored to INHIBITED)
     else if (highByte === 32) mode = 'AUTO';    // 0x20 (Tentative mapping based on logs)
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
     else if (highByte === 5) mode = 'TEST';
