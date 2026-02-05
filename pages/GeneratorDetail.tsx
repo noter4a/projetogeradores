@@ -409,9 +409,9 @@ const GeneratorDetail: React.FC = () => {
                       <label className="text-[10px] text-gray-500 uppercase font-bold mb-3 block text-center">Comando Remoto</label>
                       <div className="flex gap-3">
                         <button
-                          disabled={gen.status === GeneratorStatus.RUNNING}
+                          disabled={gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO'}
                           onClick={() => handleControl('start')}
-                          className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.RUNNING
+                          className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO'
                             ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
                             : 'bg-green-600 hover:bg-green-500 text-white border-green-500 hover:shadow-green-900/20'
                             }`}
@@ -419,9 +419,9 @@ const GeneratorDetail: React.FC = () => {
                           <Play size={18} fill="currentColor" /> PARTIDA
                         </button>
                         <button
-                          disabled={gen.status === GeneratorStatus.STOPPED}
+                          disabled={gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO'}
                           onClick={() => handleControl('stop')}
-                          className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.STOPPED
+                          className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO'
                             ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
                             : 'bg-red-600 hover:bg-red-500 text-white border-red-500 hover:shadow-red-900/20'
                             }`}
