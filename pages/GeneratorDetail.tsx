@@ -819,10 +819,7 @@ const GeneratorDetail: React.FC = () => {
                       <p className="text-xl font-mono text-white">{Number(gen.totalHours || 0).toFixed(2)} h</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">Próxima Manutenção</p>
-                    <p className="text-sm text-ciklo-orange font-bold">Em 150h</p>
-                  </div>
+
                 </div>
 
               </div>
