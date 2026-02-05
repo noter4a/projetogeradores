@@ -426,10 +426,14 @@ export const initMqttService = (io) => {
                                     if (highByte === 100 || highByte === 96) {
                                         confirmedManual = true;
                                     }
+                                    console.log(`[DEBUG-MODE] ${deviceId} Hybrid Check: Reg78=${reg78Val} (Hi=${highByte}) -> ConfirmedManual? ${confirmedManual}`);
                                 }
 
                                 if (confirmedManual) {
                                     unifiedData.operationMode = 'MANUAL';
+                                    console.log(`[DEBUG-MODE] ${deviceId} -> SWITCHED TO MANUAL (Confirmed by Reg78)`);
+                                } else {
+                                    console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16 says Manual but Reg78 didn't confirm)`);
                                 }
                                 // Else: Do nothing. Keep previous state (which was likely Auto).
                             }
