@@ -164,6 +164,11 @@ export const initMqttService = (io) => {
                             unifiedData.fuelLevel = d.fuelLevel_pct || 0;
                             unifiedData.rpm = d.rpm || 0;
                             unifiedData.batteryVoltage = d.batteryVoltage_v || 0;
+
+                            // FIX: Capture Run Hours if present in extended Block 51
+                            if (d.runHours !== undefined) {
+                                global.mqttDeviceCache[deviceId].runHours = d.runHours;
+                            }
                         }
 
                         // Map RUNHOURS_60 (Hours Only)
