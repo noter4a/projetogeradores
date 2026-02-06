@@ -503,7 +503,7 @@ const GeneratorDetail: React.FC = () => {
                         {/* LOAD ICON (Center) - Box */}
                         <g transform="translate(200, 55)">
                           <rect x="0" y="0" width="100" height="50" rx="4" fill="#1f2937" stroke={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#374151"} strokeWidth="3" />
-                          <text x="50" y="30" textAnchor="middle" fill={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#6b7280"} fontSize="14" fontWeight="bold" letterSpacing="2">LOAD</text>
+                          <text x="50" y="30" textAnchor="middle" fill={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#6b7280"} fontSize="14" fontWeight="bold" letterSpacing="2">CARGA</text>
                         </g>
 
                         {/* --- ACTUATOR/BREAKERS (Switches) --- */}
