@@ -830,10 +830,10 @@ export const initMqttService = (io) => {
                     client.publish(topic, createModbusReadRequest(slaveId, 77, 2));
                 }, 19000);
 
-                // 14. ACTIVE POWER (29, 1 reg) - User requested new source
+                // 14. ACTIVE POWER (29, 3 regs) - Reading L1, L2, L3 to calculate Total
                 setTimeout(() => {
                     if (pausedDevices.has(deviceId)) return;
-                    client.publish(topic, createModbusReadRequest(slaveId, 29, 1));
+                    client.publish(topic, createModbusReadRequest(slaveId, 29, 3));
                     console.log(`[MQTT-POLL] Ciclo completo enviado para ${deviceId}`);
                 }, 20000); // +1s
             });
