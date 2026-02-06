@@ -387,6 +387,8 @@ export const initMqttService = (io) => {
                             unifiedData.activePowerL2 = d.activePowerL2;
                             unifiedData.activePowerL3 = d.activePowerL3;
                             unifiedData.activePowerTotal = d.activePowerTotal;
+                            // Alias for DB Storage and Legacy Compatibility
+                            unifiedData.activePower = d.activePowerTotal;
                         }
 
                         // Map STATUS_32 (Debug Only)
