@@ -154,17 +154,27 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // Bloco 29 (1 reg): Active Power Total (User Override)
-  // Request: 01 03 00 1D 00 01 (Reg 29, 1 qty) -> Resp: 00 1D (29 decimal)
-  // Display Correction: User says 29 = 2.9 kW. Scaling factor 0.1.
-  if (startAddress === 29 && regs.length === 1) {
-    const raw = u16(regs, 0); // 16-bit
-    const kw = scale01(raw * 0.1); // Scaling factor 0.1
-    console.log(`[PARSER] Active Power (29): Raw=${raw}, Scaled=${kw} kW`);
+  // Bloco 29 (3 reg): Active Power L1, L2, L3
+  // Request: 01 03 00 1D 00 03 (Reg 29, 3 qty)
+  // Hypothesis: 29=L1, 30=L2, 31=L3. Scale 0.1
+  if (startAddress === 29 && regs.length >= 3) {
+    const r29 = u16(regs, 0);
+    const r30 = u16(regs, 1);
+    const r31 = u16(regs, 2);
+
+    const pL1 = scale01(r29 * 0.1);
+    const pL2 = scale01(r30 * 0.1);
+    const pL3 = scale01(r31 * 0.1);
+    const pTotal = parseFloat((pL1 + pL2 + pL3).toFixed(1));
+
+    console.log(`[PARSER] Power Block (29-31): L1=${r29}(${pL1}kW) L2=${r30}(${pL2}kW) L3=${r31}(${pL3}kW) -> Total=${pTotal}kW`);
+
     return {
-      block: "ACTIVE_POWER_29",
-      activePower_kw: kw,
-      reg29_raw: raw
+      block: "ACTIVE_POWER_29_31",
+      activePowerL1: pL1,
+      activePowerL2: pL2,
+      activePowerL3: pL3,
+      activePowerTotal: pTotal
     };
   }
 

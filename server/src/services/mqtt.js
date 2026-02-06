@@ -381,6 +381,14 @@ export const initMqttService = (io) => {
 
                         // Map STATUS_77 (Legacy) - REMOVED
 
+                        // Map ACTIVE POWER (29-31)
+                        if (d.block === 'ACTIVE_POWER_29_31') {
+                            unifiedData.activePowerL1 = d.activePowerL1;
+                            unifiedData.activePowerL2 = d.activePowerL2;
+                            unifiedData.activePowerL3 = d.activePowerL3;
+                            unifiedData.activePowerTotal = d.activePowerTotal;
+                        }
+
                         // Map STATUS_32 (Debug Only)
                         if (d.block === 'STATUS_32') {
                             unifiedData.reg32_hex = d.reg32_hex;

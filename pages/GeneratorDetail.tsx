@@ -664,7 +664,7 @@ const GeneratorDetail: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-ciklo-orange">
                     <p className="text-gray-400 text-xs uppercase font-bold">Potência Ativa Total</p>
-                    <p className="text-3xl font-bold text-white mt-1">{Number(gen.activePower || 0).toFixed(1)} <span className="text-base font-normal text-gray-500">kW</span></p>
+                    <p className="text-3xl font-bold text-white mt-1">{Number(gen.activePowerTotal || 0).toFixed(1)} <span className="text-base font-normal text-gray-500">kW</span></p>
                   </div>
                   <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-blue-500">
                     <p className="text-gray-400 text-xs uppercase font-bold">Fator de Potência</p>
