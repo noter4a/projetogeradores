@@ -486,7 +486,12 @@ const GeneratorDetail: React.FC = () => {
 
                         {/* MAINS ICON (Left) - Tower */}
                         <g transform="translate(10, 50)" className={gen.mainsBreakerClosed ? "text-green-500" : "text-gray-500"}>
-                          <UtilityPole size={40} className="text-current" strokeWidth={1.5} />
+                          {/* Circle Background similar to Generator */}
+                          <circle cx="20" cy="20" r="22" fill="none" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#6b7280"} strokeWidth="3" />
+
+                          {/* Icon Centered */}
+                          <UtilityPole size={24} x={8} y={8} className="text-current" strokeWidth={1.5} />
+
                           {/* Label */}
                           <text x="20" y="-10" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold">REDE</text>
                         </g>
