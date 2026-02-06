@@ -485,21 +485,30 @@ const GeneratorDetail: React.FC = () => {
                         {/* --- ICONS --- */}
 
                         {/* MAINS ICON (Left) - Tower */}
-                        <g transform="translate(10, 50)" className={gen.mainsBreakerClosed ? "text-green-500" : "text-gray-500"}>
-                          {/* Circle Background similar to Generator */}
-                          <circle cx="20" cy="20" r="22" fill="none" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#6b7280"} strokeWidth="3" />
+                        {/* Logic: 
+                            - Green Color (Circle/Icon): If Mains Voltage is detected (Presence).
+                            - Spinner: Only if Breaker is Closed (Active Connection).
+                        */}
+                        {(() => {
+                          const isMainsPresent = (gen.mainsVoltageL1 && gen.mainsVoltageL1 > 10) || (gen.avgVoltage && gen.avgVoltage > 10);
+                          return (
+                            <g transform="translate(10, 50)" className={isMainsPresent ? "text-green-500" : "text-gray-500"}>
+                              {/* Circle Background */}
+                              <circle cx="20" cy="20" r="22" fill="none" stroke={isMainsPresent ? "#22c55e" : "#6b7280"} strokeWidth="3" />
 
-                          {/* Icon Centered */}
-                          <UtilityPole size={24} x={8} y={8} className="text-current" strokeWidth={1.5} />
+                              {/* Icon Centered */}
+                              <UtilityPole size={24} x={8} y={8} className="text-current" strokeWidth={1.5} />
 
-                          {/* Dynamic Spinner ring if closed */}
-                          {gen.mainsBreakerClosed && (
-                            <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
-                          )}
+                              {/* Dynamic Spinner ring - ONLY if Breaker is Closed */}
+                              {gen.mainsBreakerClosed && (
+                                <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
+                              )}
 
-                          {/* Label */}
-                          <text x="20" y="-10" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold">REDE</text>
-                        </g>
+                              {/* Label */}
+                              <text x="20" y="-10" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold">REDE</text>
+                            </g>
+                          );
+                        })()}
 
                         {/* GEN ICON (Right) - Circle G */}
                         <g transform="translate(450, 55)">
