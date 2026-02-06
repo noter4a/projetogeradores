@@ -421,11 +421,24 @@ export const initMqttService = (io) => {
                             if (global.mqttDeviceCache[deviceId]) {
                                 const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
                                 const highByte = reg78 >> 8;
-                                // Manual Codes: 100 (0x64), 96 (0x60), 32 (0x20).
-                                // 101 (0x65) added: "Manual Start" sequence.
-                                if (highByte === 100 || highByte === 96 || highByte === 32 || highByte === 101) {
+
+                                // Manual Codes: 32 (Alarm/Stop), 96 (Test), 100/101 (Manual).
+                                // SPECIAL HANDLING FOR 101 (Manual Start):
+                                // Code 101 persists while running. If user switches to AUTO while running, 
+                                // Reg 16 becomes 2320 (0x910). We must ALLOW this swtich.
+                                // So we only enforce Manual for 101 if Reg 16 is NOT 2320.
+
+                                if (highByte === 32 || highByte === 96 || highByte === 100) {
                                     priorityManual = true;
+                                } else if (highByte === 101) {
+                                    // Only force Manual if Reg 16 IS NOT showing clear Auto (0x910 / 2320)
+                                    if (d.val !== 2320) {
+                                        priorityManual = true;
+                                    } else {
+                                        console.log(`[DEBUG-MODE] ${deviceId} Reg78=101 (Manual Start) BUT Reg16=2320 (Auto Running) -> ALLOWING AUTO`);
+                                    }
                                 }
+
                                 console.log(`[DEBUG-MODE] ${deviceId} Reg78 Priority Check: Reg78=${reg78} (Hi=${highByte}) -> Manual? ${priorityManual}`);
                             }
 
