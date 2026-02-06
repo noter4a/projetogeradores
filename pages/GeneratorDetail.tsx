@@ -380,9 +380,10 @@ const GeneratorDetail: React.FC = () => {
                       <div className="flex-1 flex gap-2">
                         {/* AUTO BUTTON */}
                         <button
+                          disabled={gen.operationMode === 'AUTO'}
                           onClick={() => handleControl('auto')}
                           className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20'
+                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100' // Added cursor-default & opacity-100
                             : 'text-gray-400 hover:text-white hover:bg-white/5'
                             }`}
                         >
@@ -391,9 +392,10 @@ const GeneratorDetail: React.FC = () => {
 
                         {/* MANUAL BUTTON */}
                         <button
+                          disabled={gen.operationMode === 'MANUAL'}
                           onClick={() => handleControl('manual')}
                           className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20'
+                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100' // Added cursor-default & opacity-100
                             : 'text-gray-400 hover:text-white hover:bg-white/5'
                             }`}
                         >
