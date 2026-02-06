@@ -492,6 +492,11 @@ const GeneratorDetail: React.FC = () => {
                           {/* Icon Centered */}
                           <UtilityPole size={24} x={8} y={8} className="text-current" strokeWidth={1.5} />
 
+                          {/* Dynamic Spinner ring if closed */}
+                          {gen.mainsBreakerClosed && (
+                            <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
+                          )}
+
                           {/* Label */}
                           <text x="20" y="-10" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold">REDE</text>
                         </g>
