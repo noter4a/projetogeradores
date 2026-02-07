@@ -440,12 +440,13 @@ export const initMqttService = (io) => {
 
                                 if (highByte === 32 || highByte === 96 || highByte === 100) {
                                     priorityManual = true;
-                                } else if (highByte === 101) {
+                                } else if (highByte === 101 || highByte === 97) {
                                     // Only force Manual if Reg 16 IS NOT showing clear Auto (0x910 / 2320)
+                                    // 101 (0x65) and 97 (0x61) are Manual Start codes.
                                     if (d.val !== 2320) {
                                         priorityManual = true;
                                     } else {
-                                        console.log(`[DEBUG-MODE] ${deviceId} Reg78=101 (Manual Start) BUT Reg16=2320 (Auto Running) -> ALLOWING AUTO`);
+                                        console.log(`[DEBUG-MODE] ${deviceId} Reg78=${highByte} (Start Seq) BUT Reg16=2320 (Auto Running) -> ALLOWING AUTO`);
                                     }
                                 }
 
