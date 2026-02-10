@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { UserRole, User } from '../types';
@@ -7,6 +7,7 @@ import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server
 
 const UserManagement: React.FC = () => {
   const { users, loading, refreshUsers, addUser, removeUser, updateUser } = useUsers();
+  const { user: currentUser, token } = useAuth();
   const { generators } = useGenerators();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isRechargeOpen, setIsRechargeOpen] = useState(false);
@@ -155,8 +156,11 @@ const UserManagement: React.FC = () => {
       </div>
 
       {/* DEBUG INFO - REMOVE LATER */}
-      <div className="bg-gray-900 p-2 text-xs text-gray-500 font-mono rounded">
-        DEBUG: Users: {users.length} | Loading: {String(loading)}
+      <div className="bg-gray-900 p-2 text-xs text-gray-500 font-mono rounded overflow-auto">
+        DEBUG: Users: {users.length} | Loading: {String(loading)} <br />
+        Auth: {currentUser ? currentUser.name : 'No User'} | Role: {currentUser?.role} <br />
+        Token: {token ? `${token.substring(0, 10)}...` : 'NONE'} <br />
+        IsAdmin: {String(currentUser?.role === UserRole.ADMIN)}
       </div>
 
       {/* Add/Edit User Form */}
