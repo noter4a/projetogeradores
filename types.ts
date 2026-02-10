@@ -13,7 +13,7 @@ export interface User {
   email: string;
   password?: string;
   assignedGeneratorIds?: string[];
-  credits?: number; // New field for credit system
+  // credits?: number; // REMOVED
 }
 
 export enum GeneratorStatus {

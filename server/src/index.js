@@ -64,18 +64,14 @@ const initDb = async (retries = 15, delay = 5000) => {
             name VARCHAR(255) NOT NULL,
             role VARCHAR(50) NOT NULL,
             assigned_generators TEXT[], 
-            credits NUMERIC(10,2) DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           );
         `);
 
-            // Migration: Add credits column if not exists
-            try {
-                await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits NUMERIC(10,2) DEFAULT 0");
-            } catch (e) {
-                // Ignore error if column exists or version incompatibility (fallback)
-                console.log("Migration of credits column check:", e.message);
-            }
+            // Migration: Add credits column if not exists (REMOVED PER USER REQUEST)
+            // try {
+            //    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits NUMERIC(10,2) DEFAULT 0");
+            // } catch (e) { ... }
 
             // Check if admin exists, if not seed default users
             const adminCheck = await client.query("SELECT * FROM users WHERE email = 'admin@ciklo.com'");
@@ -307,7 +303,8 @@ router.get('/users', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado.' });
     }
     try {
-        const result = await pool.query('SELECT id, name, email, role, assigned_generators, created_at, credits FROM users ORDER BY created_at DESC');
+        // Removed 'credits' from selection
+        const result = await pool.query('SELECT id, name, email, role, assigned_generators, created_at FROM users ORDER BY created_at DESC');
         res.json(result.rows.map(user => ({
             ...user,
             assignedGeneratorIds: user.assigned_generators || [] // Map DB field to frontend expected prop
@@ -324,13 +321,13 @@ router.put('/users/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado.' });
     }
     const { id } = req.params;
-    const { name, email, role, assignedGeneratorIds, credentials_password, credits } = req.body; // credentials_password optional if changing
+    const { name, email, role, assignedGeneratorIds, credentials_password } = req.body; // Removed credits
 
     try {
-        // Update basic info
+        // Update basic info (Removed credits from Update)
         await pool.query(
-            "UPDATE users SET name=$1, email=$2, role=$3, assigned_generators=$4, credits=$5 WHERE id=$6",
-            [name, email, role, assignedGeneratorIds || [], credits || 0, id]
+            "UPDATE users SET name=$1, email=$2, role=$3, assigned_generators=$4 WHERE id=$5",
+            [name, email, role, assignedGeneratorIds || [], id]
         );
 
         // Update password if provided

@@ -112,7 +112,6 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
           email: updatedUser.email,
           role: updatedUser.role,
           assignedGeneratorIds: updatedUser.assignedGeneratorIds,
-          credits: updatedUser.credits,
           // Only send password if it's meant to be changed (handled by backend check)
           credentials_password: updatedUser.password === '123456' ? undefined : updatedUser.password
         })

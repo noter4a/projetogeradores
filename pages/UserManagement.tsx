@@ -3,17 +3,14 @@ import { useAuth } from '../context/AuthContext';
 import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { UserRole, User } from '../types';
-import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Wallet, Plus, Minus, Calendar, Eye } from 'lucide-react';
+import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Eye } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
   const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();
   const { user: currentUser, token } = useAuth();
   const { generators } = useGenerators();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isRechargeOpen, setIsRechargeOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [rechargeUserId, setRechargeUserId] = useState<string | null>(null);
-  const [rechargeAmount, setRechargeAmount] = useState<number>(0);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -21,13 +18,12 @@ const UserManagement: React.FC = () => {
     email: '',
     password: '',
     role: UserRole.TECHNICIAN,
-    assignedGeneratorIds: [] as string[],
-    credits: 0
+    assignedGeneratorIds: [] as string[]
   });
 
   const handleOpenAdd = () => {
     setEditingId(null);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [], credits: 0 });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [] });
     setIsFormOpen(true);
   };
 
@@ -38,16 +34,9 @@ const UserManagement: React.FC = () => {
       email: user.email,
       password: '', // Don't show existing password
       role: user.role,
-      assignedGeneratorIds: user.assignedGeneratorIds || [],
-      credits: user.credits || 0
+      assignedGeneratorIds: user.assignedGeneratorIds || []
     });
     setIsFormOpen(true);
-  };
-
-  const handleOpenRecharge = (user: User) => {
-    setRechargeUserId(user.id);
-    setRechargeAmount(user.credits || 0); // Start with current amount or 0
-    setIsRechargeOpen(true);
   };
 
   const toggleGeneratorAssignment = (genId: string) => {
@@ -75,44 +64,25 @@ const UserManagement: React.FC = () => {
           // Only update password if provided, otherwise keep existing
           password: formData.password || existingUser.password || '123456',
           role: formData.role as UserRole,
-          assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds,
-          credits: existingUser.credits // Preserve existing credits during standard edit
+          assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds
         });
       }
     } else {
-      // Add new user (Actually handled by AdminUserCreate, but kept for compatibility or simplified local add)
-      // In this new flow, we probably won't use this branch often if we redirect to AdminUserCreate, 
-      // but if the modal is used for quick adds, we keep it.
+      // Add new user
       const user: User = {
-        id: `USR-${Date.now()}`, // Backend will ignore active ID generation usually, or we should let backend handle it
+        id: `USR-${Date.now()}`,
         name: formData.name,
         email: formData.email,
         password: formData.password || '123456',
         role: formData.role as UserRole,
-        assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds,
-        credits: formData.role === UserRole.CLIENT ? 0 : undefined
+        assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds
       };
       await addUser(user);
     }
 
     setIsFormOpen(false);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [], credits: 0 });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [] });
     setEditingId(null);
-  };
-
-  const handleRechargeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (rechargeUserId) {
-      const user = users.find(u => u.id === rechargeUserId);
-      if (user) {
-        await updateUser({
-          ...user,
-          credits: rechargeAmount
-        });
-      }
-    }
-    setIsRechargeOpen(false);
-    setRechargeUserId(null);
   };
 
   return (
@@ -127,7 +97,7 @@ const UserManagement: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white">Controle de Contas</h2>
-          <p className="text-gray-400 text-sm">Gerencie o acesso, permissões e créditos dos usuários</p>
+          <p className="text-gray-400 text-sm">Gerencie o acesso e permissões dos usuários</p>
         </div>
         <div className="flex gap-2">
           {!isFormOpen && (
@@ -281,70 +251,6 @@ const UserManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Recharge Modal */}
-      {isRechargeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-ciklo-card w-full max-w-sm rounded-xl border border-gray-700 shadow-2xl overflow-hidden animate-in zoom-in duration-200">
-            <div className="p-6 bg-gradient-to-r from-ciklo-dark to-gray-900 border-b border-gray-800">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Calendar className="text-green-500" /> Recarga de Dias
-              </h3>
-              <p className="text-sm text-gray-400 mt-1">
-                Atualizar saldo para <span className="text-white font-medium">{users.find(u => u.id === rechargeUserId)?.name}</span>
-              </p>
-            </div>
-
-            <form onSubmit={handleRechargeSubmit} className="p-6 space-y-6">
-              <div className="flex flex-col items-center gap-4">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Dias Restantes</span>
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setRechargeAmount(prev => Math.max(0, prev - 1))}
-                    className="p-3 rounded-full bg-gray-800 hover:bg-gray-700 text-white transition-colors"
-                  >
-                    <Minus size={20} />
-                  </button>
-                  <div className="w-32 text-center">
-                    <input
-                      type="number"
-                      min="0"
-                      value={rechargeAmount}
-                      onChange={(e) => setRechargeAmount(Number(e.target.value))}
-                      className="w-full bg-transparent text-4xl font-bold text-white text-center outline-none border-b border-gray-700 focus:border-ciklo-orange pb-2"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">dias</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setRechargeAmount(prev => prev + 1)}
-                    className="p-3 rounded-full bg-ciklo-orange hover:bg-orange-500 text-black transition-colors"
-                  >
-                    <Plus size={20} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setIsRechargeOpen(false); setRechargeUserId(null); }}
-                  className="flex-1 py-3 text-gray-400 hover:bg-gray-800 rounded-lg transition-colors font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-bold transition-colors"
-                >
-                  Confirmar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Users List */}
       <div className="bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
@@ -354,7 +260,7 @@ const UserManagement: React.FC = () => {
                 <th className="p-4 pl-6">Usuário</th>
                 <th className="p-4">Contato</th>
                 <th className="p-4">Perfil</th>
-                <th className="p-4">Acesso / Saldo</th>
+                <th className="p-4">Acesso</th>
                 <th className="p-4 text-center">Ações</th>
               </tr>
             </thead>
@@ -401,37 +307,10 @@ const UserManagement: React.FC = () => {
                             : 'Nenhum gerador atribuído'}
                         </span>
                       )}
-
-                      {/* Credit Display for Clients */}
-                      {u.role === UserRole.CLIENT && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded border ${(u.credits || 0) > 0
-                            ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                            : 'bg-red-500/10 text-red-400 border-red-500/20'
-                            }`}>
-                            Saldo: {u.credits || 0} dias
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1">
-                      {/* Recharge Button for Clients */}
-                      {u.role === UserRole.CLIENT && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenRecharge(u);
-                          }}
-                          className="p-2 text-green-500 hover:bg-green-500/10 rounded-lg transition-all"
-                          title="Recarregar Dias"
-                        >
-                          <Wallet size={18} />
-                        </button>
-                      )}
-
                       <button
                         type="button"
                         onClick={(e) => {
