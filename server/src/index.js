@@ -277,8 +277,60 @@ router.post('/auth/login', async (req, res) => {
     }
 });
 
-// Control Route (HTTP > Socket for reliability)
-router.post('/control', async (req, res) => {
+// Middleware for JWT Authentication
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) return res.status(401).json({ message: 'Acesso negado. Token não fornecido.' });
+
+    jwt.verify(token, process.env.JWT_SECRET || 'secret_key_123', (err, user) => {
+        if (err) return res.status(403).json({ message: 'Token inválido ou expirado.' });
+        req.user = user;
+        next();
+    });
+};
+
+// POST /auth/register (Secure User Creation)
+router.post('/auth/register', authenticateToken, async (req, res) => {
+    // Only ADMINs can create users
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem criar usuários.' });
+    }
+
+    const { name, email, password, role, assigned_generators } = req.body;
+
+    if (!name || !email || !password || !role) {
+        return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
+    }
+
+    try {
+        // Check if user already exists
+        const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (userCheck.rows.length > 0) {
+            return res.status(400).json({ message: 'Email já cadastrado.' });
+        }
+
+        // Hash Password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Insert User
+        await pool.query(
+            "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
+            [name, email, hashedPassword, role, assigned_generators || []]
+        );
+
+        res.status(201).json({ message: 'Usuário criado com sucesso.' });
+
+    } catch (err) {
+        console.error('Register error:', err);
+        res.status(500).json({ message: 'Erro ao criar usuário.' });
+    }
+});
+
+// Control Route (HTTP > Socket for reliability) - PROTECTED
+router.post('/control', authenticateToken, async (req, res) => {
     const { generatorId, action } = req.body;
     console.log(`[API] Received Control Command (HTTP): ${action} for ${generatorId}`);
 
@@ -354,8 +406,8 @@ router.get('/generators', async (req, res) => {
     }
 });
 
-// POST /api/generators
-router.post('/generators', async (req, res) => {
+// POST /api/generators - PROTECTED
+router.post('/generators', authenticateToken, async (req, res) => {
     const gen = req.body;
     try {
         const connectionInfo = {
@@ -378,8 +430,8 @@ router.post('/generators', async (req, res) => {
     }
 });
 
-// PUT /api/generators/:id
-router.put('/generators/:id', async (req, res) => {
+// PUT /api/generators/:id - PROTECTED
+router.put('/generators/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const gen = req.body;
     try {
@@ -403,8 +455,8 @@ router.put('/generators/:id', async (req, res) => {
     }
 });
 
-// DELETE /api/generators/:id
-router.delete('/generators/:id', async (req, res) => {
+// DELETE /api/generators/:id - PROTECTED
+router.delete('/generators/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM generators WHERE id = $1', [id]);

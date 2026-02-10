@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { UserRole } from './types';
-import Login from './pages/Login';
+import Login from './pages/Login.tsx';
 import Dashboard from './pages/Dashboard';
-import GeneratorDetail from './pages/GeneratorDetail';
+import GeneratorDetail from './pages/GeneratorDetail.tsx';
+import AdminUserCreate from './pages/AdminUserCreate.tsx';
 import AlarmCenter from './pages/AlarmCenter'; // NEW
 import FleetManagement from './pages/FleetManagement';
 import AddGenerator from './pages/AddGenerator';
