@@ -191,12 +191,23 @@ const GeneratorDetail: React.FC = () => {
     const targetId = gen.ip || gen.id;
 
     // Use HTTP API (Relative path works for both Dev Proxy and Nginx Prod)
+    const token = localStorage.getItem('ciklo_auth_token');
     fetch('/api/control', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify({ generatorId: targetId, action })
     })
-      .then(res => res.json())
+      .then(res => {
+        if (res.status === 401 || res.status === 403) {
+          alert('Sessão expirada ou sem permissão. Faça login novamente.');
+          // Optional: Redirect to login
+          return { success: false, message: 'Não autorizado' };
+        }
+        return res.json();
+      })
       .then(data => {
         if (!data.success) {
           console.error('Command Failed:', data.message);

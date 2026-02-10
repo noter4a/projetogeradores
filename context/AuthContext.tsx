@@ -3,6 +3,7 @@ import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -29,6 +30,10 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     }
   });
 
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem('ciklo_auth_token');
+  });
+
   const login = async (email: string, password: string) => {
     try {
       const response = await fetch('/api/auth/login', {
@@ -48,6 +53,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
       const { user, token } = data;
 
       setUser(user);
+      setToken(token);
       localStorage.setItem('ciklo_auth_user', JSON.stringify(user));
       localStorage.setItem('ciklo_auth_token', token);
 
@@ -59,15 +65,17 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
   const logout = () => {
     setUser(null);
+    setToken(null);
     try {
       localStorage.removeItem('ciklo_auth_user');
+      localStorage.removeItem('ciklo_auth_token');
     } catch (error) {
       console.error("Failed to clear auth session", error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
