@@ -174,6 +174,12 @@ const AppContent: React.FC = () => {
           </AdminRoute>
         } />
 
+        <Route path="/admin/users/new" element={
+          <AdminRoute>
+            <AdminUserCreate />
+          </AdminRoute>
+        } />
+
       </Routes>
     </HashRouter>
   );
