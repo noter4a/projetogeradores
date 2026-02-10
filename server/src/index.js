@@ -288,265 +288,267 @@ const authenticateToken = (req, res, next) => {
         if (err) return res.status(403).json({ message: 'Token inválido ou expirado.' });
         req.user = user;
         next();
+    });
+};
 
 
-        // GET /api/users - PROTECTED (Admin Only)
-        router.get('/users', authenticateToken, async (req, res) => {
-            if (req.user.role !== 'ADMIN') {
-                return res.status(403).json({ message: 'Acesso negado.' });
-            }
-            try {
-                const result = await pool.query('SELECT id, name, email, role, assigned_generators, created_at, credits FROM users ORDER BY created_at DESC');
-                res.json(result.rows.map(user => ({
-                    ...user,
-                    assignedGeneratorIds: user.assigned_generators || [] // Map DB field to frontend expected prop
-                })));
-            } catch (err) {
-                console.error('Get users error:', err);
-                res.status(500).json({ message: 'Erro ao buscar usuários.' });
-            }
-        });
+// GET /api/users - PROTECTED (Admin Only)
+router.get('/users', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado.' });
+    }
+    try {
+        const result = await pool.query('SELECT id, name, email, role, assigned_generators, created_at, credits FROM users ORDER BY created_at DESC');
+        res.json(result.rows.map(user => ({
+            ...user,
+            assignedGeneratorIds: user.assigned_generators || [] // Map DB field to frontend expected prop
+        })));
+    } catch (err) {
+        console.error('Get users error:', err);
+        res.status(500).json({ message: 'Erro ao buscar usuários.' });
+    }
+});
 
-        // PUT /api/users/:id - PROTECTED (Admin Only)
-        router.put('/users/:id', authenticateToken, async (req, res) => {
-            if (req.user.role !== 'ADMIN') {
-                return res.status(403).json({ message: 'Acesso negado.' });
-            }
-            const { id } = req.params;
-            const { name, email, role, assignedGeneratorIds, credentials_password, credits } = req.body; // credentials_password optional if changing
+// PUT /api/users/:id - PROTECTED (Admin Only)
+router.put('/users/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado.' });
+    }
+    const { id } = req.params;
+    const { name, email, role, assignedGeneratorIds, credentials_password, credits } = req.body; // credentials_password optional if changing
 
-            try {
-                // Update basic info
-                await pool.query(
-                    "UPDATE users SET name=$1, email=$2, role=$3, assigned_generators=$4, credits=$5 WHERE id=$6",
-                    [name, email, role, assignedGeneratorIds || [], credits || 0, id]
-                );
+    try {
+        // Update basic info
+        await pool.query(
+            "UPDATE users SET name=$1, email=$2, role=$3, assigned_generators=$4, credits=$5 WHERE id=$6",
+            [name, email, role, assignedGeneratorIds || [], credits || 0, id]
+        );
 
-                // Update password if provided
-                if (credentials_password && credentials_password.length >= 6) {
-                    const salt = await bcrypt.genSalt(10);
-                    const hashedPassword = await bcrypt.hash(credentials_password, salt);
-                    await pool.query("UPDATE users SET password=$1 WHERE id=$2", [hashedPassword, id]);
-                }
+        // Update password if provided
+        if (credentials_password && credentials_password.length >= 6) {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(credentials_password, salt);
+            await pool.query("UPDATE users SET password=$1 WHERE id=$2", [hashedPassword, id]);
+        }
 
-                res.json({ message: 'Usuário atualizado com sucesso.' });
-            } catch (err) {
-                console.error('Update user error:', err);
-                res.status(500).json({ message: 'Erro ao atualizar usuário.' });
-            }
-        });
+        res.json({ message: 'Usuário atualizado com sucesso.' });
+    } catch (err) {
+        console.error('Update user error:', err);
+        res.status(500).json({ message: 'Erro ao atualizar usuário.' });
+    }
+});
 
-        // DELETE /api/users/:id - PROTECTED (Admin Only)
-        router.delete('/users/:id', authenticateToken, async (req, res) => {
-            if (req.user.role !== 'ADMIN') {
-                return res.status(403).json({ message: 'Acesso negado.' });
-            }
-            const { id } = req.params;
-            try {
-                // Prevent deleting self (optional but good practice)
-                if (req.user.id == id) { // Loose equality for string/int match
-                    return res.status(400).json({ message: 'Não é possível remover o próprio usuário logado.' });
-                }
+// DELETE /api/users/:id - PROTECTED (Admin Only)
+router.delete('/users/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado.' });
+    }
+    const { id } = req.params;
+    try {
+        // Prevent deleting self (optional but good practice)
+        if (req.user.id == id) { // Loose equality for string/int match
+            return res.status(400).json({ message: 'Não é possível remover o próprio usuário logado.' });
+        }
 
-                await pool.query('DELETE FROM users WHERE id = $1', [id]);
-                res.json({ message: 'Usuário removido com sucesso.' });
-            } catch (err) {
-                console.error('Delete user error:', err);
-                res.status(500).json({ message: 'Erro ao remover usuário.' });
-            }
-        });
+        await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        res.json({ message: 'Usuário removido com sucesso.' });
+    } catch (err) {
+        console.error('Delete user error:', err);
+        res.status(500).json({ message: 'Erro ao remover usuário.' });
+    }
+});
 
-        // POST /auth/register (Secure User Creation)
-        router.post('/auth/register', authenticateToken, async (req, res) => {
-            // Only ADMINs can create users
-            if (req.user.role !== 'ADMIN') {
-                return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem criar usuários.' });
-            }
+// POST /auth/register (Secure User Creation)
+router.post('/auth/register', authenticateToken, async (req, res) => {
+    // Only ADMINs can create users
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem criar usuários.' });
+    }
 
-            const { name, email, password, role, assigned_generators } = req.body;
+    const { name, email, password, role, assigned_generators } = req.body;
 
-            if (!name || !email || !password || !role) {
-                return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
-            }
+    if (!name || !email || !password || !role) {
+        return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
+    }
 
-            try {
-                // Check if user already exists
-                const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-                if (userCheck.rows.length > 0) {
-                    return res.status(400).json({ message: 'Email já cadastrado.' });
-                }
+    try {
+        // Check if user already exists
+        const userCheck = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (userCheck.rows.length > 0) {
+            return res.status(400).json({ message: 'Email já cadastrado.' });
+        }
 
-                // Hash Password
-                const salt = await bcrypt.genSalt(10);
-                const hashedPassword = await bcrypt.hash(password, salt);
+        // Hash Password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-                // Insert User
-                await pool.query(
-                    "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
-                    [name, email, hashedPassword, role, assigned_generators || []]
-                );
+        // Insert User
+        await pool.query(
+            "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
+            [name, email, hashedPassword, role, assigned_generators || []]
+        );
 
-                res.status(201).json({ message: 'Usuário criado com sucesso.' });
+        res.status(201).json({ message: 'Usuário criado com sucesso.' });
 
-            } catch (err) {
-                console.error('Register error:', err);
-                res.status(500).json({ message: 'Erro ao criar usuário.' });
-            }
-        });
+    } catch (err) {
+        console.error('Register error:', err);
+        res.status(500).json({ message: 'Erro ao criar usuário.' });
+    }
+});
 
-        // Control Route (HTTP > Socket for reliability) - PROTECTED
-        router.post('/control', authenticateToken, async (req, res) => {
-            const { generatorId, action } = req.body;
-            console.log(`[API] Received Control Command (HTTP): ${action} for ${generatorId}`);
+// Control Route (HTTP > Socket for reliability) - PROTECTED
+router.post('/control', authenticateToken, async (req, res) => {
+    const { generatorId, action } = req.body;
+    console.log(`[API] Received Control Command (HTTP): ${action} for ${generatorId}`);
 
-            try {
-                const { sendControlCommand } = await import('./services/mqtt.js');
-                const result = sendControlCommand(generatorId, action); // Returns { success, error }
+    try {
+        const { sendControlCommand } = await import('./services/mqtt.js');
+        const result = sendControlCommand(generatorId, action); // Returns { success, error }
 
-                if (result && result.success) {
-                    res.json({ success: true, message: `Command ${action} sent to ${generatorId}` });
-                } else {
-                    const errorMessage = result?.error || 'Failed to find device or connection.';
-                    res.status(400).json({ success: false, message: errorMessage });
-                }
-            } catch (err) {
-                console.error('[API] Control Error:', err);
-                // FIX: Ensure we return a string message even if err is not a standard Error object
-                const finalError = (err && err.message) ? err.message : String(err);
-                res.status(500).json({ success: false, error: finalError });
-            }
-        });
+        if (result && result.success) {
+            res.json({ success: true, message: `Command ${action} sent to ${generatorId}` });
+        } else {
+            const errorMessage = result?.error || 'Failed to find device or connection.';
+            res.status(400).json({ success: false, message: errorMessage });
+        }
+    } catch (err) {
+        console.error('[API] Control Error:', err);
+        // FIX: Ensure we return a string message even if err is not a standard Error object
+        const finalError = (err && err.message) ? err.message : String(err);
+        res.status(500).json({ success: false, error: finalError });
+    }
+});
 
-        // Generator Routes
+// Generator Routes
 
-        // GET /api/generators
-        router.get('/generators', async (req, res) => {
-            try {
-                const result = await pool.query('SELECT * FROM generators ORDER BY created_at ASC');
-                // Map DB fields to Frontend types
-                const generators = result.rows.map(row => ({
-                    id: row.id,
-                    name: row.name,
-                    location: row.location,
-                    model: row.model,
-                    powerKVA: row.power_kva,
-                    status: row.status,
-                    connectionName: row.connection_info.connectionName,
-                    controller: row.connection_info.controller,
-                    protocol: row.connection_info.protocol,
-                    ip: row.connection_info.ip,
-                    port: row.connection_info.port,
-                    slaveId: row.connection_info.slaveId,
+// GET /api/generators
+router.get('/generators', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM generators ORDER BY created_at ASC');
+        // Map DB fields to Frontend types
+        const generators = result.rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            location: row.location,
+            model: row.model,
+            powerKVA: row.power_kva,
+            status: row.status,
+            connectionName: row.connection_info.connectionName,
+            controller: row.connection_info.controller,
+            protocol: row.connection_info.protocol,
+            ip: row.connection_info.ip,
+            port: row.connection_info.port,
+            slaveId: row.connection_info.slaveId,
 
-                    // Map Persistent Real-Time Values
-                    fuelLevel: row.fuel_level || 0,
-                    engineTemp: row.engine_temp || 0,
-                    oilPressure: parseFloat(row.oil_pressure || 0),
-                    batteryVoltage: parseFloat(row.battery_voltage || 0),
-                    rpm: row.rpm || 0,
-                    // Map 'totalHours' to the 'run_hours' column which we are actively updating
-                    totalHours: parseFloat(row.run_hours || 0),
-                    lastMaintenance: new Date().toISOString().split('T')[0],
+            // Map Persistent Real-Time Values
+            fuelLevel: row.fuel_level || 0,
+            engineTemp: row.engine_temp || 0,
+            oilPressure: parseFloat(row.oil_pressure || 0),
+            batteryVoltage: parseFloat(row.battery_voltage || 0),
+            rpm: row.rpm || 0,
+            // Map 'totalHours' to the 'run_hours' column which we are actively updating
+            totalHours: parseFloat(row.run_hours || 0),
+            lastMaintenance: new Date().toISOString().split('T')[0],
 
-                    voltageL1: row.voltage_l1 || 0,
-                    voltageL2: row.voltage_l2 || 0,
-                    voltageL3: row.voltage_l3 || 0,
-                    currentL1: row.current_l1 || 0,
-                    currentL2: row.current_l2 || 0,
-                    currentL3: row.current_l3 || 0,
+            voltageL1: row.voltage_l1 || 0,
+            voltageL2: row.voltage_l2 || 0,
+            voltageL3: row.voltage_l3 || 0,
+            currentL1: row.current_l1 || 0,
+            currentL2: row.current_l2 || 0,
+            currentL3: row.current_l3 || 0,
 
-                    mainsVoltageL1: row.mains_voltage_l1 || 0,
-                    mainsVoltageL2: row.mains_voltage_l2 || 0,
-                    mainsVoltageL3: row.mains_voltage_l3 || 0,
-                    mainsFrequency: parseFloat(row.mains_frequency || 0),
+            mainsVoltageL1: row.mains_voltage_l1 || 0,
+            mainsVoltageL2: row.mains_voltage_l2 || 0,
+            mainsVoltageL3: row.mains_voltage_l3 || 0,
+            mainsFrequency: parseFloat(row.mains_frequency || 0),
 
-                    frequency: parseFloat(row.frequency || 0),
-                    powerFactor: parseFloat(row.power_factor || 0),
-                    activePower: parseFloat(row.active_power || 0)
-                }));
-                res.json(generators);
-            } catch (err) {
-                console.error('Get generators error:', err);
-                res.status(500).json({ message: 'Erro ao buscar geradores' });
-            }
-        });
+            frequency: parseFloat(row.frequency || 0),
+            powerFactor: parseFloat(row.power_factor || 0),
+            activePower: parseFloat(row.active_power || 0)
+        }));
+        res.json(generators);
+    } catch (err) {
+        console.error('Get generators error:', err);
+        res.status(500).json({ message: 'Erro ao buscar geradores' });
+    }
+});
 
-        // POST /api/generators - PROTECTED
-        router.post('/generators', authenticateToken, async (req, res) => {
-            const gen = req.body;
-            try {
-                const connectionInfo = {
-                    connectionName: gen.connectionName,
-                    controller: gen.controller,
-                    protocol: gen.protocol,
-                    ip: gen.ip,
-                    port: gen.port,
-                    slaveId: gen.slaveId
-                };
+// POST /api/generators - PROTECTED
+router.post('/generators', authenticateToken, async (req, res) => {
+    const gen = req.body;
+    try {
+        const connectionInfo = {
+            connectionName: gen.connectionName,
+            controller: gen.controller,
+            protocol: gen.protocol,
+            ip: gen.ip,
+            port: gen.port,
+            slaveId: gen.slaveId
+        };
 
-                await pool.query(
-                    "INSERT INTO generators (id, name, location, model, power_kva, status, connection_info) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                    [gen.id, gen.name, gen.location, gen.model, gen.powerKVA, gen.status || 'STOPPED', JSON.stringify(connectionInfo)]
-                );
-                res.status(201).json({ message: 'Gerador criado com sucesso' });
-            } catch (err) {
-                console.error('Create generator error:', err);
-                res.status(500).json({ message: 'Erro ao criar gerador' });
-            }
-        });
+        await pool.query(
+            "INSERT INTO generators (id, name, location, model, power_kva, status, connection_info) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            [gen.id, gen.name, gen.location, gen.model, gen.powerKVA, gen.status || 'STOPPED', JSON.stringify(connectionInfo)]
+        );
+        res.status(201).json({ message: 'Gerador criado com sucesso' });
+    } catch (err) {
+        console.error('Create generator error:', err);
+        res.status(500).json({ message: 'Erro ao criar gerador' });
+    }
+});
 
-        // PUT /api/generators/:id - PROTECTED
-        router.put('/generators/:id', authenticateToken, async (req, res) => {
-            const { id } = req.params;
-            const gen = req.body;
-            try {
-                const connectionInfo = {
-                    connectionName: gen.connectionName,
-                    controller: gen.controller,
-                    protocol: gen.protocol,
-                    ip: gen.ip,
-                    port: gen.port,
-                    slaveId: gen.slaveId
-                };
+// PUT /api/generators/:id - PROTECTED
+router.put('/generators/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const gen = req.body;
+    try {
+        const connectionInfo = {
+            connectionName: gen.connectionName,
+            controller: gen.controller,
+            protocol: gen.protocol,
+            ip: gen.ip,
+            port: gen.port,
+            slaveId: gen.slaveId
+        };
 
-                await pool.query(
-                    "UPDATE generators SET name=$1, location=$2, model=$3, power_kva=$4, status=$5, connection_info=$6 WHERE id=$7",
-                    [gen.name, gen.location, gen.model, gen.powerKVA, gen.status, JSON.stringify(connectionInfo), id]
-                );
-                res.json({ message: 'Gerador atualizado' });
-            } catch (err) {
-                console.error('Update generator error:', err);
-                res.status(500).json({ message: 'Erro ao atualizar gerador' });
-            }
-        });
+        await pool.query(
+            "UPDATE generators SET name=$1, location=$2, model=$3, power_kva=$4, status=$5, connection_info=$6 WHERE id=$7",
+            [gen.name, gen.location, gen.model, gen.powerKVA, gen.status, JSON.stringify(connectionInfo), id]
+        );
+        res.json({ message: 'Gerador atualizado' });
+    } catch (err) {
+        console.error('Update generator error:', err);
+        res.status(500).json({ message: 'Erro ao atualizar gerador' });
+    }
+});
 
-        // DELETE /api/generators/:id - PROTECTED
-        router.delete('/generators/:id', authenticateToken, async (req, res) => {
-            const { id } = req.params;
-            try {
-                await pool.query('DELETE FROM generators WHERE id = $1', [id]);
-                res.json({ message: 'Gerador removido' });
-            } catch (err) {
-                console.error('Delete generator error:', err);
-                res.status(500).json({ message: 'Erro ao remover gerador' });
-            }
-        });
+// DELETE /api/generators/:id - PROTECTED
+router.delete('/generators/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM generators WHERE id = $1', [id]);
+        res.json({ message: 'Gerador removido' });
+    } catch (err) {
+        console.error('Delete generator error:', err);
+        res.status(500).json({ message: 'Erro ao remover gerador' });
+    }
+});
 
 
 
-        // Mount Alarm Routes (Imported)
-        app.use('/api/alarms', alarmRoutes);
+// Mount Alarm Routes (Imported)
+app.use('/api/alarms', alarmRoutes);
 
-        // Mount Main Router (handling Auth, Generators, Control which are defined inline above)
-        app.use('/api', router);
+// Mount Main Router (handling Auth, Generators, Control which are defined inline above)
+app.use('/api', router);
 
-        // Catch all for API 404
-        app.use('/api/*', (req, res) => {
-            res.status(404).json({ message: 'API Route not found' });
-        });
+// Catch all for API 404
+app.use('/api/*', (req, res) => {
+    res.status(404).json({ message: 'API Route not found' });
+});
 
-        // Start Server
-        httpServer.listen(PORT, async () => {
-            await initDb();
-            console.log(`Server running on port ${PORT} (Build: Syntax Fixed)`);
-        });
+// Start Server
+httpServer.listen(PORT, async () => {
+    await initDb();
+    console.log(`Server running on port ${PORT} (Build: Syntax Fixed)`);
+});
