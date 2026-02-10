@@ -62,7 +62,8 @@ const AdminUserCreate = () => {
         setStatus({ type: '', message: '' });
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/register`, {
+            // Updated to use relative path (proxied by Vite or Nginx)
+            const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -122,8 +123,8 @@ const AdminUserCreate = () => {
                     {/* Status Message */}
                     {status.message && (
                         <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 border ${status.type === 'success'
-                                ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                                : 'bg-red-500/10 border-red-500/30 text-red-400'
+                            ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                            : 'bg-red-500/10 border-red-500/30 text-red-400'
                             }`}>
                             {status.type === 'success' ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
                             <p className="text-sm font-medium">{status.message}</p>
