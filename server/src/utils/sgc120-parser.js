@@ -142,14 +142,27 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
   // User Request: 0x0131 (305 decimal) = "Falha Partida" (Start Failure)
   if (startAddress === 66 && regs.length === 1) {
     const code = u16(regs, 0);
-    // Logic: 305 is confirmed as Start Failure. We can map others later.
+
+    // Alarm Lookup Table (Partial - Based on observation and SGC conventions)
+    const ALARM_MESSAGES = {
+      0: "Normal (Sem Alarme)",
+      2: "Baixa Pressão de Óleo",
+      3: "Alta Temperatura do Motor",
+      6: "Sobrevelocidade",
+      8: "Subvelocidade",
+      305: "Falha na Partida",
+      32: "Parada de Emergência", // (Likely, check if consistent)
+    };
+
+    const msg = ALARM_MESSAGES[code] || `Alarme Código ${code}`;
     const isStartFailure = (code === 305 || code === 0x0131);
 
-    console.log(`[PARSER] Alarm Code (66): ${code} (Hex: 0x${code.toString(16)}) -> StartFailure: ${isStartFailure}`);
+    console.log(`[PARSER] Alarm Code (66): ${code} -> "${msg}"`);
 
     return {
       block: "ALARM_66",
       alarmCode: code,
+      alarmMessage: msg,
       startFailure: isStartFailure
     };
   }

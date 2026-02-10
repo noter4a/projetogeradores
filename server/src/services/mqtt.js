@@ -628,6 +628,35 @@ export const initMqttService = (io) => {
                     // 4. Persist to Database (So it survives refresh)
                     (async () => {
                         try {
+                            // --- ALARM HISTORY PERSISTENCE (Added by Agent) ---
+                            // Check for Alarm Status Change
+                            if (unifiedData.alarmCode !== undefined) {
+                                const oldAlarm = existingDeviceData.alarmCode || 0;
+                                const newAlarm = unifiedData.alarmCode;
+
+                                if (newAlarm !== oldAlarm) {
+                                    console.log(`[MQTT] Alarm Status Changed for ${deviceId}: ${oldAlarm} -> ${newAlarm}`);
+
+                                    // 1. If previous alarm was active (and different), close it
+                                    if (oldAlarm > 0) {
+                                        await pool.query(
+                                            "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND alarm_code = $2 AND end_time IS NULL",
+                                            [deviceId, oldAlarm]
+                                        );
+                                    }
+
+                                    // 2. If new alarm is active (and different), open it
+                                    if (newAlarm > 0) {
+                                        const msg = unifiedData.alarmMessage || `Alarme Código ${newAlarm}`;
+                                        await pool.query(
+                                            "INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) VALUES ($1, $2, $3)",
+                                            [deviceId, newAlarm, msg]
+                                        );
+                                    }
+                                }
+                            }
+                            // --------------------------------------------------
+
                             const query = `
                                 UPDATE generators SET 
                                     voltage_l1 = COALESCE($1, voltage_l1),
