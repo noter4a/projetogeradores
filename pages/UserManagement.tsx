@@ -102,19 +102,6 @@ const UserManagement: React.FC = () => {
         <div className="flex gap-2">
           {!isFormOpen && (
             <button
-              onClick={() => {
-                console.log('Manual refresh clicked');
-                refreshUsers();
-              }}
-              className="bg-gray-800 hover:bg-gray-700 text-white font-bold px-4 py-3 rounded-lg flex items-center gap-2 transition-all"
-              title="Recarregar Lista"
-            >
-              <div className={`w-4 h-4 rounded-full ${loading ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
-              Atualizar
-            </button>
-          )}
-          {!isFormOpen && (
-            <button
               onClick={handleOpenAdd}
               className="bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold px-6 py-3 rounded-lg shadow-lg shadow-orange-900/20 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
             >
@@ -123,15 +110,6 @@ const UserManagement: React.FC = () => {
             </button>
           )}
         </div>
-      </div>
-
-      {/* DEBUG INFO - REMOVE LATER */}
-      <div className="bg-gray-900 p-2 text-xs text-gray-500 font-mono rounded overflow-auto">
-        DEBUG: Users: {users.length} | Loading: {String(loading)} <br />
-        Auth: {currentUser ? currentUser.name : 'No User'} | Role: {currentUser?.role} <br />
-        Token: {token ? `${token.substring(0, 10)}...` : 'NONE'} <br />
-        IsAdmin: {String(currentUser?.role === UserRole.ADMIN)} <br />
-        Error: {error || 'None'}
       </div>
 
       {/* Add/Edit User Form */}
