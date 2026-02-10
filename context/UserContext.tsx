@@ -1,13 +1,14 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, PropsWithChildren } from 'react';
 import { User, UserRole } from '../types';
-import { MOCK_USERS } from '../constants';
+import { useAuth } from './AuthContext';
 
 interface UserContextType {
   users: User[];
-  addUser: (user: User) => void;
-  removeUser: (id: string) => void;
-  updateUser: (user: User) => void;
+  loading: boolean;
+  refreshUsers: () => void;
+  addUser: (user: User) => Promise<void>;
+  removeUser: (id: string) => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -21,56 +22,102 @@ export const useUsers = () => {
 };
 
 export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
-  // Initialize state from localStorage if available, otherwise use MOCK_USERS
-  const [users, setUsers] = useState<User[]>(() => {
-    try {
-      const savedUsers = localStorage.getItem('ciklo_users');
-      if (savedUsers) {
-        const parsed = JSON.parse(savedUsers);
-        // Safety check: ensure parsed data is actually an array
-        if (!Array.isArray(parsed)) {
-            console.warn("Corrupt user data in storage, resetting to defaults.");
-            return MOCK_USERS;
-        }
+  const { token, user: currentUser } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
 
-        // Migration: ensure every user has a password, assignedGeneratorIds and credits
-        return parsed.map((u: User) => ({
-          ...u,
-          password: u.password || '123456',
-          assignedGeneratorIds: Array.isArray(u.assignedGeneratorIds) ? u.assignedGeneratorIds : [],
-          credits: u.credits !== undefined ? u.credits : (u.role === UserRole.CLIENT ? 0 : undefined)
-        }));
+  const fetchUsers = useCallback(async () => {
+    if (!token || currentUser?.role !== UserRole.ADMIN) {
+      setUsers([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data);
+      } else {
+        console.error('Failed to fetch users');
       }
-      return MOCK_USERS;
     } catch (error) {
-      console.error("Failed to load users from storage", error);
-      return MOCK_USERS;
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
     }
-  });
+  }, [token, currentUser]);
 
-  // Save to localStorage whenever users state changes
+  // Initial Fetch
   useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const addUser = useCallback(async (user: User) => {
+    if (!token) return;
     try {
-      localStorage.setItem('ciklo_users', JSON.stringify(users));
+      await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: user.name,
+          email: user.email,
+          password: user.password,
+          role: user.role,
+          assigned_generators: user.assignedGeneratorIds
+        })
+      });
+      await fetchUsers();
     } catch (error) {
-      console.error("Failed to save users to storage", error);
+      console.error('Error adding user:', error);
     }
-  }, [users]);
+  }, [token, fetchUsers]);
 
-  const addUser = useCallback((user: User) => {
-    setUsers(prev => [...prev, user]);
-  }, []);
+  const removeUser = useCallback(async (id: string) => {
+    if (!token) return;
+    try {
+      await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      await fetchUsers(); // Refresh list
+    } catch (error) {
+      console.error('Error removing user:', error);
+    }
+  }, [token, fetchUsers]);
 
-  const removeUser = useCallback((id: string) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
-  }, []);
-
-  const updateUser = useCallback((updatedUser: User) => {
-    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-  }, []);
+  const updateUser = useCallback(async (updatedUser: User) => {
+    if (!token) return;
+    try {
+      await fetch(`/api/users/${updatedUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          assignedGeneratorIds: updatedUser.assignedGeneratorIds,
+          credits: updatedUser.credits,
+          // Only send password if it's meant to be changed (handled by backend check)
+          credentials_password: updatedUser.password === '123456' ? undefined : updatedUser.password
+        })
+      });
+      await fetchUsers(); // Refresh list
+    } catch (error) {
+      console.error('Error updating user:', error);
+    }
+  }, [token, fetchUsers]);
 
   return (
-    <UserContext.Provider value={{ users, addUser, removeUser, updateUser }}>
+    <UserContext.Provider value={{ users, loading, refreshUsers: fetchUsers, addUser, removeUser, updateUser }}>
       {children}
     </UserContext.Provider>
   );
