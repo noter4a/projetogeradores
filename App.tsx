@@ -28,13 +28,7 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Check for credits if user is a CLIENT
-  if (user.role === UserRole.CLIENT) {
-    const credits = user.credits ?? 0;
-    if (credits <= 0) {
-      return <Navigate to="/no-credits" replace />;
-    }
-  }
+  // Credit check removed
 
   return <>{children}</>;
 };
@@ -109,9 +103,7 @@ const AppContent: React.FC = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
 
-        <Route path="/no-credits" element={
-          <NoCredits />
-        } />
+        {/* NoCredits route removed */}
 
         <Route path="/" element={
           <ProtectedRoute>
