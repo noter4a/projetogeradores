@@ -64,9 +64,18 @@ const initDb = async (retries = 15, delay = 5000) => {
             name VARCHAR(255) NOT NULL,
             role VARCHAR(50) NOT NULL,
             assigned_generators TEXT[], 
+            credits NUMERIC(10,2) DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           );
         `);
+
+            // Migration: Add credits column if not exists
+            try {
+                await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits NUMERIC(10,2) DEFAULT 0");
+            } catch (e) {
+                // Ignore error if column exists or version incompatibility (fallback)
+                console.log("Migration of credits column check:", e.message);
+            }
 
             // Check if admin exists, if not seed default users
             const adminCheck = await client.query("SELECT * FROM users WHERE email = 'admin@ciklo.com'");
