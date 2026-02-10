@@ -6,7 +6,7 @@ import { UserRole, User } from '../types';
 import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Wallet, Plus, Minus, Calendar, Eye } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
-  const { users, loading, addUser, removeUser, updateUser } = useUsers();
+  const { users, loading, refreshUsers, addUser, removeUser, updateUser } = useUsers();
   const { generators } = useGenerators();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isRechargeOpen, setIsRechargeOpen] = useState(false);
@@ -128,15 +128,35 @@ const UserManagement: React.FC = () => {
           <h2 className="text-2xl font-bold text-white">Controle de Contas</h2>
           <p className="text-gray-400 text-sm">Gerencie o acesso, permissões e créditos dos usuários</p>
         </div>
-        {!isFormOpen && (
-          <button
-            onClick={handleOpenAdd}
-            className="bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold px-6 py-3 rounded-lg shadow-lg shadow-orange-900/20 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
-          >
-            <UserPlus size={20} />
-            Novo Usuário
-          </button>
-        )}
+        <div className="flex gap-2">
+          {!isFormOpen && (
+            <button
+              onClick={() => {
+                console.log('Manual refresh clicked');
+                refreshUsers();
+              }}
+              className="bg-gray-800 hover:bg-gray-700 text-white font-bold px-4 py-3 rounded-lg flex items-center gap-2 transition-all"
+              title="Recarregar Lista"
+            >
+              <div className={`w-4 h-4 rounded-full ${loading ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
+              Atualizar
+            </button>
+          )}
+          {!isFormOpen && (
+            <button
+              onClick={handleOpenAdd}
+              className="bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold px-6 py-3 rounded-lg shadow-lg shadow-orange-900/20 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
+            >
+              <UserPlus size={20} />
+              Novo Usuário
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* DEBUG INFO - REMOVE LATER */}
+      <div className="bg-gray-900 p-2 text-xs text-gray-500 font-mono rounded">
+        DEBUG: Users: {users.length} | Loading: {String(loading)}
       </div>
 
       {/* Add/Edit User Form */}
