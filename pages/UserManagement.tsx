@@ -6,7 +6,7 @@ import { UserRole, User } from '../types';
 import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Wallet, Plus, Minus, Calendar, Eye } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
-  const { users, loading, refreshUsers, addUser, removeUser, updateUser } = useUsers();
+  const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();
   const { user: currentUser, token } = useAuth();
   const { generators } = useGenerators();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -160,7 +160,8 @@ const UserManagement: React.FC = () => {
         DEBUG: Users: {users.length} | Loading: {String(loading)} <br />
         Auth: {currentUser ? currentUser.name : 'No User'} | Role: {currentUser?.role} <br />
         Token: {token ? `${token.substring(0, 10)}...` : 'NONE'} <br />
-        IsAdmin: {String(currentUser?.role === UserRole.ADMIN)}
+        IsAdmin: {String(currentUser?.role === UserRole.ADMIN)} <br />
+        Error: {error || 'None'}
       </div>
 
       {/* Add/Edit User Form */}

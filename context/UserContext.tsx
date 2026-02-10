@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext';
 interface UserContextType {
   users: User[];
   loading: boolean;
+  error: string | null;
   refreshUsers: () => void;
   addUser: (user: User) => Promise<void>;
   removeUser: (id: string) => Promise<void>;
@@ -25,6 +26,7 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
   const { token, user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
     if (!token || currentUser?.role !== UserRole.ADMIN) {
@@ -33,17 +35,22 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
     }
 
     setLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/users', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('Users fetched:', data); // Debug log
         setUsers(data);
       } else {
-        console.error('Failed to fetch users');
+        const errText = await response.text();
+        setError(`Failed: ${response.status} ${response.statusText} - ${errText}`);
+        console.error('Failed to fetch users:', response.status, errText);
       }
     } catch (error) {
+      setError(`Network Error: ${String(error)}`);
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
@@ -117,7 +124,15 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
   }, [token, fetchUsers]);
 
   return (
-    <UserContext.Provider value={{ users, loading, refreshUsers: fetchUsers, addUser, removeUser, updateUser }}>
+    <UserContext.Provider value={{
+      users,
+      loading,
+      error,
+      refreshUsers: fetchUsers,
+      addUser,
+      removeUser,
+      updateUser
+    }}>
       {children}
     </UserContext.Provider>
   );
