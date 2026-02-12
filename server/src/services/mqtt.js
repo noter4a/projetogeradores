@@ -456,43 +456,28 @@ export const initMqttService = (io) => {
                             if (priorityManual) {
                                 unifiedData.operationMode = 'MANUAL';
                                 console.log(`[DEBUG-MODE] ${deviceId} -> FORCED MANUAL (Priority: Reg78 says Manual - Overrides Reg16)`);
-
-                                // ---------------------------------------------------------
-                                // PRIORITY 2: CHECK REG 16 (AUTO DETECTION)
-                                // ---------------------------------------------------------
-                                // Only runs if Reg 78 did NOT claim Manual (i.e., Reg 78 is 0 or ambiguous).
                             } else {
                                 const maskResult = (d.val & 0x0C);
-                                console.log(`[DEBUG-MODE] ${deviceId} Reg16=${d.val} (0x${d.val.toString(16)}) | Mask(0x0C)=${maskResult}`);
+                                // console.log(`[DEBUG-MODE] ${deviceId} Reg16=${d.val} (0x${d.val.toString(16)}) | Mask(0x0C)=${maskResult}`);
 
                                 if (maskResult === 0 && d.val !== 0) {
+                                    // AGENT TUNING: Immediate Auto if Mask passes and not Manual
                                     unifiedData.operationMode = 'AUTO';
                                     if (global.mqttDeviceCache[deviceId]) {
                                         global.mqttDeviceCache[deviceId].lastAutoTime = Date.now();
                                     }
-                                    console.log(`[DEBUG-MODE] ${deviceId} -> FORCED AUTO (Reg16 Mask Passed & Reg78 not Manual)`);
-                                } else if (d.val === 0 || d.val === 2316) {
-                                    console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16=${d.val} Ignored - Flicker Prevention)`);
+                                    // console.log(`[DEBUG-MODE] ${deviceId} -> AUTO (Reg16 Valid)`);
                                 } else {
-                                    // Fallback: Reg 16 says "Not Auto" (Mask Failed), but Reg 78 didn't confirm Manual earlier.
-                                    // This is the implementation of "Debounce" / "Glitch" logic.
-                                    // If we were recently in Auto, assume Glitch.
+                                    // If not explicit Auto, and not explicit Manual -> Do NOT change mode (Hold previous)
+                                    // This prevents "Flickering" to Manual during transition bits
 
-                                    let isGlitch = false;
+                                    // OPTIONAL: If it was Auto recently (Glitch Filter), keep Auto
+                                    // But if it's been a while, we just let it be (likely undefined/hold)
                                     if (global.mqttDeviceCache[deviceId] && global.mqttDeviceCache[deviceId].lastAutoTime) {
                                         const timeSinceAuto = Date.now() - global.mqttDeviceCache[deviceId].lastAutoTime;
-                                        if (timeSinceAuto < 4000) {
-                                            isGlitch = true;
+                                        if (timeSinceAuto < 2000) { // Reduced to 2s debounce
+                                            unifiedData.operationMode = 'AUTO';
                                         }
-                                    }
-
-                                    if (isGlitch) {
-                                        unifiedData.operationMode = 'AUTO';
-                                        console.log(`[DEBUG-MODE] ${deviceId} -> MAINTAINING AUTO (Debounce Active - Reg16 noise)`);
-                                    } else {
-                                        console.log(`[DEBUG-MODE] ${deviceId} -> NO CHANGE (Reg16 says Not Auto, but Reg78 didn't confirm Manual)`);
-                                        // Ideally, if Reg 16 fails mask AND debounce expires, we *could* switch to Manual, 
-                                        // but without Reg 78 confirmation, it's safer to stay put or let the Priority 1 catch it next time.
                                     }
                                 }
                             }
