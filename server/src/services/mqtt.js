@@ -567,6 +567,7 @@ export const initMqttService = (io) => {
                     }
 
                     // 2. Update Current State (generators_state.json)
+                    let existingDeviceData = {}; // HOISTED by Agent
                     try {
                         const stateFile = path.join(__dirname, '../../logs/generators_state.json');
                         // FIX: Load existing state instead of wiping it
@@ -599,7 +600,7 @@ export const initMqttService = (io) => {
                         };
 
                         // Merge logic: Defaults <- Existing from File <- New Unified Data
-                        const existingDeviceData = currentState[deviceId]?.data || {};
+                        existingDeviceData = currentState[deviceId]?.data || {}; // Assignment only
                         currentState[deviceId] = {
                             ...updatePayload,
                             data: { ...existingDeviceData, ...unifiedData }
