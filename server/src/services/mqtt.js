@@ -441,12 +441,16 @@ export const initMqttService = (io) => {
                                 if (highByte === 32 || highByte === 96 || highByte === 100) {
                                     priorityManual = true;
                                 } else if (highByte === 101 || highByte === 97) {
-                                    // Only force Manual if Reg 16 IS NOT showing clear Auto (0x910 / 2320)
+                                    // Only force Manual if Reg 16 IS NOT showing clear Auto (Mask 0x0C must be 0)
                                     // 101 (0x65) and 97 (0x61) are Manual Start codes.
-                                    if (d.val !== 2320) {
+                                    // AGENT FIX: Use Bitmask instead of exact 2320 (0x910)
+                                    const isReg16Auto = (d.val & 0x0C) === 0 && d.val !== 0;
+
+                                    if (!isReg16Auto) {
                                         priorityManual = true;
                                     } else {
-                                        console.log(`[DEBUG-MODE] ${deviceId} Reg78=${highByte} (Start Seq) BUT Reg16=2320 (Auto Running) -> ALLOWING AUTO`);
+                                        console.log(`[DEBUG-MODE] ${deviceId} Reg78=${highByte} (Start Seq) BUT Reg16=${d.val} (Mask OK) -> ALLOWING AUTO`);
+                                        priorityManual = false;
                                     }
                                 }
 
