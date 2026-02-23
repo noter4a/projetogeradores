@@ -940,7 +940,10 @@ function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
 
 // Helper: Restore Polling Configuration (User Request: Send full list after 30s)
 const restorePolling = (client, topic, slaveId, deviceId) => {
-    console.log(`[MQTT-RESTORE] Aguardando 10s para restaurar lista de polling...`);
+    // Immediately pause active Node.js loop for this device to prevent RAW buffer collisions
+    // with the Gateway's JSON-based internal polling.
+    pausedDevices.add(deviceId);
+    console.log(`[MQTT-RESTORE] Aguardando 10s para restaurar lista de polling... (Polling ativo Node.js pausado para ${deviceId})`);
 
     setTimeout(() => {
         if (!client.connected) return;
