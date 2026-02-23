@@ -750,12 +750,26 @@ export const initMqttService = (io) => {
     const updatePollingList = async () => {
         try {
             const res = await pool.query("SELECT connection_info FROM generators");
-            devicesToPoll = res.rows
+            const newDevices = res.rows
                 .filter(row => row.connection_info && row.connection_info.ip) // Ensure valid config
                 .map(row => ({
                     id: row.connection_info.ip,
                     slaveId: parseInt(row.connection_info.slaveId) || 1 // Fetch Slave ID or Default 1
                 }));
+
+            // Inform newly added devices of their required configurations
+            const currentIds = new Set(devicesToPoll.map(d => d.id));
+            const newlyAdded = newDevices.filter(d => !currentIds.has(d.id));
+
+            devicesToPoll = newDevices;
+
+            if (newlyAdded.length > 0 && client && client.connected) {
+                console.log(`[MQTT] Detected ${newlyAdded.length} new generator(s). Sending configuration...`);
+                newlyAdded.forEach(device => {
+                    const topic = `devices/command/${device.id}`;
+                    restorePolling(client, topic, device.slaveId, device.id);
+                });
+            }
 
             // console.log('[MQTT] Updated Polling List:', devicesToPoll);
         } catch (err) {
