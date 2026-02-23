@@ -5,6 +5,22 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
 import pool from '../db.js';
+import { sendAlarmEmail } from './email.js';
+
+const notifyUsersAboutAlarm = async (clientPool, generatorId, alarmCode, alarmMessage) => {
+    try {
+        const res = await clientPool.query(
+            `SELECT email FROM users WHERE role = 'ADMIN' OR $1 = ANY(assigned_generators)`,
+            [generatorId]
+        );
+        const emails = res.rows.map(row => row.email);
+        if (emails.length > 0) {
+            await sendAlarmEmail(emails, generatorId, { code: alarmCode, description: alarmMessage });
+        }
+    } catch (err) {
+        console.error('[MQTT] Failed finding users for alarm email:', err.message);
+    }
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -242,6 +258,7 @@ export const initMqttService = (io) => {
                                                 [deviceId, d.alarmCode, finalMessage]
                                             );
                                             console.log(`[MQTT-ALARM] New Alarm Logged: ${d.alarmCode} for ${deviceId}`);
+                                            notifyUsersAboutAlarm(pool, deviceId, d.alarmCode, finalMessage);
                                         } else {
                                             const isSameCode = latestAlarm.alarm_code === d.alarmCode;
                                             const isOpen = latestAlarm.end_time === null;
@@ -258,6 +275,7 @@ export const initMqttService = (io) => {
                                                         [deviceId, d.alarmCode, finalMessage]
                                                     );
                                                     console.log(`[MQTT-ALARM] Switched Alarm: ${latestAlarm.alarm_code} -> ${d.alarmCode}`);
+                                                    notifyUsersAboutAlarm(pool, deviceId, d.alarmCode, finalMessage);
                                                 }
                                                 // If same code is open -> Do nothing (Persistence)
                                             } else {
@@ -278,6 +296,7 @@ export const initMqttService = (io) => {
                                                         [deviceId, d.alarmCode, finalMessage]
                                                     );
                                                     console.log(`[MQTT-ALARM] New Alarm Instance: ${d.alarmCode}`);
+                                                    notifyUsersAboutAlarm(pool, deviceId, d.alarmCode, finalMessage);
                                                 }
                                             }
                                         }
@@ -642,6 +661,7 @@ export const initMqttService = (io) => {
                                             "INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) VALUES ($1, $2, $3)",
                                             [deviceId, newAlarm, msg]
                                         );
+                                        notifyUsersAboutAlarm(pool, deviceId, newAlarm, msg);
                                     }
                                 }
                             }

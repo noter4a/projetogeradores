@@ -16,6 +16,7 @@
         "express": "^4.19.2",
         "jsonwebtoken": "^9.0.2",
         "mqtt": "^5.14.1",
+        "nodemailer": "^8.0.1",
         "pg": "^8.11.5",
         "socket.io": "^4.8.1",
         "xlsx": "^0.18.5"
