@@ -59,13 +59,13 @@ const Dashboard: React.FC = () => {
         {/* Admin Quick Actions */}
         {user?.role === UserRole.ADMIN && (
           <div
-            onClick={() => navigate('/admin/users/new')}
+            onClick={() => navigate('/users')}
             className="bg-ciklo-card p-4 rounded-xl border border-gray-800 flex items-center justify-between shadow-lg cursor-pointer hover:border-ciklo-orange transition-all group"
           >
             <div>
-              <p className="text-gray-400 text-sm font-medium group-hover:text-ciklo-orange transition-colors">Gestão de Usuários</p>
+              <p className="text-gray-400 text-sm font-medium group-hover:text-ciklo-orange transition-colors">Acesso Root</p>
               <h2 className="text-xl font-bold text-white mt-2 flex items-center gap-2">
-                Novo Usuário <ChevronRight size={20} />
+                Gerenciar Usuários <ChevronRight size={20} />
               </h2>
             </div>
             <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 border border-purple-500/20 group-hover:bg-purple-500/20 transition-colors">

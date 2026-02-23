@@ -5,7 +5,6 @@ import { UserRole } from './types';
 import Login from './pages/Login.tsx';
 import Dashboard from './pages/Dashboard';
 import GeneratorDetail from './pages/GeneratorDetail.tsx';
-import AdminUserCreate from './pages/AdminUserCreate.tsx';
 import AlarmCenter from './pages/AlarmCenter'; // NEW
 import FleetManagement from './pages/FleetManagement';
 import AddGenerator from './pages/AddGenerator';
@@ -163,12 +162,6 @@ const AppContent: React.FC = () => {
         <Route path="/users" element={
           <AdminRoute>
             <Layout><UserManagement /></Layout>
-          </AdminRoute>
-        } />
-
-        <Route path="/admin/users/new" element={
-          <AdminRoute>
-            <AdminUserCreate />
           </AdminRoute>
         } />
 
