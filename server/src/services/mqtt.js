@@ -791,7 +791,18 @@ export const initMqttService = (io) => {
             devicesToPoll.forEach(device => {
                 const deviceId = device.id;
 
+                // SELF-HEALING: Se este aparelho NÃO estiver na lista de pausados,
+                // significa que ele NUNCA recebeu a String de Configuração JSON (ou a conexão caiu e limpou a lista).
+                // Ao invés de bombardear com RAW, mandamos a configuração e bloqueamos.
+                if (!pausedDevices.has(deviceId)) {
+                    console.log(`[MQTT-HEAL] Dispositivo ${deviceId} não inicializado detectado! Enviando Configuração...`);
+                    const topic = `devices/command/${deviceId}`;
+                    restorePolling(client, topic, device.slaveId, deviceId);
+                    return; // Interrompe para não mandar RAW
+                }
+
                 // SKIP scheduling if already paused
+                // Em teoria o return acima já impede, mas mantemos por precaução.
                 if (pausedDevices.has(deviceId)) return;
 
                 const slaveId = device.slaveId; // Dynamic Slave ID
