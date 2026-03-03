@@ -138,10 +138,13 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // Bloco 66 (1 reg): Alarm Code
-  // User Request: 0x0131 (305 decimal) = "Falha Partida" (Start Failure)
-  if (startAddress === 66 && regs.length === 1) {
-    const code = u16(regs, 0);
+  // Bloco 65 (12 reg) ou Bloco 66 (1 reg): Alarm Code
+  // User Requested complete alarm group 65-76 (0x41 length 0x0C)
+  if ((startAddress === 66 && regs.length === 1) || (startAddress === 65 && regs.length === 12)) {
+    // If startAddress is 66, the alarm code is at offset 0.
+    // If startAddress is 65, register 66 is at offset 1.
+    const offset = startAddress === 65 ? 1 : 0;
+    const code = u16(regs, offset);
 
     // Alarm Lookup Table (Partial - Based on observation and SGC conventions)
     const ALARM_MESSAGES = {
@@ -157,10 +160,10 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     const msg = ALARM_MESSAGES[code] || `Alarme Código ${code}`;
     const isStartFailure = (code === 305 || code === 0x0131);
 
-    console.log(`[PARSER] Alarm Code (66): ${code} -> "${msg}"`);
+    console.log(`[PARSER] Alarm Code (Reg 66): ${code} -> "${msg}" (Block start: ${startAddress}, len: ${regs.length})`);
 
     return {
-      block: "ALARM_66",
+      block: startAddress === 65 ? "ALARM_65_76" : "ALARM_66",
       alarmCode: code,
       alarmMessage: msg,
       startFailure: isStartFailure
