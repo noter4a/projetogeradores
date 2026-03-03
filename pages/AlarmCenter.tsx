@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 interface Alarm {
     id: number;
     generator_id: string;
+    generator_name?: string;
     alarm_code: number;
     alarm_message: string;
     start_time: string;
@@ -124,7 +125,7 @@ const AlarmCenter: React.FC = () => {
                                     <td className="p-4 text-gray-300 font-mono text-sm">
                                         {new Date(alarm.start_time).toLocaleString()}
                                     </td>
-                                    <td className="p-4 text-white font-bold">{alarm.generator_id}</td>
+                                    <td className="p-4 text-white font-bold">{alarm.generator_name || alarm.generator_id}</td>
                                     <td className="p-4 text-red-300">{alarm.alarm_message}</td>
                                     <td className="p-4 text-gray-500 text-sm">
                                         {isActive ? <span className="text-green-500 animate-pulse">Ativo...</span> :

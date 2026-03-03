@@ -646,22 +646,44 @@ export const initMqttService = (io) => {
                                 if (newAlarm !== oldAlarm) {
                                     console.log(`[MQTT] Alarm Status Changed for ${deviceId}: ${oldAlarm} -> ${newAlarm}`);
 
+                                    // Resolve the real Generator ID from the DB so 'assigned_generators' mapping works correctly!
+                                    let resolvedGenId = deviceId;
+                                    try {
+                                        const resGen = await pool.query(
+                                            "SELECT id, name FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
+                                            [deviceId]
+                                        );
+                                        if (resGen.rows.length > 0) {
+                                            resolvedGenId = resGen.rows[0].id;
+                                        }
+                                    } catch (err) {
+                                        console.error('[MQTT] Failed to resolve Generator ID for Alarm History:', err.message);
+                                    }
+
                                     // 1. If previous alarm was active (and different), close it
                                     if (oldAlarm > 0) {
                                         await pool.query(
                                             "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND alarm_code = $2 AND end_time IS NULL",
-                                            [deviceId, oldAlarm]
+                                            [resolvedGenId, oldAlarm]
                                         );
                                     }
 
                                     // 2. If new alarm is active (and different), open it
                                     if (newAlarm > 0) {
                                         const msg = unifiedData.alarmMessage || `Alarme Código ${newAlarm}`;
+
+                                        // Feche alarmes idênticos abertos no passado para evitar fantasmas
+                                        await pool.query(
+                                            "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND alarm_code = $2 AND end_time IS NULL",
+                                            [resolvedGenId, newAlarm]
+                                        );
+
                                         await pool.query(
                                             "INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) VALUES ($1, $2, $3)",
-                                            [deviceId, newAlarm, msg]
+                                            [resolvedGenId, newAlarm, msg]
                                         );
-                                        notifyUsersAboutAlarm(pool, deviceId, newAlarm, msg);
+                                        console.log(`[MQTT] ALARME REGISTRADO na Central: ${resolvedGenId} -> ${newAlarm}`);
+                                        notifyUsersAboutAlarm(pool, resolvedGenId, newAlarm, msg);
                                     }
                                 }
                             }

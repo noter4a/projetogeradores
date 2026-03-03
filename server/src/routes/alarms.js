@@ -7,26 +7,30 @@ const router = express.Router();
 router.get('/', async (req, res) => {
     try {
         const { generatorId, activeOnly } = req.query;
-        let query = `SELECT * FROM alarm_history`;
+        let query = `
+            SELECT a.*, g.name AS generator_name 
+            FROM alarm_history a 
+            LEFT JOIN generators g ON a.generator_id = g.id
+        `;
         const values = [];
         const conditions = [];
 
         if (generatorId) {
             values.push(generatorId);
-            conditions.push(`generator_id = $${values.length}`);
+            conditions.push(`a.generator_id = $${values.length}`);
         }
 
         if (activeOnly === 'true') {
-            conditions.push(`end_time IS NULL`);
+            conditions.push(`a.end_time IS NULL`);
         } else if (activeOnly === 'unacknowledged') {
-            conditions.push(`end_time IS NULL AND acknowledged = FALSE`);
+            conditions.push(`a.end_time IS NULL AND a.acknowledged = FALSE`);
         }
 
         if (conditions.length > 0) {
             query += ` WHERE ` + conditions.join(' AND ');
         }
 
-        query += ` ORDER BY start_time DESC LIMIT 100`;
+        query += ` ORDER BY a.start_time DESC LIMIT 100`;
 
         const result = await pool.query(query, values);
         res.json(result.rows);
