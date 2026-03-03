@@ -17,7 +17,7 @@ const dummyAlarm = {
 
 async function runTest() {
     try {
-        await sendAlarmEmail([targetEmail], 'GERADOR-TESTE', dummyAlarm);
+        await sendAlarmEmail([targetEmail], 'GEN-0000X', 'Gerador Principal (Teste)', dummyAlarm);
         console.log('✅ Comando de envio finalizado. Verifique a caixa de entrada (e a caixa de spam) do e-mail de destino.');
         process.exit(0);
     } catch (err) {

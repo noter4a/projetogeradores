@@ -7,7 +7,7 @@ import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../ut
 import pool from '../db.js';
 import { sendAlarmEmail } from './email.js';
 
-const notifyUsersAboutAlarm = async (clientPool, generatorId, alarmCode, alarmMessage) => {
+const notifyUsersAboutAlarm = async (clientPool, generatorId, generatorName, alarmCode, alarmMessage) => {
     try {
         const res = await clientPool.query(
             `SELECT email FROM users WHERE role = 'ADMIN' OR $1 = ANY(assigned_generators)`,
@@ -15,7 +15,7 @@ const notifyUsersAboutAlarm = async (clientPool, generatorId, alarmCode, alarmMe
         );
         const emails = res.rows.map(row => row.email);
         if (emails.length > 0) {
-            await sendAlarmEmail(emails, generatorId, { code: alarmCode, description: alarmMessage });
+            await sendAlarmEmail(emails, generatorId, generatorName, { code: alarmCode, description: alarmMessage });
         }
     } catch (err) {
         console.error('[MQTT] Failed finding users for alarm email:', err.message);
@@ -648,6 +648,7 @@ export const initMqttService = (io) => {
 
                                     // Resolve the real Generator ID from the DB so 'assigned_generators' mapping works correctly!
                                     let resolvedGenId = deviceId;
+                                    let resolvedGenName = deviceId; // Default to ID if name not found
                                     try {
                                         const resGen = await pool.query(
                                             "SELECT id, name FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
@@ -655,6 +656,7 @@ export const initMqttService = (io) => {
                                         );
                                         if (resGen.rows.length > 0) {
                                             resolvedGenId = resGen.rows[0].id;
+                                            resolvedGenName = resGen.rows[0].name;
                                         }
                                     } catch (err) {
                                         console.error('[MQTT] Failed to resolve Generator ID for Alarm History:', err.message);
@@ -683,7 +685,7 @@ export const initMqttService = (io) => {
                                             [resolvedGenId, newAlarm, msg]
                                         );
                                         console.log(`[MQTT] ALARME REGISTRADO na Central: ${resolvedGenId} -> ${newAlarm}`);
-                                        notifyUsersAboutAlarm(pool, resolvedGenId, newAlarm, msg);
+                                        notifyUsersAboutAlarm(pool, resolvedGenId, resolvedGenName, newAlarm, msg);
                                     }
                                 }
                             }
