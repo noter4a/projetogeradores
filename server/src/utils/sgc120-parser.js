@@ -232,9 +232,8 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
         // Varrer os 4 Nibbles do registrador
         for (const def of defs) {
           const nibble = (val >> def.shift) & 0x0F;
-          if (nibble > 0) { // Alarme Ativo (1, 2 ou 3)
+          if (nibble > 1) { // Apenas Alarme Ativo Nível 2 ou 3 (Ignora Avisos = 1)
             let severityText = "";
-            if (nibble === 1) severityText = "(Aviso)";
             if (nibble === 2) severityText = "(Desarme Elétrico)";
             if (nibble === 3) severityText = "(Parada)";
 
