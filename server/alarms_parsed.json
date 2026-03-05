@@ -1,0 +1,242 @@
+[
+  {
+    "address": 65,
+    "name": "Low oil pressure",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 65,
+    "name": "High coolant temperature",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 65,
+    "name": "Low fuel level",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 65,
+    "name": "Water level switch",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 66,
+    "name": "Under speed",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 66,
+    "name": "Over speed",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 66,
+    "name": "Fail to start",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 66,
+    "name": "Fail to stop",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 67,
+    "name": "Reverse Power Detected",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 67,
+    "name": "Low Load Alarm",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 67,
+    "name": "Generator low frequency",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 67,
+    "name": "Generator high frequency",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 68,
+    "name": "Generator high current",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 68,
+    "name": "Generator overload",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 68,
+    "name": "Unbalanced load",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 68,
+    "name": "Emergency stop",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 69,
+    "name": "Charge alternator failure",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 69,
+    "name": "Maintenance Due",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 69,
+    "name": "AFT Activation Timeout",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 69,
+    "name": "Ash Load Maintenance ",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 70,
+    "name": "Battery low voltage",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 70,
+    "name": "Battery high voltage",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 70,
+    "name": "Temperature Circuit open",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 70,
+    "name": "LOP/Pin23-Short to battery",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 71,
+    "name": "Fuel theft",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 71,
+    "name": "Magnetic pick up fault",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 71,
+    "name": "Oil pressure open circuit",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 71,
+    "name": "Auxiliary input I",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 72,
+    "name": "Auxiliary input A",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 72,
+    "name": "Auxiliary input B",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 72,
+    "name": "Auxiliary input C",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 72,
+    "name": "Auxiliary input D",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 73,
+    "name": "Auxiliary input E",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 73,
+    "name": "Auxiliary input F",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 73,
+    "name": "Auxiliary input G",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 73,
+    "name": "Auxiliary input H",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 74,
+    "name": "Gen L1 phase low volt",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 74,
+    "name": "Gen L1 phase high volt",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 74,
+    "name": "Gen L2 phase low volt",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 74,
+    "name": "Gen L2 phase high volt",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 75,
+    "name": "Gen L3 phase low volt",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 75,
+    "name": "Gen L3 phase high volt",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 75,
+    "name": "DG phase rotation",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 75,
+    "name": "Mains phase rotation",
+    "bits": "1/16-4/16"
+  },
+  {
+    "address": 76,
+    "name": "Fuel level open circuit",
+    "bits": "13/16-16/16"
+  },
+  {
+    "address": 76,
+    "name": "V belt broken",
+    "bits": "9/16-12/16"
+  },
+  {
+    "address": 76,
+    "name": "J1939 ECU Preheat Failed",
+    "bits": "5/16-8/16"
+  },
+  {
+    "address": 76,
+    "name": "High oil pressure detected",
+    "bits": "1/16-4/16"
+  }
+]

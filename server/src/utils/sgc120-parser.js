@@ -138,29 +138,129 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // Bloco 65 (12 reg) ou Bloco 66 (1 reg): Alarm Code
-  // User Requested complete alarm group 65-76 (0x41 length 0x0C)
+  // Bloco 65 (12 reg) ou Bloco 66 (1 reg): Alarm Code (Bitwise Decoding)
   if ((startAddress === 66 && regs.length === 1) || (startAddress === 65 && regs.length === 12)) {
-    // If startAddress is 66, the alarm code is at offset 0.
-    // If startAddress is 65, register 66 is at offset 1.
-    const offset = startAddress === 65 ? 1 : 0;
-    const code = u16(regs, offset);
 
-    // Alarm Lookup Table (Partial - Based on observation and SGC conventions)
-    const ALARM_MESSAGES = {
-      0: "Normal (Sem Alarme)",
-      2: "Baixa Pressão de Óleo",
-      3: "Alta Temperatura do Motor",
-      6: "Sobrevelocidade",
-      8: "Subvelocidade",
-      305: "Falha na Partida",
-      32: "Parada de Emergência", // (Likely, check if consistent)
+    // Tabela completa Oficial SGC-120 (Registradores 65 a 76) Traduzida
+    const ALARM_DEFS = {
+      65: [
+        { name: "Baixa Pressão Óleo", shift: 12 },
+        { name: "Alta Temp. Motor", shift: 8 },
+        { name: "Baixo Nível Combustível", shift: 4 },
+        { name: "Nível de Água", shift: 0 },
+      ],
+      66: [
+        { name: "Subvelocidade", shift: 12 },
+        { name: "Sobrevelocidade", shift: 8 },
+        { name: "Falha na Partida", shift: 4 },
+        { name: "Falha na Parada", shift: 0 },
+      ],
+      67: [
+        { name: "Potência Reversa", shift: 12 },
+        { name: "Baixa Carga", shift: 8 },
+        { name: "Baixa Frequência Ger.", shift: 4 },
+        { name: "Alta Frequência Ger.", shift: 0 },
+      ],
+      68: [
+        { name: "Alta Corrente Ger.", shift: 12 },
+        { name: "Sobrecarga Ger.", shift: 8 },
+        { name: "Carga Desbalanceada", shift: 4 },
+        { name: "Parada de Emergência", shift: 0 },
+      ],
+      69: [
+        { name: "Falha Alt. de Carga", shift: 12 },
+        { name: "Manutenção Prox.", shift: 8 },
+        { name: "Timeout AFT", shift: 4 },
+        { name: "Manutenção Filtro Cinzas", shift: 0 },
+      ],
+      70: [
+        { name: "Baixa Tensão Bateria", shift: 12 },
+        { name: "Alta Tensão Bateria", shift: 8 },
+        { name: "Circ. Temp Aberto", shift: 4 },
+        { name: "Pressão Óleo / Curto Bat.", shift: 0 },
+      ],
+      71: [
+        { name: "Roubo de Combustível", shift: 12 },
+        { name: "Falha Pick-up Mag.", shift: 8 },
+        { name: "Circ. Pressão Óleo Aberto", shift: 4 },
+        { name: "Entrada Aux. I", shift: 0 },
+      ],
+      72: [
+        { name: "Entrada Aux. A", shift: 12 },
+        { name: "Entrada Aux. B", shift: 8 },
+        { name: "Entrada Aux. C", shift: 4 },
+        { name: "Entrada Aux. D", shift: 0 },
+      ],
+      73: [
+        { name: "Entrada Aux. E", shift: 12 },
+        { name: "Entrada Aux. F", shift: 8 },
+        { name: "Entrada Aux. G", shift: 4 },
+        { name: "Entrada Aux. H", shift: 0 },
+      ],
+      74: [
+        { name: "Fase L1 Baixa Tensão", shift: 12 },
+        { name: "Fase L1 Alta Tensão", shift: 8 },
+        { name: "Fase L2 Baixa Tensão", shift: 4 },
+        { name: "Fase L2 Alta Tensão", shift: 0 },
+      ],
+      75: [
+        { name: "Fase L3 Baixa Tensão", shift: 12 },
+        { name: "Fase L3 Alta Tensão", shift: 8 },
+        { name: "Rotação Fase Ger.", shift: 4 },
+        { name: "Rotação Fase Rede", shift: 0 },
+      ],
+      76: [
+        { name: "Circ. Combustível Aberto", shift: 12 },
+        { name: "Correia Quebrada", shift: 8 },
+        { name: "Falha Aquecimento ECU", shift: 4 },
+        { name: "Alta Pressão Óleo Detc.", shift: 0 },
+      ],
     };
 
-    const msg = ALARM_MESSAGES[code] || `Alarme Código ${code}`;
-    const isStartFailure = (code === 305 || code === 0x0131);
+    const activeAlarms = [];
+    let syntheticCode = 0;
+    let isStartFailure = false;
 
-    console.log(`[PARSER] Alarm Code (Reg 66): ${code} -> "${msg}" (Block start: ${startAddress}, len: ${regs.length})`);
+    // Varrer todos os registradores do bloco
+    for (let i = 0; i < regs.length; i++) {
+      const addr = startAddress + i;
+      const val = u16(regs, i);
+      if (val === 0) continue; // Registrador Normal, ignora para não perder tempo
+
+      const defs = ALARM_DEFS[addr];
+      if (defs) {
+        // Varrer os 4 Nibbles do registrador
+        for (const def of defs) {
+          const nibble = (val >> def.shift) & 0x0F;
+          if (nibble > 0) { // Alarme Ativo (1, 2 ou 3)
+            let severityText = "";
+            if (nibble === 1) severityText = "(Aviso)";
+            if (nibble === 2) severityText = "(Desarme Elétrico)";
+            if (nibble === 3) severityText = "(Parada)";
+
+            activeAlarms.push(`${def.name} ${severityText}`.trim());
+            // Hash único para salvar no histórico se qualquer dos bits mudar
+            syntheticCode += (addr * 100) + def.shift + nibble;
+
+            // Sinalizador específico auxiliar
+            if (addr === 66 && def.shift === 4) {
+              isStartFailure = true;
+            }
+          }
+        }
+      }
+    }
+
+    let code = 0;
+    let msg = "Normal (Sem Alarme)";
+
+    // Se tiver Alarmes, cria o código e junta as mensagens
+    if (activeAlarms.length > 0) {
+      msg = activeAlarms.join(" | ");
+      code = syntheticCode; // Garante que se o alarme mudar de nível (Aviso->Parada), o banco gera histórico novo
+    }
+
+    console.log(`[PARSER] Alarm State Decoded: Code ${code} -> "${msg}"`);
 
     return {
       block: startAddress === 65 ? "ALARM_65_76" : "ALARM_66",
