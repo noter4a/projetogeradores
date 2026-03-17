@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Environment / Secrets
+.env
+server/.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +26,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Debug / Temp files
+server/modbus_all.json
+server/modbus_dump.json
+server/alarms_parsed.json
+server/alarm_table.js
+server/*.cjs
+server/src/modbus_maps.json

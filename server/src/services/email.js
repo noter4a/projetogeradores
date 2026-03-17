@@ -1,16 +1,16 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-    host: 'vultrplesk1.agencianet.net.br',
-    port: 587,
-    secure: false, // true for 465, false for other ports (587)
+    host: process.env.SMTP_HOST || 'vultrplesk1.agencianet.net.br',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
     requireTLS: true,
     auth: {
-        user: 'alarme@ciklogeradores.com.br',
-        pass: 'pfD6#x87'
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
     },
     tls: {
-        rejectUnauthorized: false // Helps avoid some self-signed cert issues if present
+        rejectUnauthorized: process.env.NODE_ENV === 'production'
     }
 });
 

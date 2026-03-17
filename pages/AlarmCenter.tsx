@@ -17,7 +17,7 @@ interface Alarm {
 }
 
 const AlarmCenter: React.FC = () => {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const navigate = useNavigate();
     const [alarms, setAlarms] = useState<Alarm[]>([]);
     const [filter, setFilter] = useState<'all' | 'active' | 'history'>('all'); // all, active, history
@@ -29,7 +29,9 @@ const AlarmCenter: React.FC = () => {
         let url = '/api/alarms';
         if (filter === 'active') url += '?activeOnly=true';
 
-        fetch(url)
+        fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
             .then(res => res.json())
             .then(data => {
                 setAlarms(data);
@@ -46,7 +48,7 @@ const AlarmCenter: React.FC = () => {
 
     const handleClearHistory = async () => {
         if (!confirm("Tem certeza que deseja limpar todo o histórico de alarmes resolvidos?")) return;
-        await fetch('/api/alarms/clear', { method: 'POST', body: JSON.stringify({}), headers: { 'Content-Type': 'application/json' } });
+        await fetch('/api/alarms/clear', { method: 'POST', body: JSON.stringify({}), headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } });
         fetchHistory();
     };
 
@@ -54,7 +56,7 @@ const AlarmCenter: React.FC = () => {
         await fetch(`/api/alarms/${id}/ack`, {
             method: 'POST',
             body: JSON.stringify({ userId: user?.name }),
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         });
         fetchHistory();
     };

@@ -38,11 +38,14 @@ let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands
 
 // Configuration
-const BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtts://painel.ciklogeradores.com.br:8883';
+const BROKER_URL = process.env.MQTT_BROKER_URL;
+if (!BROKER_URL) {
+    console.error('[MQTT] FATAL: MQTT_BROKER_URL not set in environment variables!');
+}
 const OPTIONS = {
-    username: process.env.MQTT_USER || 'ciklogeradores',
-    password: process.env.MQTT_PASSWORD || 'CikloG3radores@2025',
-    rejectUnauthorized: false
+    username: process.env.MQTT_USER,
+    password: process.env.MQTT_PASSWORD,
+    rejectUnauthorized: process.env.NODE_ENV === 'production'
 };
 
 const TOPIC = 'devices/data/#';

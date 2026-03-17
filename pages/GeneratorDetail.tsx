@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Generator, GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { useGenerators, socket } from '../context/GeneratorContext'; // Import socket
+import { useGenerators, getSocket } from '../context/GeneratorContext';
 import { useAlarms } from '../context/AlarmContext';
 import AlarmPopup from '../components/AlarmPopup'; // NEW
 import {

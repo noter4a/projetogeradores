@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, PropsWithChildren } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, PropsWithChildren } from 'react';
 import { Generator } from '../types';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
-export const socket = io(); // Exported singleton
+// Socket will be created inside the provider with auth token
+let socket: Socket | null = null;
+
+export const getSocket = () => socket;
 
 interface GeneratorContextType {
   generators: Generator[];
@@ -31,9 +34,12 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
 
   // Load generators from Backend API
   useEffect(() => {
+    if (!token) return;
     const fetchGenerators = async () => {
       try {
-        const res = await fetch('/api/generators');
+        const res = await fetch('/api/generators', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (res.ok) {
           const data = await res.json();
           setGenerators(data);
@@ -45,19 +51,23 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
       }
     };
     fetchGenerators();
-  }, []);
+  }, [token]);
 
-  // Socket.IO Real-Time Updates
+  // Socket.IO Real-Time Updates (with auth)
   useEffect(() => {
-    // Uses the exported singleton 'socket'
+    if (!token) return;
+
+    // Create socket with auth token
+    socket = io({
+      auth: { token }
+    });
+
     socket.on('generator:update', (data: any) => {
-      // console.log('Context Received Real-Time Data:', data.id);
       setGenerators(prevGenerators => prevGenerators.map(gen => {
-        // Match against ID, IP, or Connection Name
         if (data.id === gen.id || data.id === gen.ip || data.id === gen.connectionName) {
           return {
             ...gen,
-            ...data.data, // Merge new data
+            ...data.data,
           };
         }
         return gen;
@@ -65,9 +75,10 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
     });
 
     return () => {
-      socket.disconnect();
+      socket?.disconnect();
+      socket = null;
     };
-  }, []);
+  }, [token]);
 
   const addGenerator = useCallback(async (gen: Generator) => {
     if (!token) return;

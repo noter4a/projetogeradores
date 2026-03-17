@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import pool from './db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { initMqttService } from './services/mqtt.js';
@@ -14,9 +16,16 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+
+// FIX #7: CORS restrito ao domínio real
+const ALLOWED_ORIGINS = [
+    'https://painel.ciklogeradores.com.br',
+    'http://localhost:3000' // Dev only
+];
+
 const io = new Server(httpServer, {
     cors: {
-        origin: "*",
+        origin: ALLOWED_ORIGINS,
         methods: ["GET", "POST"]
     }
 });
@@ -24,13 +33,26 @@ const io = new Server(httpServer, {
 // Start MQTT Service
 initMqttService(io);
 
-// Socket.io Command Listener
+// FIX #6: Socket.IO com autenticação JWT
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    if (!token) {
+        return next(new Error('Autenticação necessária'));
+    }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        socket.user = decoded;
+        next();
+    } catch (err) {
+        return next(new Error('Token inválido'));
+    }
+});
+
 io.on('connection', (socket) => {
-    console.log('Client connected to Socket.IO');
+    console.log(`Client connected to Socket.IO (User: ${socket.user?.email})`);
 
     socket.on('control_generator', ({ generatorId, action }) => {
-        console.log(`[API] Received Control Command: ${action} for ${generatorId}`);
-        // Dynamic import to avoid circular dep issues if any, or use the exported function directly
+        console.log(`[API] Control Command from ${socket.user?.email}: ${action} for ${generatorId}`);
         import('./services/mqtt.js').then(module => {
             module.sendControlCommand(generatorId, action);
         });
@@ -39,8 +61,20 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(express.json());
+// FIX #19: Headers de Segurança HTTP
+app.use(helmet({ contentSecurityPolicy: false })); // CSP off to not break SPA
+
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+app.use(express.json({ limit: '1mb' }));
+
+// FIX #17: Rate Limiting no Login
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 min
+    max: 15, // 15 tentativas por IP
+    message: { message: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
 
 const router = express.Router();
 
@@ -235,8 +269,8 @@ const initDb = async (retries = 15, delay = 5000) => {
     }
 };
 
-// Auth Routes
-router.post('/auth/login', async (req, res) => {
+// Auth Routes (FIX #17: Rate limiting aplicado)
+router.post('/auth/login', loginLimiter, async (req, res) => {
     console.log('Login request received:', req.body.email);
     const { email, password } = req.body;
 
@@ -260,7 +294,7 @@ router.post('/auth/login', async (req, res) => {
         // 3. Generate Token
         const token = jwt.sign(
             { id: user.id, role: user.role, email: user.email },
-            process.env.JWT_SECRET || 'secret_key_123',
+            process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
@@ -278,7 +312,8 @@ router.post('/auth/login', async (req, res) => {
 
     } catch (err) {
         console.error('Login error:', err);
-        res.status(500).json({ message: 'Erro interno do servidor', details: err.message, stack: err.stack });
+        // FIX #10: Não vazar stack trace pro cliente
+        res.status(500).json({ message: 'Erro interno do servidor' });
     }
 });
 
@@ -289,7 +324,7 @@ const authenticateToken = (req, res, next) => {
 
     if (!token) return res.status(401).json({ message: 'Acesso negado. Token não fornecido.' });
 
-    jwt.verify(token, process.env.JWT_SECRET || 'secret_key_123', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) return res.status(403).json({ message: 'Token inválido ou expirado.' });
         req.user = user;
         next();
@@ -428,7 +463,8 @@ router.post('/control', authenticateToken, async (req, res) => {
 // Generator Routes
 
 // GET /api/generators
-router.get('/generators', async (req, res) => {
+// FIX #9: Rota protegida com autenticação
+router.get('/generators', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM generators ORDER BY created_at ASC');
         // Map DB fields to Frontend types
@@ -542,8 +578,8 @@ router.delete('/generators/:id', authenticateToken, async (req, res) => {
 
 
 
-// Mount Alarm Routes (Imported)
-app.use('/api/alarms', alarmRoutes);
+// FIX #8: Alarm Routes protegidas com autenticação
+app.use('/api/alarms', authenticateToken, alarmRoutes);
 
 // Mount Main Router (handling Auth, Generators, Control which are defined inline above)
 app.use('/api', router);

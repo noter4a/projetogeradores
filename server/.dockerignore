@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log*
+.env
+logs/
+*.json
+!package.json
+!package-lock.json
+*.cjs
+alarm_table.js
+debug_alarms.js

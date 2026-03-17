@@ -17,7 +17,7 @@ interface AlarmPopupProps {
 }
 
 const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [alarms, setAlarms] = useState<Alarm[]>([]);
 
   const fetchAlarms = () => {
@@ -27,7 +27,9 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
       ? `/api/alarms?generatorId=${generatorId}&activeOnly=unacknowledged`
       : `/api/alarms?activeOnly=unacknowledged`;
 
-    fetch(url)
+    fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -47,7 +49,7 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
     try {
       await fetch(`/api/alarms/${alarmId}/ack`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ userId: user?.name || 'User' })
       });
       setAlarms(prev => prev.filter(a => a.id !== alarmId));
