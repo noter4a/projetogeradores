@@ -38,8 +38,6 @@ services:
     image: postgres:15-alpine
     container_name: ciklo-db
     restart: always
-    env_file:
-      - ./server/.env
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
