@@ -2,11 +2,11 @@
 import { Generator, GeneratorStatus, MaintenanceLog, User, UserRole, Alarm } from './types';
 
 export const MOCK_USERS: User[] = [
-  { id: '1', name: 'Administrador Ciklo', role: UserRole.ADMIN, email: 'admin@ciklo.com', password: '', assignedGeneratorIds: ['GEN-REAL-01'] },
-  { id: '2', name: 'Técnico Operacional', role: UserRole.TECHNICIAN, email: 'tech@ciklo.com', password: '', assignedGeneratorIds: ['GEN-REAL-01'] },
-  { id: '3', name: 'Cliente Final', role: UserRole.CLIENT, email: 'client@company.com', password: '', assignedGeneratorIds: ['GEN-REAL-01'] },
+  { id: '1', name: 'Administrador Ciklo', role: UserRole.ADMIN, email: 'admin@ciklo.com', password: '', assignedGeneratorIds: [] },
+  { id: '2', name: 'Técnico Operacional', role: UserRole.TECHNICIAN, email: 'tech@ciklo.com', password: '', assignedGeneratorIds: [] },
+  { id: '3', name: 'Cliente Final', role: UserRole.CLIENT, email: 'client@company.com', password: '', assignedGeneratorIds: [] },
   { id: '4', name: 'Cliente Teste', role: UserRole.CLIENT, email: 'teste@company.com', password: '', assignedGeneratorIds: [] },
-  { id: '5', name: 'Visitante Monitor', role: UserRole.MONITOR, email: 'monitor@ciklo.com', password: '', assignedGeneratorIds: ['GEN-REAL-01'] },
+  { id: '5', name: 'Visitante Monitor', role: UserRole.MONITOR, email: 'monitor@ciklo.com', password: '', assignedGeneratorIds: [] },
 ];
 
 export const MOCK_GENERATORS: Generator[] = [];

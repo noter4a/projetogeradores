@@ -237,23 +237,6 @@ const initDb = async (retries = 15, delay = 5000) => {
                 console.log("Widening columns skipped or failed:", e.message);
             }
 
-            // Seed Default Generator
-            const genCheck = await client.query("SELECT * FROM generators WHERE id = 'GEN-REAL-01'");
-            if (genCheck.rows.length === 0) {
-                await client.query(
-                    "INSERT INTO generators (id, name, location, model, power_kva, status, connection_info) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                    ['GEN-REAL-01', 'Gerador Conectado (Real)', 'Monitoramento Remoto', 'Ciklo Power', 500, 'OFFLINE', JSON.stringify({
-                        connectionName: 'Modbus TCP',
-                        controller: 'dse',
-                        protocol: 'modbus_tcp',
-                        ip: 'Ciklo1',
-                        port: '502',
-                        slaveId: '1'
-                    })]
-                );
-                console.log('Default generator seeded.');
-            }
-
             client.release();
             console.log('Database initialized successfully.');
             return; // Success, exit loop
