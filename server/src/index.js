@@ -178,6 +178,92 @@ const initDb = async (retries = 15, delay = 5000) => {
                 );
             `);
 
+            // --- QUOTATION MODULE (QM) TABLES ---
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS qm_clientes (
+                    id SERIAL PRIMARY KEY,
+                    razao_social VARCHAR(255) NOT NULL,
+                    cnpj_cpf VARCHAR(50),
+                    ie VARCHAR(50),
+                    endereco TEXT,
+                    bairro VARCHAR(100),
+                    cep VARCHAR(20),
+                    uf VARCHAR(2),
+                    municipio VARCHAR(100),
+                    contato VARCHAR(100),
+                    fones VARCHAR(100),
+                    email VARCHAR(100),
+                    representante VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS qm_catalogo_geradores (
+                    id SERIAL PRIMARY KEY,
+                    modelo VARCHAR(255) NOT NULL,
+                    descricao TEXT,
+                    unidade VARCHAR(10),
+                    valor_unitario NUMERIC(10,2),
+                    protecao TEXT,
+                    tensoes VARCHAR(255)
+                );
+
+                CREATE TABLE IF NOT EXISTS qm_catalogo_motores (
+                    id SERIAL PRIMARY KEY,
+                    modelo VARCHAR(255) NOT NULL,
+                    descricao TEXT,
+                    protecao TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS qm_catalogo_alternadores (
+                    id SERIAL PRIMARY KEY,
+                    modelo VARCHAR(255) NOT NULL,
+                    descricao TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS qm_catalogo_modulos (
+                    id SERIAL PRIMARY KEY,
+                    modelo VARCHAR(255) NOT NULL,
+                    descricao TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS qm_catalogo_acessorios (
+                    id SERIAL PRIMARY KEY,
+                    grupo VARCHAR(255) NOT NULL,
+                    itens_incluidos TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS qm_catalogo_dimensao (
+                    id SERIAL PRIMARY KEY,
+                    id_dimensionamento VARCHAR(255) NOT NULL,
+                    dimensoes TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS qm_propostas (
+                    id SERIAL PRIMARY KEY,
+                    nprop INT,
+                    anoprop INT,
+                    numero_proposta VARCHAR(50),
+                    status VARCHAR(50) DEFAULT 'RASCUNHO',
+                    data_emissao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    cliente_id INT REFERENCES qm_clientes(id),
+                    valor_total NUMERIC(15,2),
+                    prazo_entrega VARCHAR(255),
+                    forma_pagamento VARCHAR(255),
+                    frete VARCHAR(100),
+                    ipi VARCHAR(100),
+                    valido_ate TIMESTAMP,
+                    gerador_id INT REFERENCES qm_catalogo_geradores(id),
+                    quantidade INT DEFAULT 1,
+                    motor_id INT REFERENCES qm_catalogo_motores(id),
+                    alternador_id INT REFERENCES qm_catalogo_alternadores(id),
+                    modulo_id INT REFERENCES qm_catalogo_modulos(id),
+                    acessorio_id INT REFERENCES qm_catalogo_acessorios(id),
+                    dimensao_id INT REFERENCES qm_catalogo_dimensao(id),
+                    outros_acessorios TEXT
+                );
+            `);
+
+
 
             // Add Real-Time Columns if they don't exist (Migration)
             const columnsToAdd = [

@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Zap, LogOut, Settings2, Users, MessageCircle, Wallet, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Zap, LogOut, Settings2, Users, MessageCircle, Wallet, AlertTriangle, BookOpen, FileText, FolderOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
 
@@ -11,6 +10,13 @@ const Sidebar: React.FC = () => {
   const navItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/' },
     { icon: AlertTriangle, label: 'Central de Alarmes', path: '/alarms' },
+  ];
+
+  const salesItems = [
+    { icon: Users, label: 'Clientes (CRM)', path: '/sales/clients' },
+    { icon: BookOpen, label: 'Catálogo Base', path: '/sales/catalog' },
+    { icon: FileText, label: 'Nova Proposta', path: '/sales/proposal/new' },
+    { icon: FolderOpen, label: 'Histórico de Propostas', path: '/sales/proposals' },
   ];
 
   return (
@@ -51,23 +57,48 @@ const Sidebar: React.FC = () => {
       </div>
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Menu Principal</p>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                isActive
-                  ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
-                  : 'hover:bg-gray-800 hover:text-white'
-              }`
-            }
-          >
-            <item.icon size={20} />
-            <span className="font-medium">{item.label}</span>
-          </NavLink>
-        ))}
+        <div className="mb-6">
+          <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Monitoramento</p>
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                  isActive
+                    ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                    : 'hover:bg-gray-800 hover:text-white'
+                }`
+              }
+            >
+              <item.icon size={20} />
+              <span className="font-medium">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+
+        {/* New Sales & Quotation Module - Only for Admins or Technicians maybe? Let's show for Admin */}
+        {user?.role === UserRole.ADMIN && (
+          <div className="mb-6">
+            <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Vendas & Orçamentos</p>
+            {salesItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 mb-1 ${
+                    isActive
+                      ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                      : 'hover:bg-gray-800 hover:text-white'
+                  }`
+                }
+              >
+                <item.icon size={20} />
+                <span className="font-medium">{item.label}</span>
+              </NavLink>
+            ))}
+          </div>
+        )}
 
         {user?.role === UserRole.ADMIN && (
            <div className="pt-4 mt-4 border-t border-gray-800">
