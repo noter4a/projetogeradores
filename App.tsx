@@ -12,6 +12,13 @@ import UserManagement from './pages/UserManagement';
 import Reports from './pages/Reports';
 import Maintenance from './pages/Maintenance';
 import Alarms from './pages/Alarms';
+
+// Quotation Module Pages
+import Clients from './pages/sales/Clients';
+import Catalog from './pages/sales/Catalog';
+import NewProposal from './pages/sales/NewProposal';
+import Proposals from './pages/sales/Proposals';
+
 import Sidebar from './components/Sidebar';
 import NoCredits from './pages/NoCredits';
 import AlarmPopup from './components/AlarmPopup';
@@ -162,6 +169,28 @@ const AppContent: React.FC = () => {
         <Route path="/users" element={
           <AdminRoute>
             <Layout><UserManagement /></Layout>
+          </AdminRoute>
+        } />
+
+        {/* Quotation Module (Admin Only for now) */}
+        <Route path="/sales/clients" element={
+          <AdminRoute>
+            <Layout><Clients /></Layout>
+          </AdminRoute>
+        } />
+        <Route path="/sales/catalog" element={
+          <AdminRoute>
+            <Layout><Catalog /></Layout>
+          </AdminRoute>
+        } />
+        <Route path="/sales/proposal/new" element={
+          <AdminRoute>
+            <Layout><NewProposal /></Layout>
+          </AdminRoute>
+        } />
+        <Route path="/sales/proposals" element={
+          <AdminRoute>
+            <Layout><Proposals /></Layout>
           </AdminRoute>
         } />
 
