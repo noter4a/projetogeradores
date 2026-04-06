@@ -117,3 +117,21 @@ export interface Alarm {
   timestamp: string;
   active: boolean;
 }
+
+// --- QUOTATION MODULE (QM) TYPES ---
+export interface QmClient {
+  id: number;
+  razao_social: string;
+  cnpj_cpf: string;
+  ie?: string;
+  endereco?: string;
+  bairro?: string;
+  cep?: string;
+  uf?: string;
+  municipio?: string;
+  contato?: string;
+  fones?: string;
+  email?: string;
+  representante?: string;
+  created_at?: string;
+}
