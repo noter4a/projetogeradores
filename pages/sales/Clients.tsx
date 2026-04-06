@@ -25,7 +25,7 @@ const Clients: React.FC = () => {
 
   const fetchClients = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('ciklo_auth_token');
       const res = await fetch('/api/crm', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -62,7 +62,7 @@ const Clients: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Tem certeza que deseja excluir este cliente?')) return;
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('ciklo_auth_token');
       const res = await fetch(`/api/crm/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -71,7 +71,7 @@ const Clients: React.FC = () => {
         fetchClients();
       } else {
         const err = await res.json();
-        alert(`Erro: ${err.error}`);
+        alert(`Erro: ${err.message || err.error}`);
       }
     } catch (err) {
       console.error(err);
@@ -81,7 +81,7 @@ const Clients: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('ciklo_auth_token');
       const method = editingId ? 'PUT' : 'POST';
       const url = editingId ? `/api/crm/${editingId}` : '/api/crm';
       
@@ -99,7 +99,7 @@ const Clients: React.FC = () => {
         fetchClients();
       } else {
         const err = await res.json();
-        alert(`Erro: ${err.error}`);
+        alert(`Erro: ${err.message || err.error}`);
       }
     } catch (err) {
       console.error(err);
