@@ -135,3 +135,38 @@ export interface QmClient {
   representante?: string;
   created_at?: string;
 }
+
+export interface QmCatalogGenerator {
+  id: number;
+  modelo: string;
+  descricao?: string;
+  unidade?: string;
+  valor_unitario?: number;
+  protecao?: string;
+  tensoes?: string;
+}
+
+export interface QmCatalogMotor {
+  id: number;
+  modelo: string;
+  descricao?: string;
+  protecao?: string;
+}
+
+export interface QmCatalogAlternator {
+  id: number;
+  modelo: string;
+  descricao?: string;
+}
+
+export interface QmCatalogModule {
+  id: number;
+  modelo: string;
+  descricao?: string;
+}
+
+export interface QmCatalogAccessory {
+  id: number;
+  grupo: string;
+  itens_incluidos?: string;
+}
