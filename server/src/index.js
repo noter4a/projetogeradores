@@ -13,6 +13,7 @@ import { initMqttService } from './services/mqtt.js';
 import alarmRoutes from './routes/alarms.js';
 import crmRoutes from './routes/crm.js';
 import catalogRoutes from './routes/catalog.js';
+import proposalRoutes from './routes/proposals.js';
 
 dotenv.config();
 
@@ -662,6 +663,7 @@ app.use('/api/alarms', authenticateToken, alarmRoutes);
 // Quotation Module Routes
 app.use('/api/crm', authenticateToken, crmRoutes);
 app.use('/api/catalog', authenticateToken, catalogRoutes);
+app.use('/api/proposals', authenticateToken, proposalRoutes);
 
 // Mount Main Router (handling Auth, Generators, Control which are defined inline above)
 app.use('/api', router);

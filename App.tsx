@@ -183,7 +183,7 @@ const AppContent: React.FC = () => {
             <Layout><Catalog /></Layout>
           </AdminRoute>
         } />
-        <Route path="/sales/proposal/new" element={
+        <Route path="/sales/new-proposal" element={
           <AdminRoute>
             <Layout><NewProposal /></Layout>
           </AdminRoute>

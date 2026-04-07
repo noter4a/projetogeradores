@@ -178,3 +178,37 @@ export interface QmCatalogDimension {
   id_dimensionamento: string;
   dimensoes?: string;
 }
+
+export interface QmProposal {
+  id: number;
+  nprop: number;
+  anoprop: number;
+  numero_proposta: string;
+  status: string;
+  data_emissao: string;
+  cliente_id: number;
+  valor_total: number;
+  prazo_entrega?: string;
+  forma_pagamento?: string;
+  frete?: string;
+  ipi?: string;
+  valido_ate?: string;
+  gerador_id?: number;
+  quantidade?: number;
+  motor_id?: number;
+  alternador_id?: number;
+  modulo_id?: number;
+  acessorio_id?: number;
+  dimensao_id?: number;
+  outros_acessorios?: string;
+  // joined fields
+  cliente_nome?: string;
+  gerador_modelo?: string;
+  cliente?: QmClient;
+  gerador?: QmCatalogGenerator;
+  motor?: QmCatalogMotor;
+  alternador?: QmCatalogAlternator;
+  modulo?: QmCatalogModule;
+  acessorio?: QmCatalogAccessory;
+  dimensao?: QmCatalogDimension;
+}
