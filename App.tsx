@@ -20,7 +20,6 @@ import NewProposal from './pages/sales/NewProposal';
 import Proposals from './pages/sales/Proposals';
 
 import Sidebar from './components/Sidebar';
-import NoCredits from './pages/NoCredits';
 import AlarmPopup from './components/AlarmPopup';
 import { GeneratorProvider } from './context/GeneratorContext';
 import { UserProvider } from './context/UserContext';
