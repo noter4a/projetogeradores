@@ -172,3 +172,9 @@ export interface QmCatalogAccessory {
   grupo: string;
   itens_incluidos?: string;
 }
+
+export interface QmCatalogDimension {
+  id: number;
+  id_dimensionamento: string;
+  dimensoes?: string;
+}

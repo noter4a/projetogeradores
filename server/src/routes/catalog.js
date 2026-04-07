@@ -171,4 +171,33 @@ router.put('/acessorios/:id', async (req, res) => {
 });
 
 
+// ---------------------------------------------
+// DIMENSÕES / DIMENSIONAMENTO
+// ---------------------------------------------
+router.get('/dimensoes', (req, res) => getAll('qm_catalogo_dimensao', res));
+router.delete('/dimensoes/:id', (req, res) => deleteById('qm_catalogo_dimensao', req.params.id, res));
+
+router.post('/dimensoes', async (req, res) => {
+    const { id_dimensionamento, dimensoes } = req.body;
+    try {
+        const result = await pool.query(
+            `INSERT INTO qm_catalogo_dimensao (id_dimensionamento, dimensoes) VALUES ($1, $2) RETURNING *`,
+            [id_dimensionamento, dimensoes]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.put('/dimensoes/:id', async (req, res) => {
+    const { id_dimensionamento, dimensoes } = req.body;
+    try {
+        const result = await pool.query(
+            `UPDATE qm_catalogo_dimensao SET id_dimensionamento=$1, dimensoes=$2 WHERE id=$3 RETURNING *`,
+            [id_dimensionamento, dimensoes, req.params.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 export default router;

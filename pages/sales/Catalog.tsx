@@ -5,10 +5,11 @@ import {
   QmCatalogMotor, 
   QmCatalogAlternator, 
   QmCatalogModule, 
-  QmCatalogAccessory 
+  QmCatalogAccessory,
+  QmCatalogDimension
 } from '../../types';
 
-type TabType = 'geradores' | 'motores' | 'alternadores' | 'modulos' | 'acessorios';
+type TabType = 'geradores' | 'motores' | 'alternadores' | 'modulos' | 'acessorios' | 'dimensoes';
 
 const Catalog: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('geradores');
@@ -30,6 +31,7 @@ const Catalog: React.FC = () => {
     { id: 'alternadores', label: 'Alternadores', icon: Shield },
     { id: 'modulos', label: 'Módulos', icon: Cpu },
     { id: 'acessorios', label: 'Acessórios', icon: Box },
+    { id: 'dimensoes', label: 'Dimensionamento', icon: Box },
   ] as const;
 
   const fetchData = async () => {
@@ -120,6 +122,9 @@ const Catalog: React.FC = () => {
     if (activeTab === 'acessorios') {
       return item.grupo?.toLowerCase().includes(term) || item.itens_incluidos?.toLowerCase().includes(term);
     }
+    if (activeTab === 'dimensoes') {
+      return item.id_dimensionamento?.toLowerCase().includes(term) || item.dimensoes?.toLowerCase().includes(term);
+    }
     return item.modelo?.toLowerCase().includes(term) || item.descricao?.toLowerCase().includes(term);
   });
 
@@ -186,7 +191,8 @@ const Catalog: React.FC = () => {
               {editingId ? 'Editar' : 'Novo'} {activeTab === 'geradores' ? 'Gerador' : 
                 activeTab === 'motores' ? 'Motor' :
                 activeTab === 'alternadores' ? 'Alternador' :
-                activeTab === 'modulos' ? 'Módulo' : 'Acessório'}
+                activeTab === 'modulos' ? 'Módulo' : 
+                activeTab === 'dimensoes' ? 'Dimensionamento' : 'Acessório'}
             </h3>
             <button onClick={() => setIsFormOpen(false)} className="text-gray-400 hover:text-white">
               <X size={24} />
@@ -205,6 +211,17 @@ const Catalog: React.FC = () => {
                   <div className="col-span-2">
                     <label className="block text-sm text-gray-400 mb-1">Itens Incluídos</label>
                     <textarea rows={3} value={formData.itens_incluidos || ''} onChange={e => setFormData({...formData, itens_incluidos: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
+                  </div>
+                </>
+              ) : activeTab === 'dimensoes' ? (
+                <>
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm text-gray-400 mb-1">ID Dimensionamento *</label>
+                    <input type="text" required value={formData.id_dimensionamento || ''} onChange={e => setFormData({...formData, id_dimensionamento: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" placeholder="Ex: 20 KVA CARENADO IVECO" />
+                  </div>
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm text-gray-400 mb-1">Dimensões (Texto Livre)</label>
+                    <textarea rows={3} value={formData.dimensoes || ''} onChange={e => setFormData({...formData, dimensoes: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" placeholder="Ex: comprimento 1800 x largura 880..." />
                   </div>
                 </>
               ) : (
@@ -277,6 +294,11 @@ const Catalog: React.FC = () => {
                       <th className="p-4 font-medium w-1/3">Grupo</th>
                       <th className="p-4 font-medium">Itens Incluídos</th>
                     </>
+                  ) : activeTab === 'dimensoes' ? (
+                    <>
+                      <th className="p-4 font-medium min-w-[200px]">ID Dimensionamento</th>
+                      <th className="p-4 font-medium">Dimensões</th>
+                    </>
                   ) : (
                     <>
                       <th className="p-4 font-medium min-w-[200px]">Modelo</th>
@@ -302,6 +324,11 @@ const Catalog: React.FC = () => {
                         <>
                           <td className="p-4 font-semibold text-white">{item.grupo}</td>
                           <td className="p-4 text-gray-400 text-sm line-clamp-2">{item.itens_incluidos || '-'}</td>
+                        </>
+                      ) : activeTab === 'dimensoes' ? (
+                        <>
+                          <td className="p-4 font-semibold text-white">{item.id_dimensionamento}</td>
+                          <td className="p-4 text-gray-400 text-sm whitespace-pre-wrap">{item.dimensoes || '-'}</td>
                         </>
                       ) : (
                         <>
