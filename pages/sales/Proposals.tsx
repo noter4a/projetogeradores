@@ -153,7 +153,7 @@ const Proposals: React.FC = () => {
                          The View button should probably open ProposalView.tsx
                         */}
                         <button
-                          onClick={() => alert('View PDF Em breve')}
+                          onClick={() => navigate(`/sales/proposals/${prop.id}`)}
                           className="p-2 text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
                           title="Visualizar Proposta / Imprimir"
                         >

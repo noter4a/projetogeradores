@@ -18,6 +18,7 @@ import Clients from './pages/sales/Clients';
 import Catalog from './pages/sales/Catalog';
 import NewProposal from './pages/sales/NewProposal';
 import Proposals from './pages/sales/Proposals';
+import ProposalView from './pages/sales/ProposalView';
 
 import Sidebar from './components/Sidebar';
 import AlarmPopup from './components/AlarmPopup';
@@ -62,7 +63,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
   }, [location]);
 
   return (
-    <div className="flex h-screen bg-ciklo-black overflow-hidden">
+    <div className="flex h-screen print:h-auto bg-ciklo-black print:bg-white overflow-hidden print:overflow-visible">
       {/* Global Alarm Popup */}
       <AlarmPopup />
 
@@ -75,14 +76,14 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-200 ease-in-out z-30 md:flex md:flex-col w-64 bg-ciklo-card border-r border-gray-800`}>
+      <div className={`fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-200 ease-in-out z-30 md:flex md:flex-col w-64 bg-ciklo-card border-r border-gray-800 print:hidden`}>
         <Sidebar />
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden w-full">
+      <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible w-full">
         {/* Mobile Header */}
-        <header className="md:hidden flex items-center justify-between p-4 bg-ciklo-card border-b border-gray-800">
+        <header className="md:hidden flex items-center justify-between p-4 bg-ciklo-card border-b border-gray-800 print:hidden">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-ciklo-yellow to-ciklo-orange flex items-center justify-center font-bold text-black">
               C
@@ -94,7 +95,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
           </button>
         </header>
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-ciklo-black p-4 md:p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto print:overflow-visible bg-ciklo-black print:bg-white p-4 md:p-6 print:p-0">
           {children}
         </main>
       </div>
@@ -190,6 +191,11 @@ const AppContent: React.FC = () => {
         <Route path="/sales/proposals" element={
           <AdminRoute>
             <Layout><Proposals /></Layout>
+          </AdminRoute>
+        } />
+        <Route path="/sales/proposals/:id" element={
+          <AdminRoute>
+            <Layout><ProposalView /></Layout>
           </AdminRoute>
         } />
 
