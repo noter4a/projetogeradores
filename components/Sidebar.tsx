@@ -15,7 +15,7 @@ const Sidebar: React.FC = () => {
   const salesItems = [
     { icon: Users, label: 'Clientes (CRM)', path: '/sales/clients' },
     { icon: BookOpen, label: 'Catálogo Base', path: '/sales/catalog' },
-    { icon: FileText, label: 'Nova Proposta', path: '/sales/proposal/new' },
+    { icon: FileText, label: 'Nova Proposta', path: '/sales/new-proposal' },
     { icon: FolderOpen, label: 'Histórico de Propostas', path: '/sales/proposals' },
   ];
 
