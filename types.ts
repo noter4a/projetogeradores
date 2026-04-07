@@ -144,6 +144,8 @@ export interface QmCatalogGenerator {
   valor_unitario?: number;
   protecao?: string;
   tensoes?: string;
+  finame?: string;
+  mda?: string;
 }
 
 export interface QmCatalogMotor {

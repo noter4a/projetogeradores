@@ -206,7 +206,9 @@ const initDb = async (retries = 15, delay = 5000) => {
                     unidade VARCHAR(10),
                     valor_unitario NUMERIC(10,2),
                     protecao TEXT,
-                    tensoes VARCHAR(255)
+                    tensoes VARCHAR(255),
+                    finame VARCHAR(255),
+                    mda VARCHAR(255)
                 );
 
                 CREATE TABLE IF NOT EXISTS qm_catalogo_motores (
@@ -314,15 +316,20 @@ const initDb = async (retries = 15, delay = 5000) => {
                 console.log("Migration of run_hours type skipped:", e.message);
             }
 
-            // Fix: Widen other columns to prevent overflow (e.g. if raw value 2400 is sent to NUMERIC(5,2))
+            // Fix: Widen other columns to prevent overflow
             try {
                 await client.query("ALTER TABLE generators ALTER COLUMN battery_voltage TYPE NUMERIC(10,2)");
                 await client.query("ALTER TABLE generators ALTER COLUMN oil_pressure TYPE NUMERIC(10,2)");
                 await client.query("ALTER TABLE generators ALTER COLUMN power_factor TYPE NUMERIC(10,2)");
                 await client.query("ALTER TABLE generators ALTER COLUMN mains_frequency TYPE NUMERIC(10,2)");
-                console.log("Widened numeric columns to NUMERIC(10,2)");
+                
+                // Add QM columns if they don't exist
+                await client.query("ALTER TABLE qm_catalogo_geradores ADD COLUMN IF NOT EXISTS finame VARCHAR(255)");
+                await client.query("ALTER TABLE qm_catalogo_geradores ADD COLUMN IF NOT EXISTS mda VARCHAR(255)");
+                
+                console.log("Database migrations checked/applied.");
             } catch (e) {
-                console.log("Widening columns skipped or failed:", e.message);
+                console.log("Migrations skipped or failed:", e.message);
             }
 
             client.release();

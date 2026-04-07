@@ -183,7 +183,10 @@ const Catalog: React.FC = () => {
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold text-white flex items-center gap-2 capitalize">
               <Plus className="text-ciklo-yellow" />
-              {editingId ? `Editar ${activeTab.slice(0, -1)}` : `Novo ${activeTab.slice(0, -1)}`}
+              {editingId ? 'Editar' : 'Novo'} {activeTab === 'geradores' ? 'Gerador' : 
+                activeTab === 'motores' ? 'Motor' :
+                activeTab === 'alternadores' ? 'Alternador' :
+                activeTab === 'modulos' ? 'Módulo' : 'Acessório'}
             </h3>
             <button onClick={() => setIsFormOpen(false)} className="text-gray-400 hover:text-white">
               <X size={24} />
@@ -235,6 +238,14 @@ const Catalog: React.FC = () => {
                       <div className="col-span-1">
                         <label className="block text-sm text-gray-400 mb-1">Valor Unitário Base (R$)</label>
                         <input type="number" step="0.01" value={formData.valor_unitario || ''} onChange={e => setFormData({...formData, valor_unitario: parseFloat(e.target.value)})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
+                      </div>
+                      <div className="col-span-1 border-t border-gray-800 pt-3 md:border-none md:pt-0 mt-2 md:mt-0">
+                        <label className="block text-sm text-gray-400 mb-1">FINAME</label>
+                        <input type="text" value={formData.finame || ''} onChange={e => setFormData({...formData, finame: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" placeholder="Código FINAME (opcional)" />
+                      </div>
+                      <div className="col-span-1 border-t border-gray-800 pt-3 md:border-none md:pt-0 mt-2 md:mt-0">
+                        <label className="block text-sm text-gray-400 mb-1">MDA</label>
+                        <input type="text" value={formData.mda || ''} onChange={e => setFormData({...formData, mda: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" placeholder="MDA (opcional)" />
                       </div>
                     </>
                   )}

@@ -32,22 +32,22 @@ router.get('/geradores', (req, res) => getAll('qm_catalogo_geradores', res));
 router.delete('/geradores/:id', (req, res) => deleteById('qm_catalogo_geradores', req.params.id, res));
 
 router.post('/geradores', async (req, res) => {
-    const { modelo, descricao, unidade, valor_unitario, protecao, tensoes } = req.body;
+    const { modelo, descricao, unidade, valor_unitario, protecao, tensoes, finame, mda } = req.body;
     try {
         const result = await pool.query(
-            `INSERT INTO qm_catalogo_geradores (modelo, descricao, unidade, valor_unitario, protecao, tensoes) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [modelo, descricao, unidade, valor_unitario, protecao, tensoes]
+            `INSERT INTO qm_catalogo_geradores (modelo, descricao, unidade, valor_unitario, protecao, tensoes, finame, mda) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [modelo, descricao, unidade, valor_unitario, protecao, tensoes, finame, mda]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.put('/geradores/:id', async (req, res) => {
-    const { modelo, descricao, unidade, valor_unitario, protecao, tensoes } = req.body;
+    const { modelo, descricao, unidade, valor_unitario, protecao, tensoes, finame, mda } = req.body;
     try {
         const result = await pool.query(
-            `UPDATE qm_catalogo_geradores SET modelo=$1, descricao=$2, unidade=$3, valor_unitario=$4, protecao=$5, tensoes=$6 WHERE id=$7 RETURNING *`,
-            [modelo, descricao, unidade, valor_unitario, protecao, tensoes, req.params.id]
+            `UPDATE qm_catalogo_geradores SET modelo=$1, descricao=$2, unidade=$3, valor_unitario=$4, protecao=$5, tensoes=$6, finame=$7, mda=$8 WHERE id=$9 RETURNING *`,
+            [modelo, descricao, unidade, valor_unitario, protecao, tensoes, finame, mda, req.params.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
