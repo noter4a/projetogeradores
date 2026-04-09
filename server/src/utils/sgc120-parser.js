@@ -231,6 +231,9 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
       if (defs) {
         // Varrer os 4 Nibbles do registrador
         for (const def of defs) {
+          // IGNORAR permanentemente: Alarme fantasma que dispara sem causa real
+          if (def.name === "Falha Aquecimento ECU") continue;
+
           const nibble = (val >> def.shift) & 0x0F;
           if (nibble > 1) { // Apenas Alarme Ativo Nível 2 ou 3 (Ignora Avisos = 1)
             let severityText = "";
