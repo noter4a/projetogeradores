@@ -227,17 +227,17 @@ const Catalog: React.FC = () => {
               ) : (
                 <>
                   <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm text-gray-400 mb-1">Modelo *</label>
+                    <label className="block text-sm text-gray-400 mb-1">{activeTab === 'motores' ? 'ESP 2' : 'Modelo'} *</label>
                     <input type="text" required value={formData.modelo || ''} onChange={e => setFormData({...formData, modelo: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
                   </div>
                   <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm text-gray-400 mb-1">Descrição</label>
+                    <label className="block text-sm text-gray-400 mb-1">{activeTab === 'motores' ? 'ESP 2.1' : 'Descrição'}</label>
                     <textarea rows={2} value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
                   </div>
                   
                   {(activeTab === 'geradores' || activeTab === 'motores') && (
                     <div className="col-span-1">
-                      <label className="block text-sm text-gray-400 mb-1">Proteção/Carenagem</label>
+                      <label className="block text-sm text-gray-400 mb-1">{activeTab === 'motores' ? 'PROTEÇÃO 2' : 'Proteção/Carenagem'}</label>
                       <input type="text" value={formData.protecao || ''} onChange={e => setFormData({...formData, protecao: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
                     </div>
                   )}
