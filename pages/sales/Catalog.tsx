@@ -205,11 +205,11 @@ const Catalog: React.FC = () => {
               {activeTab === 'acessorios' ? (
                 <>
                    <div className="col-span-2">
-                    <label className="block text-sm text-gray-400 mb-1">Grupo *</label>
+                    <label className="block text-sm text-gray-400 mb-1">Grupo de Acessórios *</label>
                     <input type="text" required value={formData.grupo || ''} onChange={e => setFormData({...formData, grupo: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-sm text-gray-400 mb-1">Itens Incluídos</label>
+                    <label className="block text-sm text-gray-400 mb-1">Acessórios Incluídos</label>
                     <textarea rows={3} value={formData.itens_incluidos || ''} onChange={e => setFormData({...formData, itens_incluidos: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
                   </div>
                 </>
@@ -291,8 +291,8 @@ const Catalog: React.FC = () => {
                 <tr className="bg-gray-800/50 border-b border-gray-700 text-gray-400 text-sm uppercase tracking-wider">
                   {activeTab === 'acessorios' ? (
                     <>
-                      <th className="p-4 font-medium w-1/3">Grupo</th>
-                      <th className="p-4 font-medium">Itens Incluídos</th>
+                      <th className="p-4 font-medium w-1/3">Grupo de Acessórios</th>
+                      <th className="p-4 font-medium">Acessórios Incluídos</th>
                     </>
                   ) : activeTab === 'dimensoes' ? (
                     <>
