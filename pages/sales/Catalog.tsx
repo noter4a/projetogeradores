@@ -227,11 +227,11 @@ const Catalog: React.FC = () => {
               ) : (
                 <>
                   <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm text-gray-400 mb-1">{activeTab === 'motores' ? 'ESP 2' : activeTab === 'alternadores' ? 'ESP 1' : 'Modelo'} *</label>
+                    <label className="block text-sm text-gray-400 mb-1">{activeTab === 'motores' ? 'ESP 2' : activeTab === 'alternadores' ? 'ESP 1' : activeTab === 'modulos' ? 'ESP 3' : 'Modelo'} *</label>
                     <input type="text" required value={formData.modelo || ''} onChange={e => setFormData({...formData, modelo: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
                   </div>
                   <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm text-gray-400 mb-1">{activeTab === 'motores' ? 'ESP 2.1' : activeTab === 'alternadores' ? 'ESP 1.1' : 'Descrição'}</label>
+                    <label className="block text-sm text-gray-400 mb-1">{activeTab === 'motores' ? 'ESP 2.1' : activeTab === 'alternadores' ? 'ESP 1.1' : activeTab === 'modulos' ? 'ESP 3.1' : 'Descrição'}</label>
                     <textarea rows={2} value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
                   </div>
                   
@@ -301,8 +301,8 @@ const Catalog: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <th className="p-4 font-medium min-w-[200px]">{activeTab === 'motores' ? 'ESP 2' : activeTab === 'alternadores' ? 'ESP 1' : 'Modelo'}</th>
-                      <th className="p-4 font-medium hidden md:table-cell">{activeTab === 'motores' ? 'ESP 2.1' : activeTab === 'alternadores' ? 'ESP 1.1' : 'Descrição'}</th>
+                      <th className="p-4 font-medium min-w-[200px]">{activeTab === 'motores' ? 'ESP 2' : activeTab === 'alternadores' ? 'ESP 1' : activeTab === 'modulos' ? 'ESP 3' : 'Modelo'}</th>
+                      <th className="p-4 font-medium hidden md:table-cell">{activeTab === 'motores' ? 'ESP 2.1' : activeTab === 'alternadores' ? 'ESP 1.1' : activeTab === 'modulos' ? 'ESP 3.1' : 'Descrição'}</th>
                       {(activeTab === 'geradores' || activeTab === 'motores') && <th className="p-4 font-medium hidden lg:table-cell">{activeTab === 'motores' ? 'PROTEÇÃO 2' : 'Proteção'}</th>}
                       {activeTab === 'geradores' && <th className="p-4 font-medium">Valor Base</th>}
                     </>
