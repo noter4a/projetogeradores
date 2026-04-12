@@ -301,9 +301,9 @@ const Catalog: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <th className="p-4 font-medium min-w-[200px]">Modelo</th>
-                      <th className="p-4 font-medium hidden md:table-cell">Descrição</th>
-                      {(activeTab === 'geradores' || activeTab === 'motores') && <th className="p-4 font-medium hidden lg:table-cell">Proteção</th>}
+                      <th className="p-4 font-medium min-w-[200px]">{activeTab === 'motores' ? 'ESP 2' : 'Modelo'}</th>
+                      <th className="p-4 font-medium hidden md:table-cell">{activeTab === 'motores' ? 'ESP 2.1' : 'Descrição'}</th>
+                      {(activeTab === 'geradores' || activeTab === 'motores') && <th className="p-4 font-medium hidden lg:table-cell">{activeTab === 'motores' ? 'PROTEÇÃO 2' : 'Proteção'}</th>}
                       {activeTab === 'geradores' && <th className="p-4 font-medium">Valor Base</th>}
                     </>
                   )}
