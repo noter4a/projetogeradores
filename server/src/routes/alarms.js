@@ -60,14 +60,29 @@ router.post('/:id/ack', async (req, res) => {
     }
 });
 
+// DELETE /api/alarms/:id - Remove single alarm record
+router.delete('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('DELETE FROM alarm_history WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error deleting alarm:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // DELETE /api/alarms/clear - Clear History (Soft or Hard)
 router.post('/clear', async (req, res) => {
     try {
-        const { generatorId } = req.body;
+        const { generatorId, clearAll } = req.body;
         if (generatorId) {
-            await pool.query(`DELETE FROM alarm_history WHERE generator_id = $1 AND end_time IS NOT NULL`, [generatorId]);
+            await pool.query(`DELETE FROM alarm_history WHERE generator_id = $1`, [generatorId]);
+        } else if (clearAll) {
+            // Clear EVERYTHING including active alarms
+            await pool.query(`DELETE FROM alarm_history`);
         } else {
-            // Clear ALL resolved
+            // Clear only resolved alarms (default safe clear)
             await pool.query(`DELETE FROM alarm_history WHERE end_time IS NOT NULL`);
         }
         res.json({ success: true, message: 'History cleared' });
