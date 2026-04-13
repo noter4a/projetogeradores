@@ -3,6 +3,16 @@ import pool from '../db.js';
 
 const router = express.Router();
 
+// Auto-migrate: add imagem_base64 to modulos and dimensao if not exists
+(async () => {
+    try {
+        await pool.query(`ALTER TABLE qm_catalogo_modulos ADD COLUMN IF NOT EXISTS imagem_base64 TEXT`);
+        await pool.query(`ALTER TABLE qm_catalogo_dimensao ADD COLUMN IF NOT EXISTS imagem_base64 TEXT`);
+    } catch (e) {
+        console.error('[Catalog] Migration error:', e.message);
+    }
+})();
+
 // Helper functions for common CRUD operations
 const getAll = async (table, res) => {
     try {
@@ -119,22 +129,22 @@ router.get('/modulos', (req, res) => getAll('qm_catalogo_modulos', res));
 router.delete('/modulos/:id', (req, res) => deleteById('qm_catalogo_modulos', req.params.id, res));
 
 router.post('/modulos', async (req, res) => {
-    const { modelo, descricao } = req.body;
+    const { modelo, descricao, imagem_base64 } = req.body;
     try {
         const result = await pool.query(
-            `INSERT INTO qm_catalogo_modulos (modelo, descricao) VALUES ($1, $2) RETURNING *`,
-            [modelo, descricao]
+            `INSERT INTO qm_catalogo_modulos (modelo, descricao, imagem_base64) VALUES ($1, $2, $3) RETURNING *`,
+            [modelo, descricao, imagem_base64 || null]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.put('/modulos/:id', async (req, res) => {
-    const { modelo, descricao } = req.body;
+    const { modelo, descricao, imagem_base64 } = req.body;
     try {
         const result = await pool.query(
-            `UPDATE qm_catalogo_modulos SET modelo=$1, descricao=$2 WHERE id=$3 RETURNING *`,
-            [modelo, descricao, req.params.id]
+            `UPDATE qm_catalogo_modulos SET modelo=$1, descricao=$2, imagem_base64=$3 WHERE id=$4 RETURNING *`,
+            [modelo, descricao, imagem_base64 || null, req.params.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
@@ -178,22 +188,22 @@ router.get('/dimensoes', (req, res) => getAll('qm_catalogo_dimensao', res));
 router.delete('/dimensoes/:id', (req, res) => deleteById('qm_catalogo_dimensao', req.params.id, res));
 
 router.post('/dimensoes', async (req, res) => {
-    const { id_dimensionamento, dimensoes } = req.body;
+    const { id_dimensionamento, dimensoes, imagem_base64 } = req.body;
     try {
         const result = await pool.query(
-            `INSERT INTO qm_catalogo_dimensao (id_dimensionamento, dimensoes) VALUES ($1, $2) RETURNING *`,
-            [id_dimensionamento, dimensoes]
+            `INSERT INTO qm_catalogo_dimensao (id_dimensionamento, dimensoes, imagem_base64) VALUES ($1, $2, $3) RETURNING *`,
+            [id_dimensionamento, dimensoes, imagem_base64 || null]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 router.put('/dimensoes/:id', async (req, res) => {
-    const { id_dimensionamento, dimensoes } = req.body;
+    const { id_dimensionamento, dimensoes, imagem_base64 } = req.body;
     try {
         const result = await pool.query(
-            `UPDATE qm_catalogo_dimensao SET id_dimensionamento=$1, dimensoes=$2 WHERE id=$3 RETURNING *`,
-            [id_dimensionamento, dimensoes, req.params.id]
+            `UPDATE qm_catalogo_dimensao SET id_dimensionamento=$1, dimensoes=$2, imagem_base64=$3 WHERE id=$4 RETURNING *`,
+            [id_dimensionamento, dimensoes, imagem_base64 || null, req.params.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
