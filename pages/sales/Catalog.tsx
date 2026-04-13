@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BookOpen, Plus, Pencil, Trash2, X, Search, Zap, Settings, Shield, Cpu, Box } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { BookOpen, Plus, Pencil, Trash2, X, Search, Zap, Settings, Shield, Cpu, Box, ImagePlus, XCircle } from 'lucide-react';
 import { 
   QmCatalogGenerator, 
   QmCatalogMotor, 
@@ -19,6 +19,16 @@ const Catalog: React.FC = () => {
   const [search, setSearch] = useState('');
   
   const [formData, setFormData] = useState<any>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { alert('Selecione uma imagem válida.'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => setFormData((prev: any) => ({ ...prev, imagem_base64: ev.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
 
   const formatCurrency = (val: any) => {
     if (!val) return 'R$ 0,00';
@@ -223,6 +233,23 @@ const Catalog: React.FC = () => {
                     <label className="block text-sm text-gray-400 mb-1">Dimensões (Texto Livre)</label>
                     <textarea rows={3} value={formData.dimensoes || ''} onChange={e => setFormData({...formData, dimensoes: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" placeholder="Ex: comprimento 1800 x largura 880..." />
                   </div>
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm text-gray-400 mb-1">Anexo em Imagem</label>
+                    <div className="flex items-start gap-4">
+                      <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 hover:border-ciklo-orange hover:text-white transition-colors">
+                        <ImagePlus size={18} /> Selecionar Imagem
+                      </button>
+                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                      {formData.imagem_base64 && (
+                        <div className="relative">
+                          <img src={formData.imagem_base64} alt="preview" className="h-20 w-auto rounded-lg border border-gray-700 object-contain" />
+                          <button type="button" onClick={() => setFormData((p: any) => ({ ...p, imagem_base64: null }))} className="absolute -top-2 -right-2 text-red-400 hover:text-red-300">
+                            <XCircle size={18} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </>
               ) : (
                 <>
@@ -234,6 +261,26 @@ const Catalog: React.FC = () => {
                     <label className="block text-sm text-gray-400 mb-1">{activeTab === 'motores' ? 'ESP 2.1' : activeTab === 'alternadores' ? 'ESP 1.1' : activeTab === 'modulos' ? 'ESP 3.1' : 'Descrição'}</label>
                     <textarea rows={2} value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
                   </div>
+
+                  {activeTab === 'modulos' && (
+                    <div className="col-span-1 md:col-span-2">
+                      <label className="block text-sm text-gray-400 mb-1">Anexo em Imagem</label>
+                      <div className="flex items-start gap-4">
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-300 hover:border-ciklo-orange hover:text-white transition-colors">
+                          <ImagePlus size={18} /> Selecionar Imagem
+                        </button>
+                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                        {formData.imagem_base64 && (
+                          <div className="relative">
+                            <img src={formData.imagem_base64} alt="preview" className="h-20 w-auto rounded-lg border border-gray-700 object-contain" />
+                            <button type="button" onClick={() => setFormData((p: any) => ({ ...p, imagem_base64: null }))} className="absolute -top-2 -right-2 text-red-400 hover:text-red-300">
+                              <XCircle size={18} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   {(activeTab === 'geradores' || activeTab === 'motores') && (
                     <div className="col-span-1">
@@ -298,11 +345,13 @@ const Catalog: React.FC = () => {
                     <>
                       <th className="p-4 font-medium min-w-[200px]">ID Dimensionamento</th>
                       <th className="p-4 font-medium">Dimensões</th>
+                      <th className="p-4 font-medium hidden lg:table-cell">Imagem</th>
                     </>
                   ) : (
                     <>
                       <th className="p-4 font-medium min-w-[200px]">{activeTab === 'motores' ? 'ESP 2' : activeTab === 'alternadores' ? 'ESP 1' : activeTab === 'modulos' ? 'ESP 3' : 'Modelo'}</th>
                       <th className="p-4 font-medium hidden md:table-cell">{activeTab === 'motores' ? 'ESP 2.1' : activeTab === 'alternadores' ? 'ESP 1.1' : activeTab === 'modulos' ? 'ESP 3.1' : 'Descrição'}</th>
+                      {activeTab === 'modulos' && <th className="p-4 font-medium hidden lg:table-cell">Imagem</th>}
                       {(activeTab === 'geradores' || activeTab === 'motores') && <th className="p-4 font-medium hidden lg:table-cell">{activeTab === 'motores' ? 'PROTEÇÃO 2' : 'Proteção'}</th>}
                       {activeTab === 'geradores' && <th className="p-4 font-medium">Valor Base</th>}
                     </>
@@ -329,11 +378,25 @@ const Catalog: React.FC = () => {
                         <>
                           <td className="p-4 font-semibold text-white">{item.id_dimensionamento}</td>
                           <td className="p-4 text-gray-400 text-sm whitespace-pre-wrap">{item.dimensoes || '-'}</td>
+                          <td className="p-4 hidden lg:table-cell">
+                            {item.imagem_base64
+                              ? <img src={item.imagem_base64} alt="img" className="h-12 w-auto rounded border border-gray-700 object-contain cursor-pointer" onClick={() => window.open(item.imagem_base64)} />
+                              : <span className="text-gray-600 text-xs">Sem imagem</span>
+                            }
+                          </td>
                         </>
                       ) : (
                         <>
                           <td className="p-4 font-semibold text-white">{item.modelo}</td>
                           <td className="p-4 text-gray-400 text-sm hidden md:table-cell truncate max-w-xs" title={item.descricao}>{item.descricao || '-'}</td>
+                          {activeTab === 'modulos' && (
+                            <td className="p-4 hidden lg:table-cell">
+                              {item.imagem_base64
+                                ? <img src={item.imagem_base64} alt="img" className="h-12 w-auto rounded border border-gray-700 object-contain cursor-pointer" onClick={() => window.open(item.imagem_base64)} />
+                                : <span className="text-gray-600 text-xs">Sem imagem</span>
+                              }
+                            </td>
+                          )}
                           {(activeTab === 'geradores' || activeTab === 'motores') && (
                             <td className="p-4 text-gray-300 hidden lg:table-cell">{item.protecao || '-'}</td>
                           )}
