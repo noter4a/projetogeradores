@@ -167,7 +167,16 @@ const ProposalView: React.FC = () => {
           {proposal.modulo && (
             <div>
               <div className="font-bold underline mb-1">1.3 MÓDULO: {proposal.modulo.modelo}</div>
-              <div className="whitespace-pre-wrap pl-2">{proposal.modulo.descricao}</div>
+              <div className="whitespace-pre-wrap pl-2 mb-2">{proposal.modulo.descricao}</div>
+              {proposal.modulo.imagem_base64 && (
+                <div className="mt-2 mb-2 flex justify-center">
+                  <img
+                    src={proposal.modulo.imagem_base64}
+                    alt="Imagem do Módulo"
+                    className="max-w-full max-h-[180px] object-contain border border-gray-300 rounded"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -189,7 +198,16 @@ const ProposalView: React.FC = () => {
           {proposal.dimensao && (
             <div>
               <div className="font-bold underline mb-1">DIMENSÕES: {proposal.dimensao.id_dimensionamento}</div>
-              <div className="whitespace-pre-wrap pl-2">{proposal.dimensao.dimensoes}</div>
+              <div className="whitespace-pre-wrap pl-2 mb-2">{proposal.dimensao.dimensoes}</div>
+              {proposal.dimensao.imagem_base64 && (
+                <div className="mt-2 mb-2 flex justify-center">
+                  <img
+                    src={proposal.dimensao.imagem_base64}
+                    alt="Imagem do Dimensionamento"
+                    className="max-w-full max-h-[220px] object-contain border border-gray-300 rounded"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
