@@ -14,9 +14,9 @@ const router = express.Router();
 })();
 
 // Helper functions for common CRUD operations
-const getAll = async (table, res) => {
+const getAll = async (table, res, order = 'DESC') => {
     try {
-        const result = await pool.query(`SELECT * FROM ${table} ORDER BY id DESC`);
+        const result = await pool.query(`SELECT * FROM ${table} ORDER BY id ${order}`);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -67,7 +67,7 @@ router.put('/geradores/:id', async (req, res) => {
 // ---------------------------------------------
 // MOTORES
 // ---------------------------------------------
-router.get('/motores', (req, res) => getAll('qm_catalogo_motores', res));
+router.get('/motores', (req, res) => getAll('qm_catalogo_motores', res, 'ASC'));
 router.delete('/motores/:id', (req, res) => deleteById('qm_catalogo_motores', req.params.id, res));
 
 router.post('/motores', async (req, res) => {
