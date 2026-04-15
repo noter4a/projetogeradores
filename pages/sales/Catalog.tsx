@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, Plus, Pencil, Trash2, X, Search, Zap, Settings, Shield, Cpu, Box, ImagePlus, XCircle } from 'lucide-react';
+import { BookOpen, Plus, Pencil, Trash2, X, Search, Zap, Settings, Shield, Cpu, Box, ImagePlus, XCircle, Copy } from 'lucide-react';
 import { 
   QmCatalogGenerator, 
   QmCatalogMotor, 
@@ -90,6 +90,29 @@ const Catalog: React.FC = () => {
       } else {
         const err = await res.json();
         alert(`Erro: ${err.message || err.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDuplicate = async (item: any) => {
+    try {
+      const token = localStorage.getItem('ciklo_auth_token');
+      const { id, created_at, updated_at, ...payload } = item;
+      const res = await fetch(`/api/catalog/${activeTab}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        fetchData();
+      } else {
+        const err = await res.json();
+        alert(`Erro ao duplicar: ${err.message || err.error}`);
       }
     } catch (err) {
       console.error(err);
@@ -408,10 +431,13 @@ const Catalog: React.FC = () => {
                       
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleEdit(item)} className="p-2 text-gray-400 hover:text-ciklo-yellow hover:bg-yellow-500/10 rounded-lg transition-colors">
+                          <button onClick={() => handleDuplicate(item)} title="Duplicar" className="p-2 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
+                            <Copy size={18} />
+                          </button>
+                          <button onClick={() => handleEdit(item)} title="Editar" className="p-2 text-gray-400 hover:text-ciklo-yellow hover:bg-yellow-500/10 rounded-lg transition-colors">
                             <Pencil size={18} />
                           </button>
-                          <button onClick={() => handleDelete(item.id)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                          <button onClick={() => handleDelete(item.id)} title="Excluir" className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                             <Trash2 size={18} />
                           </button>
                         </div>
