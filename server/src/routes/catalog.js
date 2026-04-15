@@ -184,7 +184,7 @@ router.put('/acessorios/:id', async (req, res) => {
 // ---------------------------------------------
 // DIMENSÕES / DIMENSIONAMENTO
 // ---------------------------------------------
-router.get('/dimensoes', (req, res) => getAll('qm_catalogo_dimensao', res));
+router.get('/dimensoes', (req, res) => getAll('qm_catalogo_dimensao', res, 'ASC'));
 router.delete('/dimensoes/:id', (req, res) => deleteById('qm_catalogo_dimensao', req.params.id, res));
 
 router.post('/dimensoes', async (req, res) => {
