@@ -66,6 +66,11 @@ const ProposalView: React.FC = () => {
       {/* A4 Document Wrapper */}
       <div className="bg-white mx-auto shadow-2xl print:shadow-none w-[210mm] min-h-[297mm] p-[15mm]">
         
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <img src="/logo-ciklo.png" alt="Ciklo Geradores" className="h-16 object-contain" />
+        </div>
+
         {/* Header Block */}
         <div className="flex justify-between items-start mb-6">
           <div className="space-y-1 text-sm font-semibold">
