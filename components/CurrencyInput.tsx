@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface CurrencyInputProps {
   value: number | undefined | null;
@@ -7,54 +7,55 @@ interface CurrencyInputProps {
   placeholder?: string;
 }
 
-const formatBRL = (num: number): string =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
-
-const parseBRL = (str: string): number => {
-  // Remove tudo exceto dígitos e vírgula
-  const clean = str.replace(/[^\d,]/g, '').replace(',', '.');
-  return parseFloat(clean) || 0;
+const formatBRL = (cents: number): string => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+  }).format(cents / 100);
 };
 
 const CurrencyInput: React.FC<CurrencyInputProps> = ({ value, onChange, className, placeholder }) => {
-  const [displayValue, setDisplayValue] = useState('');
-  const [focused, setFocused] = useState(false);
+  // Work in cents internally to avoid floating point issues
+  const [cents, setCents] = useState<number>(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Sync from external prop
   useEffect(() => {
-    if (!focused) {
-      setDisplayValue(value ? formatBRL(Number(value)) : '');
+    const inCents = Math.round((Number(value) || 0) * 100);
+    setCents(inCents);
+  }, [value]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+
+    if (e.key >= '0' && e.key <= '9') {
+      const digit = parseInt(e.key, 10);
+      const newCents = cents * 10 + digit;
+      setCents(newCents);
+      onChange(newCents / 100);
+    } else if (e.key === 'Backspace') {
+      const newCents = Math.floor(cents / 10);
+      setCents(newCents);
+      onChange(newCents / 100);
+    } else if (e.key === 'Delete') {
+      setCents(0);
+      onChange(0);
     }
-  }, [value, focused]);
-
-  const handleFocus = () => {
-    setFocused(true);
-    // Mostrar apenas o número ao editar
-    setDisplayValue(value ? String(Number(value)).replace('.', ',') : '');
-  };
-
-  const handleBlur = () => {
-    setFocused(false);
-    const parsed = parseBRL(displayValue);
-    onChange(parsed);
-    setDisplayValue(parsed ? formatBRL(parsed) : '');
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Permite apenas números e vírgula enquanto digita
-    const raw = e.target.value.replace(/[^\d,]/g, '');
-    setDisplayValue(raw);
+    // Ignore all other keys
   };
 
   return (
     <input
+      ref={inputRef}
       type="text"
-      inputMode="decimal"
-      value={displayValue}
+      inputMode="numeric"
+      value={formatBRL(cents)}
       placeholder={placeholder || 'R$ 0,00'}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      onChange={() => {}} // controlled via keydown
       className={className}
+      style={{ caretColor: 'transparent' }}
     />
   );
 };
