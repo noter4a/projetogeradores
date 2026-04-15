@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BookOpen, Plus, Pencil, Trash2, X, Search, Zap, Settings, Shield, Cpu, Box, ImagePlus, XCircle, Copy } from 'lucide-react';
+import CurrencyInput from '../../components/CurrencyInput';
 import { 
   QmCatalogGenerator, 
   QmCatalogMotor, 
@@ -324,7 +325,11 @@ const Catalog: React.FC = () => {
                       </div>
                       <div className="col-span-1">
                         <label className="block text-sm text-gray-400 mb-1">Valor Unitário Base (R$)</label>
-                        <input type="number" step="0.01" value={formData.valor_unitario || ''} onChange={e => setFormData({...formData, valor_unitario: parseFloat(e.target.value)})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
+                        <CurrencyInput
+                          value={formData.valor_unitario}
+                          onChange={(val) => setFormData({...formData, valor_unitario: val})}
+                          className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange"
+                        />
                       </div>
                       <div className="col-span-1 border-t border-gray-800 pt-3 md:border-none md:pt-0 mt-2 md:mt-0">
                         <label className="block text-sm text-gray-400 mb-1">FINAME</label>
