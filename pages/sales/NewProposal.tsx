@@ -32,11 +32,12 @@ const NewProposal: React.FC = () => {
   const [outrosAcessorios, setOutrosAcessorios] = useState('');
 
   // Config State
-  const [frete, setFrete] = useState('Pago');
-  const [ipi, setIpi] = useState('Isento');
-  const [formaPagamento, setFormaPagamento] = useState('Entrada no pedido de 30% e saldo na emissão da nota fiscal.');
-  const [prazoEntrega, setPrazoEntrega] = useState('20 dias após confirmação do pedido.');
-  const [validadeDias, setValidadeDias] = useState(10); // Not saved directly, used to calc `valido_ate`
+  const [frete, setFrete] = useState('');
+  const [ipi, setIpi] = useState('');
+  const [icms, setIcms] = useState('');
+  const [formaPagamento, setFormaPagamento] = useState('');
+  const [prazoEntrega, setPrazoEntrega] = useState('');
+  const [validadeDias, setValidadeDias] = useState(10);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -97,7 +98,7 @@ const NewProposal: React.FC = () => {
         acessorio_id: acessorioId ? Number(acessorioId) : null,
         dimensao_id: dimensaoId ? Number(dimensaoId) : null,
         outros_acessorios: outrosAcessorios,
-        frete, ipi, forma_pagamento: formaPagamento, prazo_entrega: prazoEntrega,
+        frete, ipi, icms, forma_pagamento: formaPagamento, prazo_entrega: prazoEntrega,
         valido_ate: hoje.toISOString(),
         valor_total: totalValue,
         status: status
@@ -287,6 +288,20 @@ const NewProposal: React.FC = () => {
               <div>
                 <label className="block text-sm text-gray-400 mb-1">IPI</label>
                 <input type="text" value={ipi} onChange={e => setIpi(e.target.value)} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">ICMS (%)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0" max="100" step="0.01"
+                    placeholder="0,00"
+                    value={icms}
+                    onChange={e => setIcms(e.target.value)}
+                    className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 pr-8 text-white outline-none"
+                  />
+                  <span className="absolute right-3 top-2.5 text-gray-400 text-sm">%</span>
+                </div>
               </div>
             </div>
           </div>

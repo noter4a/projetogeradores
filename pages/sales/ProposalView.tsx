@@ -247,6 +247,9 @@ const ProposalView: React.FC = () => {
              <div className="font-bold">IPI:</div>
              <div className="col-span-2">{proposal.ipi || '-'}</div>
 
+             <div className="font-bold">ICMS:</div>
+             <div className="col-span-2">{proposal.icms ? `${proposal.icms}%` : '-'}</div>
+
              <div className="font-bold">CÓDIGO FINAME:</div>
              <div className="col-span-2">{gerador?.finame || '-'}</div>
 
