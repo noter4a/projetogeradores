@@ -61,11 +61,14 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
     const {
         cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id,
-        quantidade, prazo_entrega, forma_pagamento, frete, ipi, valido_ate, outros_acessorios, valor_total, status
+        quantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, valor_total, status
     } = req.body;
 
     const queryRunner = async (client) => {
-        // 1. Calculate new proposal number (Highest nprop logic)
+    // Auto-migrate: add icms column if not exists
+    try { await pool.query(`ALTER TABLE qm_propostas ADD COLUMN IF NOT EXISTS icms VARCHAR(20)`); } catch(e) {}
+
+    // 1. Calculate new proposal number (Highest nprop logic)
         const currentYear = new Date().getFullYear();
         const maxQuery = await client.query(`SELECT COALESCE(MAX(nprop), 0) as max_prop FROM qm_propostas WHERE anoprop = $1`, [currentYear]);
         
@@ -79,16 +82,16 @@ router.post('/', async (req, res) => {
             INSERT INTO qm_propostas (
                 nprop, anoprop, numero_proposta, status, cliente_id, gerador_id, motor_id, alternador_id, 
                 modulo_id, acessorio_id, dimensao_id, quantidade, prazo_entrega, forma_pagamento, frete, 
-                ipi, valido_ate, outros_acessorios, valor_total
+                ipi, icms, valido_ate, outros_acessorios, valor_total
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
             ) RETURNING *
         `;
         
         const values = [
             nprop, currentYear, numero_proposta, status || 'RASCUNHO', cliente_id, gerador_id, motor_id, alternador_id,
             modulo_id, acessorio_id, dimensao_id, quantidade || 1, prazo_entrega, forma_pagamento, frete,
-            ipi, valido_ate, outros_acessorios, valor_total
+            ipi, icms, valido_ate, outros_acessorios, valor_total
         ];
 
         const inserted = await client.query(insertQuery, values);
@@ -119,7 +122,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const {
         status, cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id,
-        quantidade, prazo_entrega, forma_pagamento, frete, ipi, valido_ate, outros_acessorios, valor_total
+        quantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, valor_total
     } = req.body;
 
     try {
@@ -127,13 +130,13 @@ router.put('/:id', async (req, res) => {
             UPDATE qm_propostas SET 
                 status = $1, cliente_id = $2, gerador_id = $3, motor_id = $4, alternador_id = $5,
                 modulo_id = $6, acessorio_id = $7, dimensao_id = $8, quantidade = $9, prazo_entrega = $10,
-                forma_pagamento = $11, frete = $12, ipi = $13, valido_ate = $14, outros_acessorios = $15,
-                valor_total = $16
-            WHERE id = $17 RETURNING *
+                forma_pagamento = $11, frete = $12, ipi = $13, icms = $14, valido_ate = $15, outros_acessorios = $16,
+                valor_total = $17
+            WHERE id = $18 RETURNING *
         `;
         const values = [
             status, cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id, 
-            quantidade, prazo_entrega, forma_pagamento, frete, ipi, valido_ate, outros_acessorios, 
+            quantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, 
             valor_total, id
         ];
         const result = await pool.query(updateQuery, values);
