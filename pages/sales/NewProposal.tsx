@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Save, X, ArrowRight, User as UserIcon, ListPlus, Box, DollarSign } from 'lucide-react';
+import CurrencyInput from '../../components/CurrencyInput';
 import { useNavigate } from 'react-router-dom';
 import { 
   QmClient, QmCatalogGenerator, QmCatalogMotor, QmCatalogAlternator, 
@@ -38,6 +39,7 @@ const NewProposal: React.FC = () => {
   const [formaPagamento, setFormaPagamento] = useState('');
   const [prazoEntrega, setPrazoEntrega] = useState('');
   const [validadeDias, setValidadeDias] = useState(10);
+  const [valorCustom, setValorCustom] = useState<number>(0);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -73,7 +75,12 @@ const NewProposal: React.FC = () => {
   }, []);
 
   const selectedGenerator = generators.find(g => g.id.toString() === generatorId);
-  const totalValue = selectedGenerator ? (Number(selectedGenerator.valor_unitario) * quantidade) : 0;
+  const autoValue = selectedGenerator ? (Number(selectedGenerator.valor_unitario) * quantidade) : 0;
+
+  // Auto-fill when generator or quantity changes
+  useEffect(() => {
+    setValorCustom(autoValue);
+  }, [generatorId, quantidade]);
 
   const handleSave = async (status: string) => {
     if (!clientId || !generatorId) {
@@ -100,7 +107,7 @@ const NewProposal: React.FC = () => {
         outros_acessorios: outrosAcessorios,
         frete, ipi, icms, forma_pagamento: formaPagamento, prazo_entrega: prazoEntrega,
         valido_ate: hoje.toISOString(),
-        valor_total: totalValue,
+        valor_total: valorCustom,
         status: status
       };
 
@@ -307,9 +314,22 @@ const NewProposal: React.FC = () => {
           </div>
 
           <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-6 shadow-lg">
-            <div className="flex justify-between items-center mb-4 text-gray-300">
-              <span className="font-medium">Total Produto:</span>
-              <span className="text-xl font-bold text-ciklo-orange">{formatCurrency(totalValue)}</span>
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-1">Valor Total da Proposta (R$)</label>
+              <CurrencyInput
+                value={valorCustom}
+                onChange={(val) => setValorCustom(val)}
+                className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-3 text-xl font-bold text-ciklo-orange outline-none focus:border-ciklo-orange text-right"
+              />
+              {autoValue > 0 && valorCustom !== autoValue && (
+                <button
+                  type="button"
+                  onClick={() => setValorCustom(autoValue)}
+                  className="text-xs text-gray-500 hover:text-ciklo-yellow mt-1 underline"
+                >
+                  Restaurar valor automático ({formatCurrency(autoValue)})
+                </button>
+              )}
             </div>
             <button 
               onClick={() => handleSave('ENVIADA')}
