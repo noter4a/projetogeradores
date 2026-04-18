@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Save, X, ArrowRight, User as UserIcon, ListPlus, Box, DollarSign } from 'lucide-react';
+import { LayoutDashboard, Save, X, ArrowRight, User as UserIcon, ListPlus, Box, DollarSign, PlusCircle } from 'lucide-react';
 import CurrencyInput from '../../components/CurrencyInput';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -33,6 +33,9 @@ const NewProposal: React.FC = () => {
   const [dimensaoId, setDimensaoId] = useState('');
   const [tensaoId, setTensaoId] = useState('');
   const [outrosAcessorios, setOutrosAcessorios] = useState('');
+  const [isNewGerador, setIsNewGerador] = useState(false);
+  const [newGerador, setNewGerador] = useState({ modelo: '', descricao: '', valor_unitario: 0, unidade: 'UN' });
+  const [savingGerador, setSavingGerador] = useState(false);
 
   // Config State
   const [frete, setFrete] = useState('');
@@ -200,14 +203,23 @@ const NewProposal: React.FC = () => {
                 <label className="block text-sm text-gray-400 mb-1">Gerador Base *</label>
                 <div className="flex gap-2">
                   <select
-                    value={generatorId}
-                    onChange={e => setGeneratorId(e.target.value)}
+                    value={isNewGerador ? '__new__' : generatorId}
+                    onChange={e => {
+                      if (e.target.value === '__new__') {
+                        setIsNewGerador(true);
+                        setGeneratorId('');
+                      } else {
+                        setIsNewGerador(false);
+                        setGeneratorId(e.target.value);
+                      }
+                    }}
                     className="flex-1 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none"
                   >
                     <option value="">-- Selecione o Modelo do Gerador --</option>
                     {generators.map(g => (
                       <option key={g.id} value={g.id}>{g.modelo} - {formatCurrency(g.valor_unitario || 0)}</option>
                     ))}
+                    <option value="__new__">➕ Adicionar Novo Gerador</option>
                   </select>
                   <div className="w-24">
                     <input 
@@ -216,6 +228,61 @@ const NewProposal: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {isNewGerador && (
+                  <div className="mt-3 bg-gray-800/50 border border-gray-700 rounded-lg p-4 space-y-3">
+                    <div className="text-sm text-ciklo-yellow font-semibold flex items-center gap-1 mb-2">
+                      <PlusCircle size={16} /> Cadastrar Novo Gerador
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Modelo *</label>
+                        <input type="text" value={newGerador.modelo} onChange={e => setNewGerador({...newGerador, modelo: e.target.value})} placeholder="Ex: GG-100/90KVA" className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-ciklo-orange placeholder-gray-600" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Valor Unitário (R$)</label>
+                        <CurrencyInput value={newGerador.valor_unitario} onChange={(val) => setNewGerador({...newGerador, valor_unitario: val})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-ciklo-orange" />
+                      </div>
+                      <div className="col-span-1 md:col-span-2">
+                        <label className="block text-xs text-gray-400 mb-1">Descrição</label>
+                        <textarea rows={2} value={newGerador.descricao} onChange={e => setNewGerador({...newGerador, descricao: e.target.value})} placeholder="Descrição completa do gerador" className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-ciklo-orange placeholder-gray-600" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={savingGerador || !newGerador.modelo}
+                        onClick={async () => {
+                          setSavingGerador(true);
+                          try {
+                            const token = localStorage.getItem('ciklo_auth_token');
+                            const res = await fetch('/api/catalog/geradores', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                              body: JSON.stringify(newGerador)
+                            });
+                            if (res.ok) {
+                              const created = await res.json();
+                              setGenerators(prev => [...prev, created]);
+                              setGeneratorId(created.id.toString());
+                              setIsNewGerador(false);
+                              setNewGerador({ modelo: '', descricao: '', valor_unitario: 0, unidade: 'UN' });
+                            } else {
+                              alert('Erro ao cadastrar gerador');
+                            }
+                          } catch { alert('Erro inesperado'); }
+                          setSavingGerador(false);
+                        }}
+                        className="bg-ciklo-orange hover:bg-orange-600 text-black font-bold px-4 py-1.5 rounded-lg text-sm disabled:opacity-50 transition-colors"
+                      >
+                        {savingGerador ? 'Salvando...' : 'Salvar Gerador'}
+                      </button>
+                      <button type="button" onClick={() => { setIsNewGerador(false); }} className="text-gray-400 hover:text-white text-sm px-3 py-1.5">
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="mb-4">
