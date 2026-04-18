@@ -20,6 +20,7 @@ const NewProposal: React.FC = () => {
   const [modules, setModules] = useState<QmCatalogModule[]>([]);
   const [accessories, setAccessories] = useState<QmCatalogAccessory[]>([]);
   const [dimensions, setDimensions] = useState<QmCatalogDimension[]>([]);
+  const [tensoes, setTensoes] = useState<any[]>([]);
 
   // Form State
   const [clientId, setClientId] = useState('');
@@ -30,6 +31,7 @@ const NewProposal: React.FC = () => {
   const [moduloId, setModuloId] = useState('');
   const [acessorioId, setAcessorioId] = useState('');
   const [dimensaoId, setDimensaoId] = useState('');
+  const [tensaoId, setTensaoId] = useState('');
   const [outrosAcessorios, setOutrosAcessorios] = useState('');
 
   // Config State
@@ -47,14 +49,15 @@ const NewProposal: React.FC = () => {
         const token = localStorage.getItem('ciklo_auth_token');
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        const [resClients, resGen, resMot, resAlt, resMod, resAcc, resDim] = await Promise.all([
+        const [resClients, resGen, resMot, resAlt, resMod, resAcc, resDim, resTen] = await Promise.all([
           fetch('/api/crm', { headers }),
           fetch('/api/catalog/geradores', { headers }),
           fetch('/api/catalog/motores', { headers }),
           fetch('/api/catalog/alternadores', { headers }),
           fetch('/api/catalog/modulos', { headers }),
           fetch('/api/catalog/acessorios', { headers }),
-          fetch('/api/catalog/dimensoes', { headers })
+          fetch('/api/catalog/dimensoes', { headers }),
+          fetch('/api/catalog/tensoes', { headers })
         ]);
 
         if (resClients.ok) setClients(await resClients.json());
@@ -64,6 +67,7 @@ const NewProposal: React.FC = () => {
         if (resMod.ok) setModules(await resMod.json());
         if (resAcc.ok) setAccessories(await resAcc.json());
         if (resDim.ok) setDimensions(await resDim.json());
+        if (resTen.ok) setTensoes(await resTen.json());
 
       } catch (err) {
         console.error('Error fetching data for form:', err);
@@ -104,6 +108,7 @@ const NewProposal: React.FC = () => {
         modulo_id: moduloId ? Number(moduloId) : null,
         acessorio_id: acessorioId ? Number(acessorioId) : null,
         dimensao_id: dimensaoId ? Number(dimensaoId) : null,
+        tensao_id: tensaoId ? Number(tensaoId) : null,
         outros_acessorios: outrosAcessorios,
         frete, ipi, icms, forma_pagamento: formaPagamento, prazo_entrega: prazoEntrega,
         valido_ate: hoje.toISOString(),
@@ -211,6 +216,14 @@ const NewProposal: React.FC = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm text-gray-400 mb-1">Tensão</label>
+                <select value={tensaoId} onChange={e => setTensaoId(e.target.value)} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none">
+                  <option value="">-- Nenhum Selecionado --</option>
+                  {tensoes.map(t => <option key={t.id} value={t.id}>{t.descricao}</option>)}
+                </select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
