@@ -8,6 +8,10 @@ const router = express.Router();
     try {
         await pool.query(`ALTER TABLE qm_catalogo_modulos ADD COLUMN IF NOT EXISTS imagem_base64 TEXT`);
         await pool.query(`ALTER TABLE qm_catalogo_dimensao ADD COLUMN IF NOT EXISTS imagem_base64 TEXT`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS qm_catalogo_tensoes (
+            id SERIAL PRIMARY KEY,
+            descricao TEXT NOT NULL
+        )`);
     } catch (e) {
         console.error('[Catalog] Migration error:', e.message);
     }
@@ -204,6 +208,35 @@ router.put('/dimensoes/:id', async (req, res) => {
         const result = await pool.query(
             `UPDATE qm_catalogo_dimensao SET id_dimensionamento=$1, dimensoes=$2, imagem_base64=$3 WHERE id=$4 RETURNING *`,
             [id_dimensionamento, dimensoes, imagem_base64 || null, req.params.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ---------------------------------------------
+// TENSÕES
+// ---------------------------------------------
+router.get('/tensoes', (req, res) => getAll('qm_catalogo_tensoes', res, 'ASC'));
+router.delete('/tensoes/:id', (req, res) => deleteById('qm_catalogo_tensoes', req.params.id, res));
+
+router.post('/tensoes', async (req, res) => {
+    const { descricao } = req.body;
+    try {
+        const result = await pool.query(
+            `INSERT INTO qm_catalogo_tensoes (descricao) VALUES ($1) RETURNING *`,
+            [descricao]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.put('/tensoes/:id', async (req, res) => {
+    const { descricao } = req.body;
+    try {
+        const result = await pool.query(
+            `UPDATE qm_catalogo_tensoes SET descricao=$1 WHERE id=$2 RETURNING *`,
+            [descricao, req.params.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
