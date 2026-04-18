@@ -35,7 +35,8 @@ router.get('/:id', async (req, res) => {
                 row_to_json(a.*) as alternador,
                 row_to_json(md.*) as modulo,
                 row_to_json(ac.*) as acessorio,
-                row_to_json(d.*) as dimensao
+                row_to_json(d.*) as dimensao,
+                row_to_json(t.*) as tensao
             FROM qm_propostas p
             LEFT JOIN qm_clientes c ON p.cliente_id = c.id
             LEFT JOIN qm_catalogo_geradores g ON p.gerador_id = g.id
@@ -44,6 +45,7 @@ router.get('/:id', async (req, res) => {
             LEFT JOIN qm_catalogo_modulos md ON p.modulo_id = md.id
             LEFT JOIN qm_catalogo_acessorios ac ON p.acessorio_id = ac.id
             LEFT JOIN qm_catalogo_dimensao d ON p.dimensao_id = d.id
+            LEFT JOIN qm_catalogo_tensoes t ON p.tensao_id = t.id
             WHERE p.id = $1
         `;
         const result = await pool.query(query, [id]);
@@ -60,13 +62,16 @@ router.get('/:id', async (req, res) => {
 // Create new proposal
 router.post('/', async (req, res) => {
     const {
-        cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id,
+        cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id, tensao_id,
         quantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, valor_total, status
     } = req.body;
 
     const queryRunner = async (client) => {
-    // Auto-migrate: add icms column if not exists
-    try { await pool.query(`ALTER TABLE qm_propostas ADD COLUMN IF NOT EXISTS icms VARCHAR(20)`); } catch(e) {}
+    // Auto-migrate
+    try {
+      await pool.query(`ALTER TABLE qm_propostas ADD COLUMN IF NOT EXISTS icms VARCHAR(20)`);
+      await pool.query(`ALTER TABLE qm_propostas ADD COLUMN IF NOT EXISTS tensao_id INTEGER REFERENCES qm_catalogo_tensoes(id)`);
+    } catch(e) {}
 
     // 1. Calculate new proposal number (Highest nprop logic)
         const currentYear = new Date().getFullYear();
@@ -81,16 +86,16 @@ router.post('/', async (req, res) => {
         const insertQuery = `
             INSERT INTO qm_propostas (
                 nprop, anoprop, numero_proposta, status, cliente_id, gerador_id, motor_id, alternador_id, 
-                modulo_id, acessorio_id, dimensao_id, quantidade, prazo_entrega, forma_pagamento, frete, 
+                modulo_id, acessorio_id, dimensao_id, tensao_id, quantidade, prazo_entrega, forma_pagamento, frete, 
                 ipi, icms, valido_ate, outros_acessorios, valor_total
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
             ) RETURNING *
         `;
         
         const values = [
             nprop, currentYear, numero_proposta, status || 'RASCUNHO', cliente_id, gerador_id, motor_id, alternador_id,
-            modulo_id, acessorio_id, dimensao_id, quantidade || 1, prazo_entrega, forma_pagamento, frete,
+            modulo_id, acessorio_id, dimensao_id, tensao_id || null, quantidade || 1, prazo_entrega, forma_pagamento, frete,
             ipi, icms, valido_ate, outros_acessorios, valor_total
         ];
 
@@ -121,7 +126,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const {
-        status, cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id,
+        status, cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id, tensao_id,
         quantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, valor_total
     } = req.body;
 
@@ -129,14 +134,14 @@ router.put('/:id', async (req, res) => {
         const updateQuery = `
             UPDATE qm_propostas SET 
                 status = $1, cliente_id = $2, gerador_id = $3, motor_id = $4, alternador_id = $5,
-                modulo_id = $6, acessorio_id = $7, dimensao_id = $8, quantidade = $9, prazo_entrega = $10,
-                forma_pagamento = $11, frete = $12, ipi = $13, icms = $14, valido_ate = $15, outros_acessorios = $16,
-                valor_total = $17
-            WHERE id = $18 RETURNING *
+                modulo_id = $6, acessorio_id = $7, dimensao_id = $8, tensao_id = $9, quantidade = $10, prazo_entrega = $11,
+                forma_pagamento = $12, frete = $13, ipi = $14, icms = $15, valido_ate = $16, outros_acessorios = $17,
+                valor_total = $18
+            WHERE id = $19 RETURNING *
         `;
         const values = [
             status, cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id, 
-            quantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, 
+            tensao_id || null, quantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, 
             valor_total, id
         ];
         const result = await pool.query(updateQuery, values);

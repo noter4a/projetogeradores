@@ -138,6 +138,14 @@ const ProposalView: React.FC = () => {
         </div>
 
         <div className="space-y-4 text-sm mb-6">
+          {/* Tensão */}
+          {proposal.tensao && (
+            <div>
+              <div className="font-bold underline mb-1">TENSÃO</div>
+              <div className="pl-2">{proposal.tensao.descricao}</div>
+            </div>
+          )}
+
           {/* Gerador Protections */}
           {gerador?.protecao && (
             <div>
