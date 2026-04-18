@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, Plus, Pencil, Trash2, X, Search, Zap, Settings, Shield, Cpu, Box, ImagePlus, XCircle, Copy } from 'lucide-react';
+import { BookOpen, Plus, Pencil, Trash2, X, Search, Zap, Settings, Shield, Cpu, Box, ImagePlus, XCircle, Copy, Cable } from 'lucide-react';
 import CurrencyInput from '../../components/CurrencyInput';
 import { 
   QmCatalogGenerator, 
@@ -10,7 +10,7 @@ import {
   QmCatalogDimension
 } from '../../types';
 
-type TabType = 'geradores' | 'motores' | 'alternadores' | 'modulos' | 'acessorios' | 'dimensoes';
+type TabType = 'geradores' | 'tensoes_cat' | 'motores' | 'alternadores' | 'modulos' | 'acessorios' | 'dimensoes';
 
 const Catalog: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('geradores');
@@ -38,6 +38,7 @@ const Catalog: React.FC = () => {
 
   const tabs = [
     { id: 'geradores', label: 'Geradores', icon: Zap },
+    { id: 'tensoes_cat', label: 'Tensões', icon: Cable },
     { id: 'motores', label: 'Motores', icon: Settings },
     { id: 'alternadores', label: 'Alternadores', icon: Shield },
     { id: 'modulos', label: 'Módulos', icon: Cpu },
@@ -48,7 +49,8 @@ const Catalog: React.FC = () => {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem('ciklo_auth_token');
-      const res = await fetch(`/api/catalog/${activeTab}`, {
+      const tabRoute = activeTab === 'tensoes_cat' ? 'tensoes' : activeTab;
+      const res = await fetch(`/api/catalog/${tabRoute}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -82,7 +84,8 @@ const Catalog: React.FC = () => {
     if (!window.confirm(`Tem certeza que deseja excluir?`)) return;
     try {
       const token = localStorage.getItem('ciklo_auth_token');
-      const res = await fetch(`/api/catalog/${activeTab}/${id}`, {
+      const tabRoute = activeTab === 'tensoes_cat' ? 'tensoes' : activeTab;
+      const res = await fetch(`/api/catalog/${tabRoute}/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -100,8 +103,9 @@ const Catalog: React.FC = () => {
   const handleDuplicate = async (item: any) => {
     try {
       const token = localStorage.getItem('ciklo_auth_token');
+      const tabRoute = activeTab === 'tensoes_cat' ? 'tensoes' : activeTab;
       const { id, created_at, updated_at, ...payload } = item;
-      const res = await fetch(`/api/catalog/${activeTab}`, {
+      const res = await fetch(`/api/catalog/${tabRoute}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +129,8 @@ const Catalog: React.FC = () => {
     try {
       const token = localStorage.getItem('ciklo_auth_token');
       const method = editingId ? 'PUT' : 'POST';
-      const url = editingId ? `/api/catalog/${activeTab}/${editingId}` : `/api/catalog/${activeTab}`;
+      const tabRoute = activeTab === 'tensoes_cat' ? 'tensoes' : activeTab;
+      const url = editingId ? `/api/catalog/${tabRoute}/${editingId}` : `/api/catalog/${tabRoute}`;
       
       const payload: any = { ...formData };
       
@@ -223,6 +228,7 @@ const Catalog: React.FC = () => {
             <h3 className="text-xl font-bold text-white flex items-center gap-2 capitalize">
               <Plus className="text-ciklo-yellow" />
               {editingId ? 'Editar' : 'Novo'} {activeTab === 'geradores' ? 'Gerador' : 
+                activeTab === 'tensoes_cat' ? 'Tensão' :
                 activeTab === 'motores' ? 'Motor' :
                 activeTab === 'alternadores' ? 'Alternador' :
                 activeTab === 'modulos' ? 'Módulo' : 
@@ -275,6 +281,13 @@ const Catalog: React.FC = () => {
                     </div>
                   </div>
                 </>
+              ) : activeTab === 'tensoes_cat' ? (
+                <>
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm text-gray-400 mb-1">Tensão *</label>
+                    <input type="text" required value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} placeholder="TRIFÁSICO,380/220V" className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange placeholder-gray-600" />
+                  </div>
+                </>
               ) : (
                 <>
                   <div className="col-span-1 md:col-span-2">
@@ -315,10 +328,6 @@ const Catalog: React.FC = () => {
 
                   {activeTab === 'geradores' && (
                     <>
-                      <div className="col-span-1">
-                        <label className="block text-sm text-gray-400 mb-1">Tensões (Ex: 220/127V, 380/220V)</label>
-                        <input type="text" value={formData.tensoes || ''} onChange={e => setFormData({...formData, tensoes: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
-                      </div>
                       <div className="col-span-1">
                         <label className="block text-sm text-gray-400 mb-1">Unidade (Ex: UN)</label>
                         <input type="text" value={formData.unidade || 'UN'} onChange={e => setFormData({...formData, unidade: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
@@ -375,6 +384,10 @@ const Catalog: React.FC = () => {
                       <th className="p-4 font-medium">Dimensões</th>
                       <th className="p-4 font-medium hidden lg:table-cell">Imagem</th>
                     </>
+                  ) : activeTab === 'tensoes_cat' ? (
+                    <>
+                      <th className="p-4 font-medium">Tensão</th>
+                    </>
                   ) : (
                     <>
                       <th className="p-4 font-medium min-w-[200px]">{activeTab === 'motores' ? 'ESP 2' : activeTab === 'alternadores' ? 'ESP 1' : activeTab === 'modulos' ? 'ESP 3' : 'Modelo'}</th>
@@ -412,6 +425,10 @@ const Catalog: React.FC = () => {
                               : <span className="text-gray-600 text-xs">Sem imagem</span>
                             }
                           </td>
+                        </>
+                      ) : activeTab === 'tensoes_cat' ? (
+                        <>
+                          <td className="p-4 font-semibold text-white">{item.descricao}</td>
                         </>
                       ) : (
                         <>
