@@ -124,7 +124,8 @@ const ProposalView: React.FC = () => {
                 <td className="border border-black p-2 align-top">{proposal.quantidade}</td>
                 <td className="border border-black p-2 align-top">{gerador?.unidade || 'UN'}</td>
                 <td className="border border-black p-2 text-left whitespace-pre-wrap">
-                  {gerador?.descricao || gerador?.modelo}
+                  {gerador?.descricao || gerador?.modelo}{proposal.tensao ? `,
+${proposal.tensao.descricao}` : ''}
                 </td>
                 <td className="border border-black p-2 align-top">{formatCurrency(gerador?.valor_unitario)}</td>
                 <td className="border border-black p-2 align-top">{formatCurrency(proposal.valor_total)}</td>
@@ -138,14 +139,6 @@ const ProposalView: React.FC = () => {
         </div>
 
         <div className="space-y-4 text-sm mb-6">
-          {/* Tensão */}
-          {proposal.tensao && (
-            <div>
-              <div className="font-bold underline mb-1">TENSÃO</div>
-              <div className="pl-2">{proposal.tensao.descricao}</div>
-            </div>
-          )}
-
           {/* Gerador Protections */}
           {gerador?.protecao && (
             <div>
