@@ -139,6 +139,14 @@ ${proposal.tensao.descricao}` : ''}
         </div>
 
         <div className="space-y-4 text-sm mb-6">
+          {/* Observações */}
+          {proposal.outros_acessorios && (
+            <div>
+              <div className="font-bold underline mb-1">Observações:</div>
+              <div className="whitespace-pre-wrap pl-2">{proposal.outros_acessorios}</div>
+            </div>
+          )}
+
           {/* Gerador Protections */}
           {gerador?.protecao && (
             <div>
@@ -191,12 +199,6 @@ ${proposal.tensao.descricao}` : ''}
             <div>
               <div className="font-bold underline mb-1">1.4 ACESSÓRIOS: {proposal.acessorio.grupo}</div>
               <div className="whitespace-pre-wrap pl-2">{proposal.acessorio.itens_incluidos}</div>
-            </div>
-          )}
-          {proposal.outros_acessorios && (
-            <div>
-              <div className="font-bold underline mb-1 italic">Acessórios Extras:</div>
-              <div className="whitespace-pre-wrap pl-2">{proposal.outros_acessorios}</div>
             </div>
           )}
 

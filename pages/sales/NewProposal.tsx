@@ -265,10 +265,10 @@ const NewProposal: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Acessórios Extras / Texto livre</label>
+                <label className="block text-sm text-gray-400 mb-1">Observações</label>
                 <textarea 
                   rows={2} 
-                  placeholder="Ex: Trailer / Tanque Adicional de 200L"
+                  placeholder="Ex: Informações adicionais para a proposta"
                   value={outrosAcessorios}
                   onChange={e => setOutrosAcessorios(e.target.value)}
                   className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none" 
