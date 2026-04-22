@@ -235,7 +235,7 @@ ${proposal.tensao.descricao}` : ''}
           <div>
             <div className="font-bold underline mb-1 text-center">GARANTIA</div>
             <p className="text-justify">
-              O prazo de garantia do equipamento é de 12 (doze) meses ou 1.000 (mil) horas contados a partir da entrega técnica, ou de 15 meses contados a partir da emissão da nota fiscal.
+              A garantia é de 1 (um) ano, ou 1.000 (mil) horas de uso (ou) o que vencer primeiro após a emissão da nota fiscal de acordo com o Código de Defesa do consumidor.
             </p>
           </div>
 
