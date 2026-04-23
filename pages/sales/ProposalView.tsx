@@ -248,6 +248,8 @@ ${proposal.tensao.descricao}` : ''}
 
              <div className="font-bold">FORMA DE PAGAMENTO:</div>
              <div className="col-span-2">{proposal.forma_pagamento || '-'}</div>
+             <div></div>
+             <div className="col-span-2 italic text-[12px] text-gray-600 -mt-1">Em caso de parcelamento, será sujeito a análise de crédito.</div>
 
              <div className="font-bold">FRETE:</div>
              <div className="col-span-2">{proposal.frete || '-'}</div>
