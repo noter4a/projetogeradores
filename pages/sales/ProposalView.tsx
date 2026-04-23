@@ -239,6 +239,13 @@ ${proposal.tensao.descricao}` : ''}
             </p>
           </div>
 
+          <div>
+            <div className="font-bold underline mb-1 text-center">DIFAL (Diferença de Alíquota do ICMS)</div>
+            <p className="text-justify">
+              Valor não incluso na proposta. Caso haja incidência de DIFAL, o mesmo será de responsabilidade do cliente, conforme legislação vigente.
+            </p>
+          </div>
+
           <div className="grid grid-cols-3 gap-y-2 text-[13px] border-t border-b border-gray-300 py-3">
              <div className="font-bold">VALIDADE DA PROPOSTA:</div>
              <div className="col-span-2">{formatDate(proposal.valido_ate)}</div>
