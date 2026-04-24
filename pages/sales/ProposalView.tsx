@@ -63,8 +63,25 @@ const ProposalView: React.FC = () => {
 
           /* thead repete o header no TOPO de cada página */
           .letterhead-thead { display: table-header-group; }
-          .letterhead-tfoot { display: table-footer-group; }
           .letterhead-tbody { display: table-row-group; }
+
+          /* Esconde tfoot visual no print, usa o fixo */
+          .letterhead-tfoot { display: none; }
+
+          /* Footer fixo no fundo de TODAS as paginas */
+          .print-footer-fixed {
+            display: block !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+          }
+
+          /* Padding para conteudo nao sobrepor o footer */
+          .content-cell {
+            padding-bottom: 40mm !important;
+          }
         }
       `}</style>
       
@@ -349,6 +366,9 @@ const ProposalView: React.FC = () => {
             </tr>
           </tbody>
         </table>
+
+        {/* Footer fixo - fora da table, aparece no fundo de CADA pagina impressa */}
+        <img src="/timbrada_footer.png" alt="" className="print-footer-fixed hidden" style={{ width: '100%' }} />
       </div>
     </div>
   );
