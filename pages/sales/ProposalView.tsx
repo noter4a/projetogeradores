@@ -58,11 +58,40 @@ const ProposalView: React.FC = () => {
         }
         @media print {
           body { margin: 0; padding: 0; }
+
+          /* Header e Footer fixos aparecem em TODAS as páginas */
+          .print-letterhead-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+          }
+          .print-letterhead-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+          }
+
+          /* Esconde os elementos de preview da timbrada (só usa os fixos) */
+          .preview-header,
+          .preview-footer { display: none; }
+
+          /* Conteúdo com margem para não sobrepor header/footer */
+          .proposal-content {
+            margin-top: 35mm;
+            margin-bottom: 28mm;
+            padding-left: 15mm;
+            padding-right: 15mm;
+          }
+
           .proposal-a4 {
             width: 210mm !important;
-            min-height: 297mm !important;
             box-shadow: none !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
+            background: white !important;
           }
         }
       `}</style>
@@ -77,15 +106,19 @@ const ProposalView: React.FC = () => {
         </button>
       </div>
 
-      {/* A4 Document Wrapper with Letterhead */}
+      {/* Elementos FIXOS para impressão - aparecem em todas as páginas */}
+      <img src="/timbrada_header.png" alt="" className="print-letterhead-header hidden print:block" />
+      <img src="/timbrada_footer.png" alt="" className="print-letterhead-footer hidden print:block" />
+
+      {/* A4 Document Wrapper */}
       <div className="proposal-a4 bg-white mx-auto shadow-2xl print:shadow-none flex flex-col"
-        style={{ width: '210mm', minHeight: '297mm' }}>
-        
-        {/* Letterhead Header */}
-        <img src="/timbrada_header.png" alt="" className="w-full" />
+        style={{ width: '210mm' }}>
+
+        {/* Preview Header (só aparece na tela) */}
+        <img src="/timbrada_header.png" alt="" className="preview-header w-full print:hidden" />
 
         {/* Content area */}
-        <div className="flex-1 px-[15mm] py-4">
+        <div className="proposal-content flex-1 px-[15mm] py-4">
 
         {/* Header Block */}
         <div className="flex justify-between items-start mb-6">
@@ -330,8 +363,8 @@ ${proposal.tensao.descricao}` : ''}
         </div>
         </div>
 
-        {/* Letterhead Footer */}
-        <img src="/timbrada_footer.png" alt="" className="w-full mt-auto" />
+        {/* Preview Footer (só aparece na tela) */}
+        <img src="/timbrada_footer.png" alt="" className="preview-footer w-full mt-auto print:hidden" />
       </div>
     </div>
   );
