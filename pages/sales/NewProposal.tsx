@@ -44,7 +44,7 @@ const NewProposal: React.FC = () => {
   const [formaPagamento, setFormaPagamento] = useState('');
   const [prazoEntrega, setPrazoEntrega] = useState('');
   const [validadeDias, setValidadeDias] = useState(10);
-  const [valorCustom, setValorCustom] = useState<number>(0);
+  const [valorUnitCustom, setValorUnitCustom] = useState<number>(0);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -82,12 +82,13 @@ const NewProposal: React.FC = () => {
   }, []);
 
   const selectedGenerator = generators.find(g => g.id.toString() === generatorId);
-  const autoValue = selectedGenerator ? (Number(selectedGenerator.valor_unitario) * quantidade) : 0;
+  const autoUnitValue = selectedGenerator ? Number(selectedGenerator.valor_unitario) : 0;
+  const valorTotal = valorUnitCustom * quantidade;
 
   // Auto-fill when generator or quantity changes
   useEffect(() => {
-    setValorCustom(autoValue);
-  }, [generatorId, quantidade]);
+    setValorUnitCustom(autoUnitValue);
+  }, [generatorId]);
 
   const handleSave = async (status: string) => {
     if (!clientId || !generatorId) {
@@ -115,7 +116,7 @@ const NewProposal: React.FC = () => {
         outros_acessorios: outrosAcessorios,
         frete, ipi, icms, forma_pagamento: formaPagamento, prazo_entrega: prazoEntrega,
         valido_ate: hoje.toISOString(),
-        valor_total: valorCustom,
+        valor_total: valorTotal,
         status: status
       };
 
@@ -395,21 +396,25 @@ const NewProposal: React.FC = () => {
 
           <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-6 shadow-lg">
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">Valor Total da Proposta (R$)</label>
+              <label className="block text-sm text-gray-400 mb-1">Valor Unitário do Gerador (R$)</label>
               <CurrencyInput
-                value={valorCustom}
-                onChange={(val) => setValorCustom(val)}
-                className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-3 text-xl font-bold text-ciklo-orange outline-none focus:border-ciklo-orange text-right"
+                value={valorUnitCustom}
+                onChange={(val) => setValorUnitCustom(val)}
+                className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-3 text-lg font-bold text-white outline-none focus:border-ciklo-orange text-right"
               />
-              {autoValue > 0 && valorCustom !== autoValue && (
+              {autoUnitValue > 0 && valorUnitCustom !== autoUnitValue && (
                 <button
                   type="button"
-                  onClick={() => setValorCustom(autoValue)}
+                  onClick={() => setValorUnitCustom(autoUnitValue)}
                   className="text-xs text-gray-500 hover:text-ciklo-yellow mt-1 underline"
                 >
-                  Restaurar valor automático ({formatCurrency(autoValue)})
+                  Restaurar valor do catálogo ({formatCurrency(autoUnitValue)})
                 </button>
               )}
+            </div>
+            <div className="mb-4 flex justify-between items-center bg-gray-900/60 border border-gray-700 rounded-xl p-4">
+              <span className="text-sm text-gray-400">Valor Total (Unitário × Qtd)</span>
+              <span className="text-xl font-bold text-ciklo-orange">{formatCurrency(valorTotal)}</span>
             </div>
             <button 
               onClick={() => handleSave('ENVIADA')}
