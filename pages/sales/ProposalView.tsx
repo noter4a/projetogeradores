@@ -57,50 +57,12 @@ const ProposalView: React.FC = () => {
           margin: 0;
         }
         @media print {
-          body { margin: 0; padding: 0; }
-
-          /* Header e Footer fixos aparecem em TODAS as páginas */
-          .print-letterhead-header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            z-index: 1000;
-          }
-          .print-letterhead-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            z-index: 1000;
-          }
-
-          /* Esconde os elementos de preview da timbrada (só usa os fixos) */
-          .preview-header,
-          .preview-footer { display: none; }
-
-          /* Conteúdo com margem para não sobrepor header/footer */
-          .proposal-content {
-            margin-top: 35mm;
-            margin-bottom: 45mm;
-            padding-left: 15mm;
-            padding-right: 15mm;
-          }
-
-          /* Evita corte no meio de parágrafos e itens de lista */
-          .proposal-content p,
-          .proposal-content li,
-          .proposal-content div {
-            orphans: 3;
-            widows: 3;
-          }
-
-          .proposal-a4 {
-            width: 210mm !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            background: white !important;
-          }
+          body { margin: 0; padding: 0; background: white; }
+          .proposal-a4 { width: 210mm !important; box-shadow: none !important; margin: 0 !important; }
+          /* thead e tfoot se repetem em cada página automaticamente */
+          .letterhead-thead { display: table-header-group; }
+          .letterhead-tfoot { display: table-footer-group; }
+          .letterhead-tbody { display: table-row-group; }
         }
       `}</style>
       
@@ -114,19 +76,32 @@ const ProposalView: React.FC = () => {
         </button>
       </div>
 
-      {/* Elementos FIXOS para impressão - aparecem em todas as páginas */}
-      <img src="/timbrada_header.png" alt="" className="print-letterhead-header hidden print:block" />
-      <img src="/timbrada_footer.png" alt="" className="print-letterhead-footer hidden print:block" />
+      {/* A4 via TABLE para timbrada repetir em todas as páginas */}
+      <div className="proposal-a4 bg-white mx-auto shadow-2xl print:shadow-none" style={{ width: '210mm' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
 
-      {/* A4 Document Wrapper */}
-      <div className="proposal-a4 bg-white mx-auto shadow-2xl print:shadow-none flex flex-col"
-        style={{ width: '210mm' }}>
+          {/* THEAD — repete no topo de cada página impressa */}
+          <thead className="letterhead-thead">
+            <tr>
+              <td style={{ padding: 0 }}>
+                <img src="/timbrada_header.png" alt="" style={{ width: '100%', display: 'block' }} />
+              </td>
+            </tr>
+          </thead>
 
-        {/* Preview Header (só aparece na tela) */}
-        <img src="/timbrada_header.png" alt="" className="preview-header w-full print:hidden" />
+          {/* TFOOT — repete no rodapé de cada página impressa */}
+          <tfoot className="letterhead-tfoot">
+            <tr>
+              <td style={{ padding: 0 }}>
+                <img src="/timbrada_footer.png" alt="" style={{ width: '100%', display: 'block' }} />
+              </td>
+            </tr>
+          </tfoot>
 
-        {/* Content area */}
-        <div className="proposal-content flex-1 px-[15mm] py-4">
+          {/* TBODY — conteúdo da proposta */}
+          <tbody className="letterhead-tbody">
+            <tr>
+              <td style={{ padding: '4mm 15mm' }}>
 
         {/* Header Block */}
         <div className="flex justify-between items-start mb-6">
@@ -369,10 +344,10 @@ ${proposal.tensao.descricao}` : ''}
         <div className="mt-8 text-xs text-justify italic px-4 border-t border-gray-300 pt-4">
           Eu, ______________________________________________________ DECLARO expressamente a intenção de adquirir o grupo gerador, e ACEITO as especificações do presente orçamento, comprometendo-me com todos os termos acima expostos. <br/><br/> Data: ____/____/_____
         </div>
-        </div>
-
-        {/* Preview Footer (só aparece na tela) */}
-        <img src="/timbrada_footer.png" alt="" className="preview-footer w-full mt-auto print:hidden" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
