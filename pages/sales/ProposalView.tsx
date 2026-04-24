@@ -146,7 +146,7 @@ const ProposalView: React.FC = () => {
 
         {/* 1. Produto Summary */}
         <div className="mb-4">
-          <div className="font-bold text-sm bg-gray-200 p-1 border border-black inline-block px-4 mb-2">1. PRODUTO - {gerador?.modelo?.toUpperCase()}</div>
+          <div className="font-bold text-sm bg-gray-200 p-1 border border-black inline-block px-4 mb-2">1. PRODUTO</div>
           <table className="w-full text-sm border-collapse border border-black text-center mb-6">
             <thead>
               <tr className="bg-gray-100 font-bold border border-black">
@@ -164,7 +164,8 @@ const ProposalView: React.FC = () => {
                 <td className="border border-black p-2 align-top">{proposal.quantidade}</td>
                 <td className="border border-black p-2 align-top">{gerador?.unidade || 'UN'}</td>
                 <td className="border border-black p-2 text-left whitespace-pre-wrap">
-                  {gerador?.descricao || gerador?.modelo}{proposal.tensao ? `,
+                  <span className="font-semibold">{gerador?.modelo?.toUpperCase()}</span>{'
+'}{gerador?.descricao || ''}{proposal.tensao ? `,
 ${proposal.tensao.descricao}` : ''}
                 </td>
                 <td className="border border-black p-2 align-top">{formatCurrency(gerador?.valor_unitario)}</td>
