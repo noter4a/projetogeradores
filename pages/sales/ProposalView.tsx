@@ -51,6 +51,21 @@ const ProposalView: React.FC = () => {
   const gerador = proposal.gerador;
   return (
     <div className="bg-gray-200 min-h-screen py-4 sm:py-8 print:bg-white print:py-0 text-black font-sans overflow-x-auto">
+      <style>{`
+        @page {
+          size: A4;
+          margin: 0;
+        }
+        @media print {
+          body { margin: 0; padding: 0; }
+          .proposal-a4 {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            box-shadow: none !important;
+            margin: 0 auto !important;
+          }
+        }
+      `}</style>
       
       {/* No-Print Actions Bar */}
       <div className="max-w-[210mm] mx-auto mb-4 flex flex-wrap justify-between items-center gap-2 print:hidden px-2 sm:px-0">
@@ -63,7 +78,7 @@ const ProposalView: React.FC = () => {
       </div>
 
       {/* A4 Document Wrapper with Letterhead */}
-      <div className="bg-white mx-auto shadow-2xl print:shadow-none flex flex-col"
+      <div className="proposal-a4 bg-white mx-auto shadow-2xl print:shadow-none flex flex-col"
         style={{ width: '210mm', minHeight: '297mm' }}>
         
         {/* Letterhead Header */}
