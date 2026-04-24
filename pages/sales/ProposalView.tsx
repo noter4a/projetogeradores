@@ -50,21 +50,36 @@ const ProposalView: React.FC = () => {
   const cliente = proposal.cliente;
   const gerador = proposal.gerador;
 
+  const scale = typeof window !== 'undefined' ? Math.min(1, window.innerWidth / 794) : 1;
+
   return (
-    <div className="bg-gray-200 min-h-screen py-8 print:bg-white print:py-0 text-black font-sans">
+    <div className="bg-gray-200 min-h-screen py-4 sm:py-8 print:bg-white print:py-0 text-black font-sans overflow-x-hidden">
+      <style>{`
+        @media (max-width: 794px) {
+          .proposal-a4 {
+            transform: scale(${scale});
+            transform-origin: top center;
+            margin-bottom: calc((${scale} - 1) * 297mm);
+          }
+        }
+        @media print {
+          .proposal-a4 { transform: none !important; margin-bottom: 0 !important; }
+        }
+      `}</style>
       
       {/* No-Print Actions Bar */}
-      <div className="max-w-[210mm] mx-auto mb-4 flex justify-between items-center print:hidden">
-        <button onClick={() => navigate('/sales/proposals')} className="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-gray-700">
-          <ArrowLeft size={18} /> Voltar
+      <div className="max-w-[210mm] mx-auto mb-4 flex flex-wrap justify-between items-center gap-2 print:hidden px-2 sm:px-0">
+        <button onClick={() => navigate('/sales/proposals')} className="flex items-center gap-2 bg-gray-800 text-white px-3 py-2 rounded shadow hover:bg-gray-700 text-sm">
+          <ArrowLeft size={16} /> Voltar
         </button>
-        <button onClick={() => window.print()} className="flex items-center gap-2 bg-ciklo-orange text-white px-4 py-2 rounded shadow font-bold hover:bg-orange-600">
-          <Printer size={18} /> Imprimir / PDF
+        <button onClick={() => window.print()} className="flex items-center gap-2 bg-ciklo-orange text-white px-3 py-2 rounded shadow font-bold hover:bg-orange-600 text-sm">
+          <Printer size={16} /> Imprimir / PDF
         </button>
       </div>
 
       {/* A4 Document Wrapper with Letterhead */}
-      <div className="bg-white mx-auto shadow-2xl print:shadow-none w-[210mm] min-h-[297mm] flex flex-col">
+      <div className="proposal-a4 bg-white mx-auto shadow-2xl print:shadow-none flex flex-col"
+        style={{ width: '210mm', minHeight: '297mm', transformOrigin: 'top center' }}>
         
         {/* Letterhead Header */}
         <img src="/timbrada_header.png" alt="" className="w-full" />
