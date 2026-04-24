@@ -58,11 +58,25 @@ const ProposalView: React.FC = () => {
         }
         @media print {
           body { margin: 0; padding: 0; background: white; }
+
           .proposal-a4 { width: 210mm !important; box-shadow: none !important; margin: 0 !important; }
-          /* thead e tfoot se repetem em cada página automaticamente */
+
+          /* thead repete o header no TOPO de cada página */
           .letterhead-thead { display: table-header-group; }
-          .letterhead-tfoot { display: table-footer-group; }
           .letterhead-tbody { display: table-row-group; }
+
+          /* Footer fixo no FUNDO de cada página */
+          .letterhead-fixed-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+          }
+
+          /* Espaço no fim do conteúdo para nunca ficar atrás do footer */
+          .content-cell {
+            padding-bottom: 42mm !important;
+          }
         }
       `}</style>
       
@@ -89,19 +103,13 @@ const ProposalView: React.FC = () => {
             </tr>
           </thead>
 
-          {/* TFOOT — repete no rodapé de cada página impressa */}
-          <tfoot className="letterhead-tfoot">
-            <tr>
-              <td style={{ padding: 0 }}>
-                <img src="/timbrada_footer.png" alt="" style={{ width: '100%', display: 'block' }} />
-              </td>
-            </tr>
-          </tfoot>
+          {/* Footer FIXO - aparece no FUNDO de todas as páginas, inclusive a última */}
+          <img src="/timbrada_footer.png" alt="" className="letterhead-fixed-footer hidden print:block" style={{ width: '100%', display: 'none' }} />
 
           {/* TBODY — conteúdo da proposta */}
           <tbody className="letterhead-tbody">
             <tr>
-              <td style={{ padding: '4mm 15mm' }}>
+              <td className="content-cell" style={{ padding: '4mm 15mm', paddingBottom: '8mm' }}>
 
         {/* Header Block */}
         <div className="flex justify-between items-start mb-6">
