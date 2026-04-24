@@ -49,23 +49,8 @@ const ProposalView: React.FC = () => {
 
   const cliente = proposal.cliente;
   const gerador = proposal.gerador;
-
-  const scale = typeof window !== 'undefined' ? Math.min(1, window.innerWidth / 794) : 1;
-
   return (
-    <div className="bg-gray-200 min-h-screen py-4 sm:py-8 print:bg-white print:py-0 text-black font-sans overflow-x-hidden">
-      <style>{`
-        @media (max-width: 794px) {
-          .proposal-a4 {
-            transform: scale(${scale});
-            transform-origin: top center;
-            margin-bottom: calc((${scale} - 1) * 297mm);
-          }
-        }
-        @media print {
-          .proposal-a4 { transform: none !important; margin-bottom: 0 !important; }
-        }
-      `}</style>
+    <div className="bg-gray-200 min-h-screen py-4 sm:py-8 print:bg-white print:py-0 text-black font-sans overflow-x-auto">
       
       {/* No-Print Actions Bar */}
       <div className="max-w-[210mm] mx-auto mb-4 flex flex-wrap justify-between items-center gap-2 print:hidden px-2 sm:px-0">
@@ -78,8 +63,8 @@ const ProposalView: React.FC = () => {
       </div>
 
       {/* A4 Document Wrapper with Letterhead */}
-      <div className="proposal-a4 bg-white mx-auto shadow-2xl print:shadow-none flex flex-col"
-        style={{ width: '210mm', minHeight: '297mm', transformOrigin: 'top center' }}>
+      <div className="bg-white mx-auto shadow-2xl print:shadow-none flex flex-col"
+        style={{ width: '210mm', minHeight: '297mm' }}>
         
         {/* Letterhead Header */}
         <img src="/timbrada_header.png" alt="" className="w-full" />
