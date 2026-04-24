@@ -312,6 +312,7 @@ ${proposal.tensao.descricao}` : ''}
         </div>
         </div>
       </div>
+    </div>
   );
 };
 
