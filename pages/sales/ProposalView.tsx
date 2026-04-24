@@ -64,10 +64,13 @@ const ProposalView: React.FC = () => {
       </div>
 
       {/* A4 Document Wrapper with Letterhead */}
-      <div className="bg-white mx-auto shadow-2xl print:shadow-none w-[210mm] min-h-[297mm] relative" style={{ backgroundImage: 'url(/timbrada_bg.jpg)', backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat' }}>
+      <div className="bg-white mx-auto shadow-2xl print:shadow-none w-[210mm] min-h-[297mm] flex flex-col">
         
-        {/* Content area - padded to fit within the letterhead */}
-        <div className="px-[15mm] pt-[35mm] pb-[30mm]">
+        {/* Letterhead Header */}
+        <img src="/timbrada_header.png" alt="" className="w-full" />
+
+        {/* Content area */}
+        <div className="flex-1 px-[15mm] py-4">
 
         {/* Header Block */}
         <div className="flex justify-between items-start mb-6">
@@ -311,6 +314,9 @@ ${proposal.tensao.descricao}` : ''}
           Eu, ______________________________________________________ DECLARO expressamente a intenção de adquirir o grupo gerador, e ACEITO as especificações do presente orçamento, comprometendo-me com todos os termos acima expostos. <br/><br/> Data: ____/____/_____
         </div>
         </div>
+
+        {/* Letterhead Footer */}
+        <img src="/timbrada_footer.png" alt="" className="w-full mt-auto" />
       </div>
     </div>
   );
