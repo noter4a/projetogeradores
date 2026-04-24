@@ -82,9 +82,17 @@ const ProposalView: React.FC = () => {
           /* Conteúdo com margem para não sobrepor header/footer */
           .proposal-content {
             margin-top: 35mm;
-            margin-bottom: 28mm;
+            margin-bottom: 45mm;
             padding-left: 15mm;
             padding-right: 15mm;
+          }
+
+          /* Evita corte no meio de parágrafos e itens de lista */
+          .proposal-content p,
+          .proposal-content li,
+          .proposal-content div {
+            orphans: 3;
+            widows: 3;
           }
 
           .proposal-a4 {
