@@ -63,13 +63,11 @@ const ProposalView: React.FC = () => {
         </button>
       </div>
 
-      {/* A4 Document Wrapper */}
-      <div className="bg-white mx-auto shadow-2xl print:shadow-none w-[210mm] min-h-[297mm] p-[15mm]">
+      {/* A4 Document Wrapper with Letterhead */}
+      <div className="bg-white mx-auto shadow-2xl print:shadow-none w-[210mm] min-h-[297mm] relative" style={{ backgroundImage: 'url(/timbrada_bg.jpg)', backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat' }}>
         
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <img src="/logo-ciklo.png" alt="Ciklo Geradores" className="h-16 object-contain" />
-        </div>
+        {/* Content area - padded to fit within the letterhead */}
+        <div className="px-[15mm] pt-[35mm] pb-[30mm]">
 
         {/* Header Block */}
         <div className="flex justify-between items-start mb-6">
@@ -312,8 +310,8 @@ ${proposal.tensao.descricao}` : ''}
         <div className="mt-8 text-xs text-justify italic px-4 border-t border-gray-300 pt-4">
           Eu, ______________________________________________________ DECLARO expressamente a intenção de adquirir o grupo gerador, e ACEITO as especificações do presente orçamento, comprometendo-me com todos os termos acima expostos. <br/><br/> Data: ____/____/_____
         </div>
+        </div>
       </div>
-    </div>
   );
 };
 
