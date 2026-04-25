@@ -325,8 +325,8 @@ const ProposalView: React.FC = () => {
           </div>
         </div>
 
-        {/* Bank Details */}
-        <div className="text-xs mb-8">
+        {/* Bank Details - sempre na última página */}
+        <div className="text-xs mb-8" style={{ pageBreakBefore: 'always' }}>
            <div className="font-bold underline mb-2 text-center text-sm">DADOS BANCÁRIOS PARA DEPÓSITO</div>
            <div className="text-center font-bold mb-2">CIKLO INDÚSTRIA E COMÉRCIO DE GERADORES LTDA - CNPJ: 17.206.381/0001-62</div>
            <div className="flex justify-center gap-10">
