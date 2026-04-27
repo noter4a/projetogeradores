@@ -214,36 +214,35 @@ const NewProposal: React.FC = () => {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Gerador Base *</label>
-                <div className="flex gap-2">
-                  <select
-                    value={isNewGerador ? '__new__' : generatorId}
-                    onChange={e => {
-                      if (e.target.value === '__new__') {
-                        setIsNewGerador(true);
-                        setGeneratorId('');
-                      } else {
-                        setIsNewGerador(false);
-                        setGeneratorId(e.target.value);
-                      }
-                    }}
-                    className="flex-1 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none"
-                  >
-                    <option value="">-- Selecione o Modelo do Gerador --</option>
-                    {generators.map(g => (
-                      <option key={g.id} value={g.id}>{g.modelo} - {formatCurrency(g.valor_unitario || 0)}</option>
-                    ))}
-                    <option value="__new__">➕ Adicionar Novo Gerador</option>
-                  </select>
-                  <div className="w-24">
-                    <input 
-                      type="number" min="1" title="Quantidade" value={quantidade} onChange={e => setQuantidade(parseInt(e.target.value))}
-                      className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange text-center outline-none"
-                    />
+                <label className="block text-sm text-gray-400 mb-1">Geradores *</label>
+                {itens.map((item, idx) => (
+                  <div key={idx} className="flex gap-2 mb-2 items-center">
+                    <select
+                      value={item.geradorId}
+                      onChange={e => updateItem(idx, 'geradorId', e.target.value)}
+                      className="flex-1 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none text-sm"
+                    >
+                      <option value="">-- Selecione o Gerador --</option>
+                      {generators.map(g => (
+                        <option key={g.id} value={g.id}>{g.modelo} - {formatCurrency(g.valor_unitario || 0)}</option>
+                      ))}
+                    </select>
+                    <input type="number" min="1" title="Qtd" value={item.quantidade}
+                      onChange={e => updateItem(idx, 'quantidade', parseInt(e.target.value) || 1)}
+                      className="w-16 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white text-center outline-none text-sm" />
+                    <CurrencyInput value={item.valorUnit}
+                      onChange={(val) => updateItem(idx, 'valorUnit', val)}
+                      className="w-36 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white text-right outline-none text-sm" />
+                    {itens.length > 1 && (
+                      <button type="button" onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-300 p-2" title="Remover"><X size={16} /></button>
+                    )}
                   </div>
-                </div>
-
+                ))}
+                <button type="button" onClick={addItem} className="flex items-center gap-1 text-ciklo-yellow hover:text-ciklo-orange text-sm mt-1">
+                  <PlusCircle size={14} /> Adicionar outro gerador
+                </button>
               </div>
+
 
               <div className="mb-4">
                 <label className="block text-sm text-gray-400 mb-1">Tensão</label>
