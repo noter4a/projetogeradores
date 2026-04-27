@@ -216,26 +216,34 @@ const NewProposal: React.FC = () => {
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Geradores *</label>
                 {itens.map((item, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2 items-center">
+                  <div key={idx} className="mb-3 bg-gray-800/30 border border-gray-700 rounded-lg p-3">
                     <select
                       value={item.geradorId}
                       onChange={e => updateItem(idx, 'geradorId', e.target.value)}
-                      className="flex-1 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none text-sm"
+                      className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none text-sm mb-2"
                     >
                       <option value="">-- Selecione o Gerador --</option>
                       {generators.map(g => (
                         <option key={g.id} value={g.id}>{g.modelo} - {formatCurrency(g.valor_unitario || 0)}</option>
                       ))}
                     </select>
-                    <input type="number" min="1" title="Qtd" value={item.quantidade}
-                      onChange={e => updateItem(idx, 'quantidade', parseInt(e.target.value) || 1)}
-                      className="w-16 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white text-center outline-none text-sm" />
-                    <CurrencyInput value={item.valorUnit}
-                      onChange={(val) => updateItem(idx, 'valorUnit', val)}
-                      className="w-36 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white text-right outline-none text-sm" />
-                    {itens.length > 1 && (
-                      <button type="button" onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-300 p-2" title="Remover"><X size={16} /></button>
-                    )}
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-shrink-0">
+                        <label className="block text-xs text-gray-500 mb-0.5">Qtd</label>
+                        <input type="number" min="1" value={item.quantidade}
+                          onChange={e => updateItem(idx, 'quantidade', parseInt(e.target.value) || 1)}
+                          className="w-16 bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-center outline-none text-sm" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-xs text-gray-500 mb-0.5">Valor Unitário</label>
+                        <CurrencyInput value={item.valorUnit}
+                          onChange={(val) => updateItem(idx, 'valorUnit', val)}
+                          className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-right outline-none text-sm" />
+                      </div>
+                      {itens.length > 1 && (
+                        <button type="button" onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-300 p-1.5 mt-4 flex-shrink-0" title="Remover"><X size={16} /></button>
+                      )}
+                    </div>
                   </div>
                 ))}
                 <button type="button" onClick={addItem} className="flex items-center gap-1 text-ciklo-yellow hover:text-ciklo-orange text-sm mt-1">
