@@ -284,6 +284,7 @@ const ProposalView: React.FC = () => {
             <p className="text-justify">
               O escopo de fornecimento da Ciklo Geradores foi elaborado conforme informações enviadas por V.Sa., se limitando inteiramente aos itens descritos nesta, não constituindo no fornecimento de energia. Na eventual indisponibilidade de funcionamento dos equipamentos, a Ciklo Geradores não retrata nenhuma forma de ressarcimento por lucros cessantes e/ou perdas e danos ao cliente e/ou terceiros.
             </p>
+            <p className="mt-2 font-bold" style={{ backgroundColor: '#FFFF00', display: 'inline' }}>Dimensionamento realizado pelo cliente.</p>
           </div>
 
           <div>
