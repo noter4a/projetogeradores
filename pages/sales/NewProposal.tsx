@@ -22,10 +22,12 @@ const NewProposal: React.FC = () => {
   const [dimensions, setDimensions] = useState<QmCatalogDimension[]>([]);
   const [tensoes, setTensoes] = useState<any[]>([]);
 
+  // Items (multiple generators)
+  type ItemProposta = { geradorId: string; quantidade: number; valorUnit: number; };
+  const [itens, setItens] = useState<ItemProposta[]>([{ geradorId: '', quantidade: 1, valorUnit: 0 }]);
+
   // Form State
   const [clientId, setClientId] = useState('');
-  const [generatorId, setGeneratorId] = useState('');
-  const [quantidade, setQuantidade] = useState(1);
   const [motorId, setMotorId] = useState('');
   const [alternadorId, setAlternadorId] = useState('');
   const [moduloId, setModuloId] = useState('');
@@ -44,7 +46,6 @@ const NewProposal: React.FC = () => {
   const [formaPagamento, setFormaPagamento] = useState('');
   const [prazoEntrega, setPrazoEntrega] = useState('');
   const [validadeDias, setValidadeDias] = useState(10);
-  const [valorUnitCustom, setValorUnitCustom] = useState<number>(0);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -81,18 +82,28 @@ const NewProposal: React.FC = () => {
     fetchAll();
   }, []);
 
-  const selectedGenerator = generators.find(g => g.id.toString() === generatorId);
-  const autoUnitValue = selectedGenerator ? Number(selectedGenerator.valor_unitario) : 0;
-  const valorTotal = valorUnitCustom * quantidade;
+  // Calculate total from all items
+  const valorTotal = itens.reduce((sum, item) => sum + (item.valorUnit * item.quantidade), 0);
 
-  // Auto-fill when generator or quantity changes
-  useEffect(() => {
-    setValorUnitCustom(autoUnitValue);
-  }, [generatorId]);
+  // Helper to update a single item
+  const updateItem = (index: number, field: keyof ItemProposta, value: any) => {
+    setItens(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      // Auto-fill unit price when generator changes
+      if (field === 'geradorId') {
+        const gen = generators.find(g => g.id.toString() === value);
+        if (gen) updated[index].valorUnit = Number(gen.valor_unitario) || 0;
+      }
+      return updated;
+    });
+  };
+  const addItem = () => setItens(prev => [...prev, { geradorId: '', quantidade: 1, valorUnit: 0 }]);
+  const removeItem = (index: number) => { if (itens.length > 1) setItens(prev => prev.filter((_, i) => i !== index)); };
 
   const handleSave = async (status: string) => {
-    if (!clientId || !generatorId) {
-      alert("Por favor selecione pelo menos o Cliente e o Gerador.");
+    if (!clientId || itens.every(i => !i.geradorId)) {
+      alert("Por favor selecione pelo menos o Cliente e um Gerador.");
       return;
     }
 
@@ -103,10 +114,11 @@ const NewProposal: React.FC = () => {
       const hoje = new Date();
       hoje.setDate(hoje.getDate() + validadeDias);
 
+      const validItens = itens.filter(i => i.geradorId);
       const payload = {
         cliente_id: Number(clientId),
-        gerador_id: Number(generatorId),
-        quantidade: quantidade,
+        gerador_id: validItens.length > 0 ? Number(validItens[0].geradorId) : null,
+        quantidade: validItens.length > 0 ? validItens[0].quantidade : 1,
         motor_id: motorId ? Number(motorId) : null,
         alternador_id: alternadorId ? Number(alternadorId) : null,
         modulo_id: moduloId ? Number(moduloId) : null,
@@ -117,7 +129,8 @@ const NewProposal: React.FC = () => {
         frete, ipi, icms, forma_pagamento: formaPagamento, prazo_entrega: prazoEntrega,
         valido_ate: hoje.toISOString(),
         valor_total: valorTotal,
-        status: status
+        status: status,
+        itens: validItens.map(i => ({ gerador_id: Number(i.geradorId), quantidade: i.quantidade, valor_unitario: i.valorUnit }))
       };
 
       const res = await fetch('/api/proposals', {
@@ -230,60 +243,6 @@ const NewProposal: React.FC = () => {
                   </div>
                 </div>
 
-                {isNewGerador && (
-                  <div className="mt-3 bg-gray-800/50 border border-gray-700 rounded-lg p-4 space-y-3">
-                    <div className="text-sm text-ciklo-yellow font-semibold flex items-center gap-1 mb-2">
-                      <PlusCircle size={16} /> Cadastrar Novo Gerador
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Modelo *</label>
-                        <input type="text" value={newGerador.modelo} onChange={e => setNewGerador({...newGerador, modelo: e.target.value})} placeholder="Ex: GG-100/90KVA" className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-ciklo-orange placeholder-gray-600" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1">Valor Unitário (R$)</label>
-                        <CurrencyInput value={newGerador.valor_unitario} onChange={(val) => setNewGerador({...newGerador, valor_unitario: val})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-ciklo-orange" />
-                      </div>
-                      <div className="col-span-1 md:col-span-2">
-                        <label className="block text-xs text-gray-400 mb-1">Descrição</label>
-                        <textarea rows={2} value={newGerador.descricao} onChange={e => setNewGerador({...newGerador, descricao: e.target.value})} placeholder="Descrição completa do gerador" className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-ciklo-orange placeholder-gray-600" />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={savingGerador || !newGerador.modelo}
-                        onClick={async () => {
-                          setSavingGerador(true);
-                          try {
-                            const token = localStorage.getItem('ciklo_auth_token');
-                            const res = await fetch('/api/catalog/geradores', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                              body: JSON.stringify(newGerador)
-                            });
-                            if (res.ok) {
-                              const created = await res.json();
-                              setGenerators(prev => [...prev, created]);
-                              setGeneratorId(created.id.toString());
-                              setIsNewGerador(false);
-                              setNewGerador({ modelo: '', descricao: '', valor_unitario: 0, unidade: 'UN' });
-                            } else {
-                              alert('Erro ao cadastrar gerador');
-                            }
-                          } catch { alert('Erro inesperado'); }
-                          setSavingGerador(false);
-                        }}
-                        className="bg-ciklo-orange hover:bg-orange-600 text-black font-bold px-4 py-1.5 rounded-lg text-sm disabled:opacity-50 transition-colors"
-                      >
-                        {savingGerador ? 'Salvando...' : 'Salvar Gerador'}
-                      </button>
-                      <button type="button" onClick={() => { setIsNewGerador(false); }} className="text-gray-400 hover:text-white text-sm px-3 py-1.5">
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="mb-4">
@@ -395,25 +354,8 @@ const NewProposal: React.FC = () => {
           </div>
 
           <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-6 shadow-lg">
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">Valor Unitário do Gerador (R$)</label>
-              <CurrencyInput
-                value={valorUnitCustom}
-                onChange={(val) => setValorUnitCustom(val)}
-                className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-3 text-lg font-bold text-white outline-none focus:border-ciklo-orange text-right"
-              />
-              {autoUnitValue > 0 && valorUnitCustom !== autoUnitValue && (
-                <button
-                  type="button"
-                  onClick={() => setValorUnitCustom(autoUnitValue)}
-                  className="text-xs text-gray-500 hover:text-ciklo-yellow mt-1 underline"
-                >
-                  Restaurar valor do catálogo ({formatCurrency(autoUnitValue)})
-                </button>
-              )}
-            </div>
             <div className="mb-4 flex justify-between items-center bg-gray-900/60 border border-gray-700 rounded-xl p-4">
-              <span className="text-sm text-gray-400">Valor Total (Unitário × Qtd)</span>
+              <span className="text-sm text-gray-400">Valor Total da Proposta</span>
               <span className="text-xl font-bold text-ciklo-orange">{formatCurrency(valorTotal)}</span>
             </div>
             <button 

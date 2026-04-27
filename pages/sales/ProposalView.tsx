@@ -170,16 +170,20 @@ const ProposalView: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="border border-black p-2 align-top">1</td>
-                <td className="border border-black p-2 align-top">{proposal.quantidade}</td>
-                <td className="border border-black p-2 align-top">{gerador?.unidade || 'UN'}</td>
+              {(proposal.itens && proposal.itens.length > 0 ? proposal.itens : [
+                { gerador_data: gerador, quantidade: proposal.quantidade, valor_unitario: (proposal.valor_total || 0) / (proposal.quantidade || 1) }
+              ]).map((item: any, idx: number) => (
+              <tr key={idx}>
+                <td className="border border-black p-2 align-top">{idx + 1}</td>
+                <td className="border border-black p-2 align-top">{item.quantidade}</td>
+                <td className="border border-black p-2 align-top">{item.gerador_data?.unidade || 'UN'}</td>
                 <td className="border border-black p-2 text-left whitespace-pre-wrap">
-                  <span className="font-semibold">{gerador?.modelo?.toUpperCase()}</span>{proposal.tensao ? `,\n${proposal.tensao.descricao}` : ''}
+                  <span className="font-semibold">{item.gerador_data?.modelo?.toUpperCase()}</span>{proposal.tensao ? `,\n${proposal.tensao.descricao}` : ''}
                 </td>
-                <td className="border border-black p-2 align-top">{formatCurrency((proposal.valor_total || 0) / (proposal.quantidade || 1))}</td>
-                <td className="border border-black p-2 align-top">{formatCurrency(proposal.valor_total)}</td>
+                <td className="border border-black p-2 align-top">{formatCurrency(Number(item.valor_unitario))}</td>
+                <td className="border border-black p-2 align-top">{formatCurrency(Number(item.valor_unitario) * Number(item.quantidade))}</td>
               </tr>
+              ))}
               <tr className="font-bold bg-gray-100">
                 <td colSpan={5} className="border border-black p-2 text-right">TOTAL</td>
                 <td className="border border-black p-2">{formatCurrency(proposal.valor_total)}</td>
