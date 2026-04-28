@@ -12,9 +12,12 @@ const ensureItemsTable = async () => {
         proposta_id INTEGER NOT NULL REFERENCES qm_propostas(id) ON DELETE CASCADE,
         gerador_id INTEGER REFERENCES qm_catalogo_geradores(id),
         quantidade INTEGER NOT NULL DEFAULT 1,
-        valor_unitario NUMERIC(14,2) NOT NULL DEFAULT 0
+        valor_unitario NUMERIC(14,2) NOT NULL DEFAULT 0,
+        modelo_custom VARCHAR(255)
       )
     `);
+    // Auto-migrate: add modelo_custom if table already exists
+    try { await pool.query(`ALTER TABLE qm_proposta_itens ADD COLUMN IF NOT EXISTS modelo_custom VARCHAR(255)`); } catch(e2) {}
   } catch(e) { console.error('Error creating items table:', e.message); }
 };
 ensureItemsTable();
@@ -26,7 +29,7 @@ router.get('/', async (req, res) => {
             SELECT p.id, p.numero_proposta, p.status, p.data_emissao, p.valor_total,
                    c.razao_social as cliente_nome,
                    COALESCE(
-                     (SELECT string_agg(g2.modelo, ', ') FROM qm_proposta_itens pi2 
+                     (SELECT string_agg(COALESCE(pi2.modelo_custom, g2.modelo), ', ') FROM qm_proposta_itens pi2 
                       LEFT JOIN qm_catalogo_geradores g2 ON pi2.gerador_id = g2.id 
                       WHERE pi2.proposta_id = p.id),
                      g.modelo
@@ -168,9 +171,9 @@ router.post('/', async (req, res) => {
             if (itens && itens.length > 0) {
                 for (const item of itens) {
                     await client.query(
-                        `INSERT INTO qm_proposta_itens (proposta_id, gerador_id, quantidade, valor_unitario)
-                         VALUES ($1, $2, $3, $4)`,
-                        [proposal.id, item.gerador_id, item.quantidade, item.valor_unitario]
+                        `INSERT INTO qm_proposta_itens (proposta_id, gerador_id, quantidade, valor_unitario, modelo_custom)
+                         VALUES ($1, $2, $3, $4, $5)`,
+                        [proposal.id, item.gerador_id || null, item.quantidade, item.valor_unitario, item.modelo_custom || null]
                     );
                 }
             }
@@ -236,9 +239,9 @@ router.put('/:id', async (req, res) => {
                 await client.query('DELETE FROM qm_proposta_itens WHERE proposta_id = $1', [id]);
                 for (const item of itens) {
                     await client.query(
-                        `INSERT INTO qm_proposta_itens (proposta_id, gerador_id, quantidade, valor_unitario)
-                         VALUES ($1, $2, $3, $4)`,
-                        [id, item.gerador_id, item.quantidade, item.valor_unitario]
+                        `INSERT INTO qm_proposta_itens (proposta_id, gerador_id, quantidade, valor_unitario, modelo_custom)
+                         VALUES ($1, $2, $3, $4, $5)`,
+                        [id, item.gerador_id || null, item.quantidade, item.valor_unitario, item.modelo_custom || null]
                     );
                 }
             }

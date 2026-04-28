@@ -23,7 +23,7 @@ const NewProposal: React.FC = () => {
   const [tensoes, setTensoes] = useState<any[]>([]);
 
   // Items (multiple generators)
-  type ItemProposta = { geradorId: string; quantidade: number; valorUnit: number; };
+  type ItemProposta = { geradorId: string; quantidade: number; valorUnit: number; modeloCustom?: string; };
   const [itens, setItens] = useState<ItemProposta[]>([{ geradorId: '', quantidade: 1, valorUnit: 0 }]);
 
   // Form State
@@ -98,11 +98,11 @@ const NewProposal: React.FC = () => {
       return updated;
     });
   };
-  const addItem = () => setItens(prev => [...prev, { geradorId: '', quantidade: 1, valorUnit: 0 }]);
+  const addItem = () => setItens(prev => [...prev, { geradorId: '', quantidade: 1, valorUnit: 0, modeloCustom: undefined }]);
   const removeItem = (index: number) => { if (itens.length > 1) setItens(prev => prev.filter((_, i) => i !== index)); };
 
   const handleSave = async (status: string) => {
-    if (!clientId || itens.every(i => !i.geradorId)) {
+    if (!clientId || itens.every(i => !i.geradorId && !i.modeloCustom)) {
       alert("Por favor selecione pelo menos o Cliente e um Gerador.");
       return;
     }
@@ -114,7 +114,7 @@ const NewProposal: React.FC = () => {
       const hoje = new Date();
       hoje.setDate(hoje.getDate() + validadeDias);
 
-      const validItens = itens.filter(i => i.geradorId);
+      const validItens = itens.filter(i => i.geradorId || i.modeloCustom);
       const payload = {
         cliente_id: Number(clientId),
         gerador_id: validItens.length > 0 ? Number(validItens[0].geradorId) : null,
@@ -130,7 +130,7 @@ const NewProposal: React.FC = () => {
         valido_ate: hoje.toISOString(),
         valor_total: valorTotal,
         status: status,
-        itens: validItens.map(i => ({ gerador_id: Number(i.geradorId), quantidade: i.quantidade, valor_unitario: i.valorUnit }))
+        itens: validItens.map(i => ({ gerador_id: i.geradorId.startsWith('temp_') ? null : Number(i.geradorId), quantidade: i.quantidade, valor_unitario: i.valorUnit, modelo_custom: i.modeloCustom || null }))
       };
 
       const res = await fetch('/api/proposals', {
@@ -217,17 +217,27 @@ const NewProposal: React.FC = () => {
                 <label className="block text-sm text-gray-400 mb-1">Geradores *</label>
                 {itens.map((item, idx) => (
                   <div key={idx} className="mb-3 bg-gray-800/30 border border-gray-700 rounded-lg p-3">
-                    <select
-                      value={item.geradorId}
-                      onChange={e => { if (e.target.value === '__new__') { setIsNewGerador(true); } else { updateItem(idx, 'geradorId', e.target.value); } }}
-                      className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none text-sm mb-2"
-                    >
-                      <option value="">-- Selecione o Gerador --</option>
-                      {generators.map(g => (
-                        <option key={g.id} value={g.id}>{g.modelo} - {formatCurrency(g.valor_unitario || 0)}</option>
-                      ))}
-                      <option value="__new__">{String.fromCodePoint(10133)} Cadastrar Novo Gerador</option>
-                    </select>
+                    {item.modeloCustom ? (
+                      <div className="flex gap-2 mb-2">
+                        <input type="text" value={item.modeloCustom}
+                          onChange={e => updateItem(idx, 'modeloCustom', e.target.value)}
+                          className="flex-1 bg-ciklo-black border border-ciklo-yellow/50 rounded-lg p-2.5 text-ciklo-yellow font-semibold outline-none text-sm"
+                          placeholder="Nome do gerador" />
+                        <span className="text-xs text-gray-500 self-center whitespace-nowrap">Temporário</span>
+                      </div>
+                    ) : (
+                      <select
+                        value={item.geradorId}
+                        onChange={e => { if (e.target.value === '__new__') { setIsNewGerador(true); } else { updateItem(idx, 'geradorId', e.target.value); } }}
+                        className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none text-sm mb-2"
+                      >
+                        <option value="">-- Selecione o Gerador --</option>
+                        {generators.map(g => (
+                          <option key={g.id} value={g.id}>{g.modelo} - {formatCurrency(g.valor_unitario || 0)}</option>
+                        ))}
+                        <option value="__new__">{String.fromCodePoint(10133)} Cadastrar Novo Gerador</option>
+                      </select>
+                    )}
                     <div className="flex gap-2 items-center">
                       <div className="flex-shrink-0">
                         <label className="block text-xs text-gray-500 mb-0.5">Qtd</label>
@@ -274,29 +284,22 @@ const NewProposal: React.FC = () => {
                       <button
                         type="button"
                         disabled={savingGerador || !newGerador.modelo}
-                        onClick={async () => {
-                          setSavingGerador(true);
-                          try {
-                            const token = localStorage.getItem('ciklo_auth_token');
-                            const res = await fetch('/api/catalog/geradores', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                              body: JSON.stringify(newGerador)
-                            });
-                            if (res.ok) {
-                              const created = await res.json();
-                              setGenerators(prev => [...prev, created]);
-                              setIsNewGerador(false);
-                              setNewGerador({ modelo: '', descricao: '', valor_unitario: 0, unidade: 'UN' });
-                            } else {
-                              alert('Erro ao cadastrar gerador');
-                            }
-                          } catch { alert('Erro inesperado'); }
-                          setSavingGerador(false);
+                        onClick={() => {
+                          if (!newGerador.modelo) return;
+                          // Adiciona como item temporário local (não salva no catálogo)
+                          const tempId = `temp_${Date.now()}`;
+                          setItens(prev => [...prev, {
+                            geradorId: tempId,
+                            quantidade: 1,
+                            valorUnit: newGerador.valor_unitario || 0,
+                            modeloCustom: newGerador.modelo
+                          }]);
+                          setIsNewGerador(false);
+                          setNewGerador({ modelo: '', descricao: '', valor_unitario: 0, unidade: 'UN' });
                         }}
                         className="bg-ciklo-orange hover:bg-orange-600 text-black font-bold px-4 py-1.5 rounded-lg text-sm disabled:opacity-50 transition-colors"
                       >
-                        {savingGerador ? 'Salvando...' : 'Salvar Gerador'}
+                        'Adicionar'
                       </button>
                       <button type="button" onClick={() => { setIsNewGerador(false); }} className="text-gray-400 hover:text-white text-sm px-3 py-1.5">
                         Cancelar
