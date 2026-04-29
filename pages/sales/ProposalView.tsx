@@ -188,18 +188,16 @@ const ProposalView: React.FC = () => {
                 <td colSpan={5} className="border border-black p-2 text-right">TOTAL</td>
                 <td className="border border-black p-2">{formatCurrency(proposal.valor_total)}</td>
               </tr>
+              {proposal.outros_acessorios && (
+              <tr>
+                <td colSpan={6} className="border border-black p-2 text-left italic text-xs">OBS: {proposal.outros_acessorios}</td>
+              </tr>
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="space-y-4 text-sm mb-6">
-          {/* Observações */}
-          {proposal.outros_acessorios && (
-            <div>
-              <div className="font-bold underline mb-1">Observações:</div>
-              <div className="whitespace-pre-wrap pl-2">{proposal.outros_acessorios}</div>
-            </div>
-          )}
 
           {/* Gerador Protections */}
           {gerador?.protecao && (
