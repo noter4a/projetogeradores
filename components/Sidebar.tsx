@@ -46,6 +46,7 @@ const Sidebar: React.FC = () => {
       </div>
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        {user?.role !== UserRole.ORCAMENTOS && (
         <div className="mb-6">
           <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Monitoramento</p>
           {navItems.map((item) => (
@@ -65,9 +66,10 @@ const Sidebar: React.FC = () => {
             </NavLink>
           ))}
         </div>
+        )}
 
-        {/* New Sales & Quotation Module - Only for Admins or Technicians maybe? Let's show for Admin */}
-        {user?.role === UserRole.ADMIN && (
+        {/* Sales & Quotation Module - Visible for Admin and Orcamentos */}
+        {(user?.role === UserRole.ADMIN || user?.role === UserRole.ORCAMENTOS) && (
           <div className="mb-6">
             <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Vendas & Orçamentos</p>
             {salesItems.map((item) => (

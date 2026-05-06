@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { UserRole, User } from '../types';
-import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Eye } from 'lucide-react';
+import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Eye, Wallet } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
   const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();
@@ -64,7 +64,7 @@ const UserManagement: React.FC = () => {
           // Only update password if provided, otherwise keep existing
           password: formData.password || existingUser.password || '123456',
           role: formData.role as UserRole,
-          assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds
+          assignedGeneratorIds: (formData.role === UserRole.ADMIN || formData.role === UserRole.ORCAMENTOS) ? [] : formData.assignedGeneratorIds
         });
       }
     } else {
@@ -75,7 +75,7 @@ const UserManagement: React.FC = () => {
         email: formData.email,
         password: formData.password || '123456',
         role: formData.role as UserRole,
-        assignedGeneratorIds: formData.role === UserRole.ADMIN ? [] : formData.assignedGeneratorIds
+        assignedGeneratorIds: (formData.role === UserRole.ADMIN || formData.role === UserRole.ORCAMENTOS) ? [] : formData.assignedGeneratorIds
       };
       await addUser(user);
     }
@@ -166,6 +166,7 @@ const UserManagement: React.FC = () => {
                   className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none"
                 >
                   <option value={UserRole.ADMIN}>Administrador</option>
+                  <option value={UserRole.ORCAMENTOS}>Orçamentos</option>
                   <option value={UserRole.TECHNICIAN}>Técnico</option>
                   <option value={UserRole.CLIENT}>Cliente</option>
                   <option value={UserRole.MONITOR}>Monitoramento</option>
@@ -173,8 +174,8 @@ const UserManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Generator Assignment Section - Hide for Admins */}
-            {formData.role !== UserRole.ADMIN && (
+            {/* Generator Assignment Section - Hide for Admins and Orcamentos */}
+            {formData.role !== UserRole.ADMIN && formData.role !== UserRole.ORCAMENTOS && (
               <div className="border-t border-gray-800 pt-4">
                 <h4 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
                   <Server size={16} className="text-ciklo-orange" />
@@ -266,18 +267,22 @@ const UserManagement: React.FC = () => {
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${u.role === UserRole.ADMIN ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
                       u.role === UserRole.TECHNICIAN ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                         u.role === UserRole.CLIENT ? 'bg-gray-700/30 text-gray-400 border-gray-700' :
-                          'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                          u.role === UserRole.ORCAMENTOS ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                            'bg-teal-500/10 text-teal-400 border-teal-500/20'
                       }`}>
-                      {u.role === UserRole.MONITOR ? <Eye size={10} /> : <Shield size={10} />}
+                      {u.role === UserRole.MONITOR ? <Eye size={10} /> : u.role === UserRole.ORCAMENTOS ? <Wallet size={10} /> : <Shield size={10} />}
                       {u.role === UserRole.ADMIN ? 'Administrador' :
                         u.role === UserRole.TECHNICIAN ? 'Técnico' :
-                          u.role === UserRole.CLIENT ? 'Cliente' : 'Monitoramento'}
+                          u.role === UserRole.CLIENT ? 'Cliente' :
+                            u.role === UserRole.ORCAMENTOS ? 'Orçamentos' : 'Monitoramento'}
                     </span>
                   </td>
                   <td className="p-4">
                     <div className="flex flex-col gap-1">
                       {u.role === UserRole.ADMIN ? (
                         <span className="text-xs text-green-500 font-medium">Acesso Total</span>
+                      ) : u.role === UserRole.ORCAMENTOS ? (
+                        <span className="text-xs text-amber-400 font-medium">Vendas & Orçamentos</span>
                       ) : (
                         <span className="text-xs text-gray-400">
                           {u.assignedGeneratorIds && u.assignedGeneratorIds.length > 0
