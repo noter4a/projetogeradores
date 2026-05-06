@@ -53,6 +53,34 @@ const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const SalesRoute = ({ children }: { children?: React.ReactNode }) => {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== UserRole.ADMIN && user.role !== UserRole.ORCAMENTOS) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const MonitoringRoute = ({ children }: { children?: React.ReactNode }) => {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === UserRole.ORCAMENTOS) {
+    return <Navigate to="/sales/clients" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
@@ -103,6 +131,14 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
   );
 };
 
+const DashboardRedirect: React.FC = () => {
+  const { user } = useAuth();
+  if (user?.role === UserRole.ORCAMENTOS) {
+    return <Navigate to="/sales/clients" replace />;
+  }
+  return <Dashboard />;
+};
+
 const AppContent: React.FC = () => {
   return (
     <HashRouter>
@@ -113,38 +149,38 @@ const AppContent: React.FC = () => {
 
         <Route path="/" element={
           <ProtectedRoute>
-            <Layout><Dashboard /></Layout>
+            <Layout><DashboardRedirect /></Layout>
           </ProtectedRoute>
         } />
 
         <Route path="/generator/:id" element={
-          <ProtectedRoute>
+          <MonitoringRoute>
             <Layout><GeneratorDetail /></Layout>
-          </ProtectedRoute>
+          </MonitoringRoute>
         } />
 
         <Route path="/alarm-center" element={
-          <ProtectedRoute>
+          <MonitoringRoute>
             <Layout><AlarmCenter /></Layout>
-          </ProtectedRoute>
+          </MonitoringRoute>
         } />
 
         <Route path="/maintenance" element={
-          <ProtectedRoute>
+          <MonitoringRoute>
             <Layout><Maintenance /></Layout>
-          </ProtectedRoute>
+          </MonitoringRoute>
         } />
 
         <Route path="/reports" element={
-          <ProtectedRoute>
+          <MonitoringRoute>
             <Layout><Reports /></Layout>
-          </ProtectedRoute>
+          </MonitoringRoute>
         } />
 
         <Route path="/alarms" element={
-          <ProtectedRoute>
+          <MonitoringRoute>
             <Layout><Alarms /></Layout>
-          </ProtectedRoute>
+          </MonitoringRoute>
         } />
 
         {/* Admin Only Routes */}
@@ -172,31 +208,31 @@ const AppContent: React.FC = () => {
           </AdminRoute>
         } />
 
-        {/* Quotation Module (Admin Only for now) */}
+        {/* Quotation Module (Admin + Orcamentos) */}
         <Route path="/sales/clients" element={
-          <AdminRoute>
+          <SalesRoute>
             <Layout><Clients /></Layout>
-          </AdminRoute>
+          </SalesRoute>
         } />
         <Route path="/sales/catalog" element={
-          <AdminRoute>
+          <SalesRoute>
             <Layout><Catalog /></Layout>
-          </AdminRoute>
+          </SalesRoute>
         } />
         <Route path="/sales/new-proposal" element={
-          <AdminRoute>
+          <SalesRoute>
             <Layout><NewProposal /></Layout>
-          </AdminRoute>
+          </SalesRoute>
         } />
         <Route path="/sales/proposals" element={
-          <AdminRoute>
+          <SalesRoute>
             <Layout><Proposals /></Layout>
-          </AdminRoute>
+          </SalesRoute>
         } />
         <Route path="/sales/proposals/:id" element={
-          <AdminRoute>
+          <SalesRoute>
             <Layout><ProposalView /></Layout>
-          </AdminRoute>
+          </SalesRoute>
         } />
 
       </Routes>
