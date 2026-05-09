@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Generator, GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -12,7 +12,7 @@ import {
   RefreshCw, UtilityPole, Cable, TrendingUp, BarChart3, Play, Square,
   Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", size = 120 }: any) => {
   const radius = 40;
@@ -128,11 +128,53 @@ const GeneratorDetail: React.FC = () => {
   // Socket.io Listener moved to GeneratorContext.tsx
   // This ensures Dashboard and Detail views are always in sync.
 
-  // Generate Mock History Data (Last 24 Hours) for Load Chart
-  // Placeholder for real history data (DB integration needed later)
-  const historyData = useMemo(() => {
-    return []; // No mock history displayed
+  // --- Real-Time Power History (Live Chart) ---
+  const MAX_POINTS = 60; // ~10 minutes at 10s intervals
+  const SAMPLE_INTERVAL_MS = 10_000; // 10 seconds
+
+  const [powerHistory, setPowerHistory] = useState<{ time: string; power: number }[]>([]);
+  const lastSampleRef = useRef<number>(0);
+
+  // Reset history when generator changes
+  useEffect(() => {
+    setPowerHistory([]);
+    lastSampleRef.current = 0;
   }, [gen?.id]);
+
+  // Sample activePowerTotal every SAMPLE_INTERVAL_MS
+  useEffect(() => {
+    if (!gen) return;
+
+    const samplePower = () => {
+      const now = Date.now();
+      // Prevent duplicate samples within the same interval
+      if (now - lastSampleRef.current < SAMPLE_INTERVAL_MS - 500) return;
+      lastSampleRef.current = now;
+
+      const currentPower = Number(gen.activePowerTotal || gen.activePower || 0);
+      const timeLabel = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      setPowerHistory(prev => {
+        const newPoint = { time: timeLabel, power: Math.max(0, currentPower) };
+        const updated = [...prev, newPoint];
+        // Keep only the last MAX_POINTS entries
+        return updated.length > MAX_POINTS ? updated.slice(-MAX_POINTS) : updated;
+      });
+    };
+
+    // Capture first point immediately
+    samplePower();
+
+    const interval = setInterval(samplePower, SAMPLE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [gen?.id, gen?.activePowerTotal, gen?.activePower]);
+
+  // Calculate chart Y-axis max for better visualization
+  const chartMaxPower = useMemo(() => {
+    if (powerHistory.length === 0) return 10;
+    const maxVal = Math.max(...powerHistory.map(p => p.power));
+    return maxVal < 10 ? 10 : Math.ceil(maxVal * 1.2); // 20% headroom
+  }, [powerHistory]);
 
 
 
@@ -858,53 +900,85 @@ const GeneratorDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Load Chart Section */}
+          {/* Load Chart Section — Real-Time */}
           <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-white font-bold flex items-center gap-2">
                 <TrendingUp size={18} className="text-ciklo-orange" /> Curva de Carga (kW)
               </h3>
-              <div className="flex gap-2 text-xs text-gray-400">
-                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-ciklo-yellow"></div> Potência Ativa</span>
+              <div className="flex gap-4 text-xs text-gray-400 items-center">
+                <span className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50"></div>
+                  Potência Ativa
+                </span>
+                <span className="text-gray-600 font-mono">
+                  {powerHistory.length > 0 ? `${powerHistory.length} pts` : 'Aguardando...'}
+                </span>
               </div>
             </div>
 
             <div className="h-[350px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={historyData}>
-                  <defs>
-                    <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#FACC15" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis
-                    dataKey="time"
-                    stroke="#666"
-                    tick={{ fontSize: 11 }}
-                    minTickGap={30}
-                  />
-                  <YAxis
-                    stroke="#666"
-                    tick={{ fontSize: 11 }}
-                    unit=" kW"
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1E1E1E', borderColor: '#333', color: '#fff', borderRadius: '8px' }}
-                    itemStyle={{ color: '#FACC15' }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="power"
-                    stroke="#FACC15"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorPower)"
-                    animationDuration={1500}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {powerHistory.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-600">
+                  <TrendingUp size={48} className="mb-3 opacity-30" />
+                  <p className="text-sm">Coletando dados de potência...</p>
+                  <p className="text-xs text-gray-700 mt-1">O gráfico será atualizado a cada 10 segundos</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={powerHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
+                        <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+                    <XAxis
+                      dataKey="time"
+                      stroke="#555"
+                      tick={{ fontSize: 10, fill: '#666' }}
+                      minTickGap={40}
+                      axisLine={{ stroke: '#333' }}
+                    />
+                    <YAxis
+                      stroke="#555"
+                      tick={{ fontSize: 10, fill: '#666' }}
+                      domain={[0, chartMaxPower]}
+                      unit=" kW"
+                      axisLine={{ stroke: '#333' }}
+                      width={65}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#111',
+                        borderColor: '#444',
+                        color: '#fff',
+                        borderRadius: '10px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                        padding: '12px 16px',
+                      }}
+                      labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
+                      itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
+                      formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
+                    />
+                    <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
+                    <Area
+                      type="monotone"
+                      dataKey="power"
+                      stroke="#FACC15"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#colorPowerLive)"
+                      dot={false}
+                      activeDot={{ r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 }}
+                      animationDuration={500}
+                      isAnimationActive={powerHistory.length <= 2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         </div>
