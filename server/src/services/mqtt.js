@@ -640,32 +640,39 @@ export const initMqttService = (io) => {
                                 WHERE id = $18 OR connection_info->>'ip' = $18
                             `;
 
+                            // FIX: Safe rounding - returns null instead of NaN
+                            // so PostgreSQL COALESCE keeps the existing DB value
+                            const safeRound = (v) => {
+                                if (v === undefined || v === null || isNaN(v)) return null;
+                                return Math.round(v);
+                            };
+
                             const values = [
-                                Math.round(unifiedData.voltageL1),
-                                Math.round(unifiedData.voltageL2),
-                                Math.round(unifiedData.voltageL3),
-                                Math.round(unifiedData.currentL1),
-                                Math.round(unifiedData.currentL2),
-                                Math.round(unifiedData.currentL3),
-                                Math.round(unifiedData.frequency),
-                                Math.round(unifiedData.oilPressure),
-                                Math.round(unifiedData.engineTemp),
-                                Math.round(unifiedData.fuelLevel),
-                                Math.round(unifiedData.rpm),
-                                Math.round(unifiedData.batteryVoltage),
-                                Math.round(unifiedData.mainsVoltageL1),
-                                Math.round(unifiedData.mainsVoltageL2),
-                                Math.round(unifiedData.mainsVoltageL3),
-                                Math.round(unifiedData.mainsFrequency),
-                                unifiedData.status, // Can be undefined (Coalesce handles it)
+                                safeRound(unifiedData.voltageL1),
+                                safeRound(unifiedData.voltageL2),
+                                safeRound(unifiedData.voltageL3),
+                                safeRound(unifiedData.currentL1),
+                                safeRound(unifiedData.currentL2),
+                                safeRound(unifiedData.currentL3),
+                                safeRound(unifiedData.frequency),
+                                safeRound(unifiedData.oilPressure),
+                                safeRound(unifiedData.engineTemp),
+                                safeRound(unifiedData.fuelLevel),
+                                safeRound(unifiedData.rpm),
+                                safeRound(unifiedData.batteryVoltage),
+                                safeRound(unifiedData.mainsVoltageL1),
+                                safeRound(unifiedData.mainsVoltageL2),
+                                safeRound(unifiedData.mainsVoltageL3),
+                                safeRound(unifiedData.mainsFrequency),
+                                unifiedData.status || null,
                                 // ID to match
                                 deviceId,
-                                Math.round(unifiedData.voltageL12),
-                                Math.round(unifiedData.voltageL23),
-                                Math.round(unifiedData.voltageL31),
-                                Math.round(unifiedData.runHours),
-                                Math.round(unifiedData.activePower),
-                                Math.round(unifiedData.powerFactor)
+                                safeRound(unifiedData.voltageL12),
+                                safeRound(unifiedData.voltageL23),
+                                safeRound(unifiedData.voltageL31),
+                                safeRound(unifiedData.runHours),
+                                safeRound(unifiedData.activePower),
+                                safeRound(unifiedData.powerFactor)
                             ];
 
                             await pool.query(query, values);
