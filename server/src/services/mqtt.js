@@ -677,6 +677,36 @@ export const initMqttService = (io) => {
 
                             await pool.query(query, values);
                             console.log(`[MQTT] Persisted data for ${deviceId} to DB.`);
+
+                            // --- INSERT HISTORICAL READING (for Charts) ---
+                            if (unifiedData.activePower !== undefined || unifiedData.activePowerTotal !== undefined) {
+                                try {
+                                    // Resolve the real generator ID for readings
+                                    let readingGenId = deviceId;
+                                    const genLookup = await pool.query(
+                                        "SELECT id FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
+                                        [deviceId]
+                                    );
+                                    if (genLookup.rows.length > 0) readingGenId = genLookup.rows[0].id;
+
+                                    await pool.query(
+                                        `INSERT INTO generator_readings (generator_id, active_power, rpm, frequency, voltage_l1, current_l1, fuel_level, engine_temp)
+                                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                                        [
+                                            readingGenId,
+                                            safeRound(unifiedData.activePower || unifiedData.activePowerTotal || 0),
+                                            safeRound(unifiedData.rpm),
+                                            safeRound(unifiedData.frequency),
+                                            safeRound(unifiedData.voltageL1),
+                                            safeRound(unifiedData.currentL1),
+                                            safeRound(unifiedData.fuelLevel),
+                                            safeRound(unifiedData.engineTemp)
+                                        ]
+                                    );
+                                } catch (readingErr) {
+                                    console.error('[MQTT] Reading Insert Error:', readingErr.message);
+                                }
+                            }
                         } catch (dbErr) {
                             console.error('[MQTT] DB Persistence Error:', dbErr.message);
                         }
