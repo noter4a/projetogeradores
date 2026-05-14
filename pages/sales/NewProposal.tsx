@@ -232,7 +232,11 @@ const NewProposal: React.FC = () => {
                         className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none text-sm mb-2"
                       >
                         <option value="">-- Selecione o Gerador --</option>
-                        {generators.map(g => (
+                        {[...generators].sort((a, b) => {
+                          const numA = parseFloat((a.modelo || '').match(/[\d.\/]+/)?.[0]?.split('/')[0] || '0');
+                          const numB = parseFloat((b.modelo || '').match(/[\d.\/]+/)?.[0]?.split('/')[0] || '0');
+                          return numA - numB;
+                        }).map(g => (
                           <option key={g.id} value={g.id}>{g.modelo} - {formatCurrency(g.valor_unitario || 0)}</option>
                         ))}
                         <option value="__new__">{String.fromCodePoint(10133)} Cadastrar Novo Gerador</option>
