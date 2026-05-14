@@ -34,3 +34,13 @@ server/alarms_parsed.json
 server/alarm_table.js
 server/*.cjs
 server/src/modbus_maps.json
+server/temp_*.json
+server/xlsm_summary.json
+server/import_generators.js
+temp_*.json
+
+# Office / Docs
+*.docx
+*.xlsm
+*.xlsx
+Geradores Modelos.json
