@@ -8,9 +8,10 @@ router.get('/', async (req, res) => {
     try {
         const { generatorId, activeOnly } = req.query;
         let query = `
-            SELECT a.*, g.name AS generator_name 
+            SELECT a.*, COALESCE(g.name, g2.name) AS generator_name 
             FROM alarm_history a 
             LEFT JOIN generators g ON a.generator_id = g.id
+            LEFT JOIN generators g2 ON a.generator_id = g2.connection_info->>'ip'
         `;
         const values = [];
         const conditions = [];
