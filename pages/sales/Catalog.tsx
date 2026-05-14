@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { BookOpen, Plus, Pencil, Trash2, X, Search, Zap, Settings, Shield, Cpu, Box, ImagePlus, XCircle, Copy, Cable } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { BookOpen, Plus, Pencil, Trash2, X, Search, Zap, Settings, Shield, Cpu, Box, ImagePlus, XCircle, Copy, Cable, ChevronLeft, ChevronRight } from 'lucide-react';
 import CurrencyInput from '../../components/CurrencyInput';
 import { 
   QmCatalogGenerator, 
@@ -18,6 +18,10 @@ const Catalog: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+
+  // Pagination
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
   
   const [formData, setFormData] = useState<any>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +70,7 @@ const Catalog: React.FC = () => {
     fetchData();
     setIsFormOpen(false);
     setSearch('');
+    setCurrentPage(1);
   }, [activeTab]);
 
   const handleOpenAdd = () => {
@@ -166,6 +171,23 @@ const Catalog: React.FC = () => {
     }
     return item.modelo?.toLowerCase().includes(term) || item.descricao?.toLowerCase().includes(term);
   });
+
+  // Pagination computed values
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / ITEMS_PER_PAGE));
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredData.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredData, currentPage]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  // Clamp page if data shrinks
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [filteredData.length, totalPages]);
 
   return (
     <div className="space-y-6">
@@ -408,7 +430,7 @@ const Catalog: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredData.map((item) => (
+                  paginatedData.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-800/30 transition-colors">
                       {activeTab === 'acessorios' ? (
                         <>
@@ -470,6 +492,44 @@ const Catalog: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800 bg-[#1a1a1a]">
+              <span className="text-xs text-gray-500">
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredData.length)} de {filteredData.length} itens
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${
+                      page === currentPage
+                        ? 'bg-ciklo-orange text-black'
+                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
