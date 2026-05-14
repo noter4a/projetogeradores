@@ -84,6 +84,7 @@ const MonitoringRoute = ({ children }: { children?: React.ReactNode }) => {
 const Layout = ({ children }: { children?: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  const { user } = useAuth();
 
   // Close sidebar on route change on mobile
   useEffect(() => {
@@ -92,8 +93,8 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
 
   return (
     <div className="flex h-screen print:h-auto bg-ciklo-black print:bg-white overflow-hidden print:overflow-visible">
-      {/* Global Alarm Popup */}
-      <AlarmPopup />
+      {/* Global Alarm Popup - Hidden for Orcamentos users */}
+      {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
 
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (

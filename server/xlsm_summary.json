@@ -1,0 +1,1319 @@
+{
+  "sheets": [
+    "CLIENTES",
+    "GERADORES",
+    "MOTORES",
+    "ALTERNADORES",
+    "MÓDULOS",
+    "ACESSÓRIOS",
+    "DIMENSIONAMENTO",
+    "PROPOSTA",
+    "LISTA DE ORÇAMENTOS",
+    "VER PROPOSTA",
+    "INDICADORES"
+  ],
+  "data": {
+    "CLIENTES": [
+      {
+        "row": 3,
+        "data": [
+          "Nome / Razão Social",
+          "CPF / CNPJ",
+          "IE",
+          "Endereço",
+          "Bairro / Distrito",
+          "CEP",
+          "UF",
+          "Município",
+          "Contato",
+          "Fones",
+          "Email",
+          "Representante"
+        ]
+      },
+      {
+        "row": 4,
+        "data": [
+          "VALMIR RUBIO",
+          "517.676.519-53",
+          "13.219.347-7",
+          "GLEBA ATLANTICA, S/N",
+          "ZONA RURAL",
+          "78880-000",
+          "MT",
+          "VERA"
+        ]
+      },
+      {
+        "row": 5,
+        "data": [
+          "OZULMIR FARAON",
+          "589.884.400-72",
+          711063974,
+          "FAZ DA ROSEIRA, S/N",
+          "INTERIOR",
+          "95300-000",
+          "RS",
+          "LAGOA VERMELHA",
+          null,
+          "(54) 99968 0261"
+        ]
+      },
+      {
+        "row": 6,
+        "data": [
+          "AGROSPE",
+          "918.165.380001-24",
+          1540053617,
+          null,
+          null,
+          null,
+          null,
+          "VACARIA",
+          null,
+          996651295
+        ]
+      }
+    ],
+    "GERADORES": [
+      {
+        "row": 3,
+        "data": [
+          "MODELO",
+          "DESCRIÇÃO",
+          "UNID",
+          "VLR. UNIT",
+          "PROTEÇÃO DO GERADOR",
+          "FINAME",
+          "MDA",
+          null,
+          "Lista de tensões"
+        ]
+      },
+      {
+        "row": 4,
+        "data": [
+          "27.5/23 ABERTO AUTO IVECO",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 27.5/23KVA, ABERTO, AUTOMATICO, \r\n",
+          "CJ",
+          64160,
+          "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. ",
+          null,
+          null,
+          null,
+          "TRIFÁSICO,380/220V"
+        ]
+      },
+      {
+        "row": 5,
+        "data": [
+          "27.5/23 FECHADO AUTO YANMAR",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 27.5/23KVA, FECHADO, AUTOMATICO, \r\n",
+          null,
+          73300,
+          "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. ",
+          null,
+          null,
+          null,
+          "TRIFÁSICO,220/127V"
+        ]
+      },
+      {
+        "row": 6,
+        "data": [
+          "27.5/23 ABERTO MANUAL YANMAR",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 27.5/23KVA, ABERTO, MANUAL, \r\n",
+          null,
+          60130,
+          "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. ",
+          null,
+          null,
+          null,
+          "TRIFÁSICO,440/220V"
+        ]
+      },
+      {
+        "row": 7,
+        "data": [
+          "27.5/23 FECHADO MANUAL YANMAR",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 27.5/23KVA, FECHADO, MANUAL, \r\n",
+          null,
+          70795,
+          "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. ",
+          null,
+          null,
+          null,
+          "BIFASICO254/127"
+        ]
+      },
+      {
+        "row": 8,
+        "data": [
+          "27.5/23 FECHADO MANUAL IVECO",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 27.5/23KVA, FECHADO, MANUAL, \r\n",
+          null,
+          69200,
+          "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. ",
+          null,
+          null,
+          null,
+          "BIFASICO440/220"
+        ]
+      },
+      {
+        "row": 9,
+        "data": [
+          "40/37 ABERTO AUTOMATICO PERKINS",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 40/37KVA, ABERTO, AUTOMATICO, \r\n",
+          null,
+          70743,
+          "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. ",
+          null,
+          null,
+          null,
+          "MONOFASICO 220"
+        ]
+      },
+      {
+        "row": 10,
+        "data": [
+          "40/37 ABERTO AUTOMATICO IVECO",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 40/37KVA, ABERTO, AUTOMATICO, \r\n",
+          null,
+          68690,
+          "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. "
+        ]
+      },
+      {
+        "row": 11,
+        "data": [
+          "40/37 FECHADO AUTOMATICO PERKINS",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 40/37KVA, FECHADO, AUTOMATICO, \r\n",
+          null,
+          89506,
+          "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. "
+        ]
+      },
+      {
+        "row": 12,
+        "data": [
+          "40/37 FECHADO AUTOMATICO IVECO",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 40/37KVA, FECHADO, AUTOMATICO, \r\n",
+          null,
+          76111,
+          "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. "
+        ]
+      }
+    ],
+    "MOTORES": [
+      {
+        "row": 3,
+        "data": [
+          "ESP 2",
+          "ESP 2.1",
+          "PROTEÇÃO 2"
+        ]
+      },
+      {
+        "row": 4,
+        "data": [
+          "MOTOR FPT 27KVA MOD.R244D24TG7A.31A02 ",
+          "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 04 cilindros em linha, turbinado.",
+          "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+        ]
+      },
+      {
+        "row": 5,
+        "data": [
+          "MOTOR FPT 30KVA MOD.R244D24TG7A.31A02 ",
+          "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 04 cilindros em linha, turbinado.",
+          "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+        ]
+      },
+      {
+        "row": 6,
+        "data": [
+          "MOTOR PERKINS 40KVA MOD 1103A-33G",
+          "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 03 cilindros em linha, turbinado.",
+          "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+        ]
+      },
+      {
+        "row": 7,
+        "data": [
+          "MOTOR FPT 40KVA MOD.R244D24TG7A.40A02 ",
+          "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 04 cilindros em linha, turbinado.",
+          "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+        ]
+      },
+      {
+        "row": 8,
+        "data": [
+          "MOTOR FPT 50KVA MOD.R244D24TG7A.40A02 ",
+          "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 04 cilindros em linha, turbinado.",
+          "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+        ]
+      },
+      {
+        "row": 9,
+        "data": [
+          "MOTOR PERKINS 60KVA MOD 1103-33TG1",
+          "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 03 cilindros em linha, turbinado.",
+          "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+        ]
+      },
+      {
+        "row": 10,
+        "data": [
+          "MOTOR FPT 60KVA MOD.NEF45-AM1",
+          "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 04 cilindros em linha, turbinado.",
+          "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+        ]
+      },
+      {
+        "row": 11,
+        "data": [
+          "MOTOR FPT 60KVA MOD.R38MSN01.61A02 ",
+          "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 04 cilindros em linha, turbinado.",
+          "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+        ]
+      },
+      {
+        "row": 12,
+        "data": [
+          "MOTOR PERKINS 75KVA MOD 1103-33TG2",
+          "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 03 cilindros em linha, turbinado.",
+          "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+        ]
+      }
+    ],
+    "ALTERNADORES": [
+      {
+        "row": 3,
+        "data": [
+          "ESP 1",
+          "ESP 1.1"
+        ]
+      },
+      {
+        "row": 4,
+        "data": [
+          "ALTERNADOR MARCA WEG",
+          "As características técnicas principais do alternador são:\r\n- Alternador sem escovas 4P;\r\n- Asseguram proteção mecânica contra toque de dedos, corpos estranhos, sólidos dinâmicos superiores a 12mm;\r\n- Sistema de excitação com bobina auxiliar que garante rápida resposta, ótima estabilidade, manutenção de corrente de curto-circuito de 300% da In por 10 segundos, processo rápido de recuperação de tensão e excelente desempenho a partida de motores de indução.\r\n- Regulador Eletrônico de Tensão"
+        ]
+      }
+    ],
+    "MÓDULOS": [
+      {
+        "row": 3,
+        "data": [
+          "ESP 3",
+          "ESP 3.1",
+          "FOTO"
+        ]
+      },
+      {
+        "row": 4,
+        "data": [
+          "CONTROLADOR DEIF SGC120 - ATÉ 140KVA",
+          "- Medição de tensão e corrente; \r\n- Medição da tensão da bateria; \r\n- Medição da temperatura da água; \r\n- Medição da pressão do óleo; \r\n- Medição de Rpm; \r\n- Medição nível combustível; \r\n- Lógica de partida semanal; \r\n- Contador de horas de funcionamento; \r\n- Contador de partidas; \r\n- Controle cíclico de manutenção preventiva; \r\n- Alimentação painel de comando: 12 ou 24 \r\n- Porta CAN J-1939.\r\n"
+        ]
+      },
+      {
+        "row": 5,
+        "data": [
+          "CONTROLADOR DEIF SGC420  - ACIMA DE 140KVA",
+          "- Medição de tensão e corrente; \r\n- Medição da tensão da bateria; \r\n- Medição da temperatura da água; \r\n- Medição da pressão do óleo; \r\n- Medição de Rpm; \r\n- Medição nível combustível; \r\n- Lógica de partida semanal; \r\n- Contador de horas de funcionamento; \r\n- Contador de partidas; \r\n- Controle cíclico de manutenção preventiva; \r\n- Alimentação painel de comando: 12 ou 24v\r\n- Medição e controle de bateria.\r\n- Porta CAN J-1939."
+        ]
+      },
+      {
+        "row": 6,
+        "data": [
+          "CONTROLADOR DEIF AGC150 - CORE/RAMPA ",
+          "Medição de tensão e corrente (gerador e rede);\r\n• Medição de potência ativa, reativa e fator de potência (gerador e rede);\r\n• Medição de frequência (gerador e rede);\r\n• Medição da tensão da bateria;\r\n• Medição da temperatura da água;\r\n• Medição da pressão do óleo;\r\n• Medição de Rpm;\r\n• Medição de nível de combustível; 1\r\n• Lógica de partida para motores a diesel e gás;\r\n• Contador de energia ativa kWh do gerador;\r\n• Contador de horas de funcionamento;\r\n• Contador de partidas;\r\n• Controle cíclico de manutenção preventiva;\r\n• Tempo configurável para as proteções;\r\n• Partida em horário de ponta com calendário de feriados programável;\r\n• Partida periódica programável para exercício, com ou sem transferência de carga;\r\n• Horário de serviço programável;\r\n• Saída analógica para controle do regulador de velocidade;\r\n• Saída analógica para controle do regulador de tensão;\r\n• Porta CAN J-1939."
+        ]
+      },
+      {
+        "row": 7,
+        "data": [
+          "CONTROLADOR DEIF AGC150- HÍBRIDO COM SOLAR/RAMPA ",
+          "Medição de tensão e corrente (gerador e rede);\r\n• Medição de potência ativa, reativa e fator de potência (gerador e rede);\r\n• Medição de frequência (gerador e rede);\r\n• Medição da tensão da bateria;\r\n• Medição da temperatura da água;\r\n• Medição da pressão do óleo;\r\n• Medição de Rpm;\r\n• Medição de nível de combustível; 1\r\n• Lógica de partida para motores a diesel e gás;\r\n• Contador de energia ativa kWh do gerador;\r\n• Contador de horas de funcionamento;\r\n• Contador de partidas;\r\n• Controle cíclico de manutenção preventiva;\r\n• Tempo configurável para as proteções;\r\n• Partida em horário de ponta com calendário de feriados programável;\r\n• Partida periódica programável para exercício, com ou sem transferência de carga;\r\n• Horário de serviço programável;\r\n• Saída analógica para controle do regulador de velocidade;\r\n• Saída analógica para controle do regulador de tensão;\r\n• Porta CAN J-1939."
+        ]
+      },
+      {
+        "row": 8,
+        "data": [
+          "CONTROLADOR DEP SEA 4520",
+          "- Medição de tensão e corrente; \r\n- Medição da tensão da bateria; \r\n- Medição da temperatura da água; \r\n- Medição da pressão do óleo; \r\n- Medição de Rpm; \r\n- Medição nível combustível; \r\n- Lógica de partida semanal; \r\n- Contador de horas de funcionamento; \r\n- Contador de partidas; \r\n- Controle cíclico de manutenção preventiva; \r\n- Alimentação painel de comando: 12 \r\n- Porta CAN J-1939.\r\n"
+        ]
+      },
+      {
+        "row": 9,
+        "data": [
+          "CONTROLADOR DEP SEA 8620 - RAMPA ",
+          "Medição de tensão e corrente (gerador e rede);\r\n• Medição de potência ativa, reativa e fator de potência (gerador e rede);\r\n• Medição de frequência (gerador e rede);\r\n• Medição da tensão da bateria;\r\n• Medição da temperatura da água;\r\n• Medição da pressão do óleo;\r\n• Medição de Rpm;\r\n• Medição de nível de combustível; 1\r\n• Lógica de partida para motores a diesel e gás;\r\n• Contador de energia ativa kWh do gerador;\r\n• Contador de horas de funcionamento;\r\n• Contador de partidas;\r\n• Controle cíclico de manutenção preventiva;\r\n• Tempo configurável para as proteções;\r\n• Partida em horário de ponta com calendário de feriados programável;\r\n• Partida periódica programável para exercício, com ou sem transferência de carga;\r\n• Horário de serviço programável;\r\n• Saída analógica para controle do regulador de velocidade;\r\n• Saída analógica para controle do regulador de tensão;\r\n• Porta CAN J-1939."
+        ]
+      },
+      {
+        "row": 10,
+        "data": [
+          "CONTROLADOR KVA K30XTe",
+          "- Medição de tensão e corrente; \r\n- Medição da tensão da bateria; \r\n- Medição da temperatura da água; \r\n- Medição da pressão do óleo; \r\n- Medição de Rpm; \r\n- Medição nível combustível; \r\n- Lógica de partida semanal; \r\n- Contador de horas de funcionamento; \r\n- Contador de partidas; \r\n- Controle cíclico de manutenção preventiva; \r\n- Alimentação painel de comando: 12 \r\n- Porta CAN J-1939.\r\n"
+        ]
+      },
+      {
+        "row": 11,
+        "data": [
+          "CONTROLADOR KVA ECLIPSE-XTRe",
+          "Medição de tensão e corrente (gerador e rede);\r\n• Medição de potência ativa, reativa e fator de potência (gerador e rede);\r\n• Medição de frequência (gerador e rede);\r\n• Medição da tensão da bateria;\r\n• Medição da temperatura da água;\r\n• Medição da pressão do óleo;\r\n• Medição de Rpm;\r\n• Medição de nível de combustível; 1\r\n• Lógica de partida para motores a diesel e gás;\r\n• Contador de energia ativa kWh do gerador;\r\n• Contador de horas de funcionamento;\r\n• Contador de partidas;\r\n• Controle cíclico de manutenção preventiva;\r\n• Tempo configurável para as proteções;\r\n• Partida em horário de ponta com calendário de feriados programável;\r\n• Partida periódica programável para exercício, com ou sem transferência de carga;\r\n• Horário de serviço programável;\r\n• Saída analógica para controle do regulador de velocidade;\r\n• Saída analógica para controle do regulador de tensão;\r\n• Porta CAN J-1939."
+        ]
+      },
+      {
+        "row": 12,
+        "data": [
+          "CONTROLADOR TRATORIZADO",
+          "• Medição da tensão \r\n• Medição de frequência gerador\r\n• proteção contra sub e sobre frequencia "
+        ]
+      }
+    ],
+    "ACESSÓRIOS": [
+      {
+        "row": 3,
+        "data": [
+          "GRUPO DE ACESSÓRIOS",
+          "ACESSÓRIOS INCLUÍDO"
+        ]
+      },
+      {
+        "row": 4,
+        "data": [
+          "CABINADO DE 20 A 50 KVA",
+          "- 01 baterias de partida 45A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,50 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo hospitalar;\r\n- Sistema de Carenagem, insonorizada para 75 dB(A) a sete metros de distância com variação de +- 2,5dB(A), considerando uma medição a campo livre, sob uma média aritmética a partir de sete pontos e uma propagação semi-esférica;\r\n- Pintura da Carenagem em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Sistema de silenciosos hospitalares instalados internamente na carenagem;\r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n- Sistema de atenuação acústica;\r\n"
+        ]
+      },
+      {
+        "row": 5,
+        "data": [
+          "ABERTO DE 20 A 75 KVA",
+          "- 01 baterias de partida 60A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,100 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo industrial;\r\n- Sistema de base aberta\r\n- Pintura da base em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n\r\n"
+        ]
+      },
+      {
+        "row": 6,
+        "data": [
+          "CABINADO DE 40 A 75  KVA",
+          "- 01 baterias de partida 70A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,100 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo hospitalar;\r\n- Sistema de Carenagem, insonorizada para 75 dB(A) a sete metros de distância com variação de +- 2,5dB(A), considerando uma medição a campo livre, sob uma média aritmética a partir de sete pontos e uma propagação semi-esférica;\r\n- Pintura da Carenagem em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Sistema de silenciosos hospitalares instalados internamente na carenagem;\r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n- Sistema de atenuação acústica;\r\n"
+        ]
+      },
+      {
+        "row": 7,
+        "data": [
+          "CABINADO DE 84 A 140  KVA",
+          "- 01 baterias de partida 100A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,100 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo hospitalar;\r\n- Sistema de Carenagem, insonorizada para 75 dB(A) a sete metros de distância com variação de +- 2,5dB(A), considerando uma medição a campo livre, sob uma média aritmética a partir de sete pontos e uma propagação semi-esférica;\r\n- Pintura da Carenagem em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Sistema de silenciosos hospitalares instalados internamente na carenagem;\r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n- Sistema de atenuação acústica;\r\n"
+        ]
+      },
+      {
+        "row": 8,
+        "data": [
+          "ABERTO DE 84 A 140 KVA",
+          "- 01 baterias de partida 100A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,100 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo industrial;\r\n- Sistema de base,Aberta\r\n- Pintura da base em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n\r\n"
+        ]
+      },
+      {
+        "row": 9,
+        "data": [
+          "CABINADO DE 150 A 250  KVA",
+          "- 01 baterias de partida 150A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,200 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo hospitalar;\r\n- Sistema de Carenagem, insonorizada para 75 dB(A) a sete metros de distância com variação de +- 2,5dB(A), considerando uma medição a campo livre, sob uma média aritmética a partir de sete pontos e uma propagação semi-esférica;\r\n- Pintura da Carenagem em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Sistema de silenciosos hospitalares instalados internamente na carenagem;\r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n- Sistema de atenuação acústica;\r\n"
+        ]
+      },
+      {
+        "row": 10,
+        "data": [
+          "ABERTO DE 150 A 250 KVA",
+          "- 01 baterias de partida 150A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,200 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo industrial;\r\n- Sistema de base,Aberta\r\n- Pintura da base em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n\r\n"
+        ]
+      },
+      {
+        "row": 11,
+        "data": [
+          "ABERTO DE 290 KVA IVECO",
+          "- 02 baterias de partida 100A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,200 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo industrial;\r\n- Sistema de base,Aberta\r\n- Pintura da base em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n\r\n"
+        ]
+      },
+      {
+        "row": 12,
+        "data": [
+          "CABINADO DE 300 KVA",
+          "- 02 baterias de partida 100A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,200 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo hospitalar;\r\n- Sistema de Carenagem, insonorizada para 75 dB(A) a sete metros de distância com variação de +- 2,5dB(A), considerando uma medição a campo livre, sob uma média aritmética a partir de sete pontos e uma propagação semi-esférica;\r\n- Pintura da Carenagem em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Sistema de silenciosos hospitalares instalados internamente na carenagem;\r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n- Sistema de atenuação acústica;\r\n"
+        ]
+      }
+    ],
+    "DIMENSIONAMENTO": [
+      {
+        "row": 3,
+        "data": [
+          "ID DIMENSIONAMENTO",
+          "DIMENSÕES",
+          "FOTO"
+        ]
+      },
+      {
+        "row": 4,
+        "data": [
+          "20 KVA CARENADO IVECO",
+          "comprimento 1800 x largura 880 x alt 1100 – peso 740KG."
+        ]
+      },
+      {
+        "row": 5,
+        "data": [
+          "20 KVA ABERTO IVECO",
+          "comprimento 1560x largura 820 x alt 1670 – peso 620KG."
+        ]
+      },
+      {
+        "row": 6,
+        "data": [
+          "30 E 40 KVA CARENADO IVECO",
+          "comprimento 1800 x largura 880 x alt 1100 – peso 750KG."
+        ]
+      },
+      {
+        "row": 7,
+        "data": [
+          "30/40 KVA ABERTO IVECO",
+          "comprimento 1560x largura 820 x alt 1670 – peso 650KG."
+        ]
+      },
+      {
+        "row": 8,
+        "data": [
+          "50 KVA CARENADO IVECO ",
+          "comprimento 1800 x largura 880 x alt 1100 – peso 800KG."
+        ]
+      },
+      {
+        "row": 9,
+        "data": [
+          "50 KVA ABERTO IVECO",
+          "comprimento 1560x largura 820 x alt 1670 – peso 680KG."
+        ]
+      },
+      {
+        "row": 10,
+        "data": [
+          "40 KVA CARENADO PERKINS",
+          "comprimento 2100 x largura 1100 x alt 1670 – peso 1650KG."
+        ]
+      },
+      {
+        "row": 11,
+        "data": [
+          "60 A 75 KVA CARENADO PERKINS",
+          "comprimento 2100 x largura 1100 x alt 1670 – peso 1650KG."
+        ]
+      },
+      {
+        "row": 12,
+        "data": [
+          "60/75 KVA ABERTO IVECO",
+          "comprimento 1560x largura 820 x alt 1670 – peso 785KG."
+        ]
+      }
+    ],
+    "PROPOSTA": [
+      {
+        "row": 10,
+        "data": [
+          "PROPOSTA:",
+          "902/2025",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "DATA EMISSÃO",
+          45752
+        ]
+      },
+      {
+        "row": 11,
+        "data": [
+          null,
+          902,
+          2025
+        ]
+      },
+      {
+        "row": 12,
+        "data": [
+          "DADOS DO CLIENTE"
+        ]
+      },
+      {
+        "row": 13,
+        "data": [
+          "NOME / RAZÃO SOCIAL",
+          "AGROSPE"
+        ]
+      },
+      {
+        "row": 14,
+        "data": [
+          "CPF / CNPJ",
+          "918.165.380001-24",
+          null,
+          null,
+          null,
+          null,
+          "IE",
+          1540053617
+        ]
+      },
+      {
+        "row": 15,
+        "data": [
+          "ENDEREÇO",
+          0
+        ]
+      },
+      {
+        "row": 16,
+        "data": [
+          "BAIRRO / DISTRITO",
+          0,
+          null,
+          null,
+          null,
+          "CEP",
+          0,
+          null,
+          null,
+          "UF",
+          0
+        ]
+      },
+      {
+        "row": 17,
+        "data": [
+          "MUNICÍPIO",
+          "VACARIA",
+          null,
+          null,
+          null,
+          "CONTATO",
+          0
+        ]
+      },
+      {
+        "row": 18,
+        "data": [
+          "FONES",
+          996651295,
+          null,
+          null,
+          null,
+          "EMAIL",
+          0
+        ]
+      },
+      {
+        "row": 19,
+        "data": [
+          "REPRESENTANTE",
+          0
+        ]
+      }
+    ],
+    "LISTA DE ORÇAMENTOS": [
+      {
+        "row": 3,
+        "data": [
+          "STATUS",
+          "NPROP",
+          "ANOPROP",
+          "PROPOSTA",
+          "DATA EMISSÃO",
+          "NOME / RAZÃO SOCIAL",
+          "MODELO GERADOR",
+          "QTD 1",
+          "VALOR UNIT 1",
+          "MOTOR",
+          "ALTERNADOR",
+          "MÓDULO",
+          "ACESSÓRIOS",
+          "OUTROS ACESSÓRIOS",
+          "DIMENSIONAMENTO",
+          "PRAZO DE ENTREGA",
+          "FORMA DE PAGAMENTO",
+          "FRETE",
+          "IPI",
+          "modelo gera",
+          "CÓDIGO MDA",
+          "FINAME",
+          "ITEM02",
+          "UNID02",
+          "QTD02",
+          "UNIT02",
+          "ITEM03",
+          "UNID03",
+          "QTD03",
+          "UNIT03",
+          "ITEM04",
+          "UNID04",
+          "QTD04",
+          "UNIT04"
+        ]
+      },
+      {
+        "row": 4,
+        "data": [
+          null,
+          902,
+          2025,
+          "902/2025",
+          45752,
+          "AGROSPE",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 100/90KVA, FECHADO, MANUAL, \r\n TRIFÁSICO,380/220V",
+          1,
+          110608,
+          "MOTOR PERKINS 100KVA MOD 1104A-44TG2",
+          "ALTERNADOR MARCA WEG",
+          "CONTROLADOR DEIF SGC120 - ATÉ 140KVA",
+          "- 01 baterias de partida 100A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,100 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo hospitalar;\r\n- Sistema de Carenagem, insonorizada para 75 dB(A) a sete metros de distância com variação de +- 2,5dB(A), considerando uma medição a campo livre, sob uma média aritmética a partir de sete pontos e uma propagação semi-esférica;\r\n- Pintura da Carenagem em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Sistema de silenciosos hospitalares instalados internamente na carenagem;\r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n- Sistema de atenuação acústica;\r\n",
+          "",
+          "comprimento 2400 x largura 1100 x alt 1700 – peso 1480KG.",
+          "20 dias após confirmação do pedido.",
+          "Entrada no pedido de 30% e saldo na emissão da nota fiscal.",
+          "Pago.",
+          "Isento",
+          "100/90FECHADO MANUAL PERKINS",
+          "-",
+          "-",
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "row": 5,
+        "data": [
+          null,
+          900
+        ]
+      },
+      {
+        "row": 6,
+        "data": [
+          "STATUS",
+          "NPROP",
+          "ANOPROP",
+          "PROPOSTA",
+          "DATA EMISSÃO",
+          "NOME / RAZÃO SOCIAL",
+          "MODELO GERADOR",
+          "QTD 1",
+          "VALOR UNIT 1",
+          "MOTOR",
+          "ALTERNADOR",
+          "MÓDULO",
+          "ACESSÓRIOS",
+          "OUTROS ACESSÓRIOS",
+          "DIMENSIONAMENTO",
+          "PRAZO DE ENTREGA",
+          "FORMA DE PAGAMENTO",
+          "FRETE",
+          "IPI",
+          "CÓDIGO FINAME",
+          "CÓDIGO MDA",
+          "FINAME",
+          "ITEM02",
+          "UNID02",
+          "QTD02",
+          "UNIT02",
+          "ITEM03",
+          "UNID03",
+          "QTD03",
+          "UNIT03",
+          "ITEM04",
+          "UNID04",
+          "QTD04",
+          "UNIT04",
+          "MÊS",
+          "ANO",
+          "VALOR PROPOSTA"
+        ]
+      },
+      {
+        "row": 7,
+        "data": [
+          null,
+          ".",
+          null,
+          ".",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "",
+          "",
+          0
+        ]
+      },
+      {
+        "row": 8,
+        "data": [
+          "AGUARDANDO",
+          901,
+          2025,
+          "901/2025",
+          45740,
+          "OZULMIR FARAON",
+          "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 220/200KVA, ABERTO, AUTOMATICO, \r\n TRIFÁSICO,380/220V",
+          1,
+          141000,
+          "MOTOR FPT 220KVA NEF67-TM6 ",
+          "ALTERNADOR MARCA WEG",
+          "CONTROLADOR DEIF SGC420  - ACIMA DE 140KVA",
+          "- 01 baterias de partida 150A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,200 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo industrial;\r\n- Sistema de base,Aberta\r\n- Pintura da base em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n\r\n",
+          "",
+          "comprimento 2400 x largura 1200 x alt 1900 – peso 1530KG.",
+          "05 ( cinco) dias após confirmação do pedido.",
+          "Entrada no pedido de 30% e saldo na emissão da nota fiscal.",
+          "Pago.",
+          "Isento",
+          "220/200 ABERTO AUTOMATICO IVECO",
+          "",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "mar",
+          2025,
+          141000
+        ]
+      },
+      {
+        "row": 9,
+        "data": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "",
+          "",
+          0
+        ]
+      },
+      {
+        "row": 10,
+        "data": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "",
+          "",
+          0
+        ]
+      },
+      {
+        "row": 11,
+        "data": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "",
+          "",
+          0
+        ]
+      },
+      {
+        "row": 12,
+        "data": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "",
+          "",
+          0
+        ]
+      }
+    ],
+    "VER PROPOSTA": [
+      {
+        "row": 10,
+        "data": [
+          null,
+          "PROPOSTA:",
+          "903/2025",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "DATA EMISSÃO",
+          null,
+          ""
+        ]
+      },
+      {
+        "row": 11,
+        "data": [
+          null,
+          null,
+          902
+        ]
+      },
+      {
+        "row": 12,
+        "data": [
+          null,
+          "DADOS DO CLIENTE"
+        ]
+      },
+      {
+        "row": 13,
+        "data": [
+          null,
+          "NOME / RAZÃO SOCIAL",
+          ""
+        ]
+      },
+      {
+        "row": 14,
+        "data": [
+          null,
+          "CPF / CNPJ",
+          "",
+          null,
+          null,
+          null,
+          null,
+          "IE",
+          ""
+        ]
+      },
+      {
+        "row": 15,
+        "data": [
+          null,
+          "ENDEREÇO",
+          ""
+        ]
+      },
+      {
+        "row": 16,
+        "data": [
+          null,
+          "BAIRRO / DISTRITO",
+          "",
+          null,
+          null,
+          null,
+          "CEP",
+          "",
+          null,
+          null,
+          "UF",
+          ""
+        ]
+      },
+      {
+        "row": 17,
+        "data": [
+          null,
+          "MUNICÍPIO",
+          "",
+          null,
+          null,
+          null,
+          "CONTATO",
+          ""
+        ]
+      },
+      {
+        "row": 18,
+        "data": [
+          null,
+          "FONES",
+          "",
+          null,
+          null,
+          null,
+          "EMAIL",
+          ""
+        ]
+      },
+      {
+        "row": 19,
+        "data": [
+          null,
+          "REPRESENTANTE",
+          ""
+        ]
+      }
+    ],
+    "INDICADORES": [
+      {
+        "row": 3,
+        "data": [
+          2025,
+          "Jan",
+          "Fev",
+          "Mar",
+          "Abr",
+          "Mai",
+          "Jun",
+          "Jul",
+          "Ago",
+          "Set",
+          "Out",
+          "Nov",
+          "Dez",
+          "Ano"
+        ]
+      },
+      {
+        "row": 4,
+        "data": [
+          "Total de orçamentos",
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "row": 5,
+        "data": [
+          "R$ de orçamentos",
+          0,
+          0,
+          141000,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          141000
+        ]
+      },
+      {
+        "row": 7,
+        "data": [
+          "Aprovado",
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "row": 8,
+        "data": [
+          "R$",
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "row": 9,
+        "data": [
+          "%",
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "row": 11,
+        "data": [
+          "Aguardando",
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "row": 12,
+        "data": [
+          "R$",
+          0,
+          0,
+          141000,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          141000
+        ]
+      },
+      {
+        "row": 13,
+        "data": [
+          "%",
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "row": 15,
+        "data": [
+          "Cancelado",
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  }
+}

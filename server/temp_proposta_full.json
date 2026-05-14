@@ -1,0 +1,572 @@
+[
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [
+    "PROPOSTA:",
+    "902/2025",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "DATA EMISSÃO",
+    45752
+  ],
+  [
+    null,
+    902,
+    2025
+  ],
+  [
+    "DADOS DO CLIENTE"
+  ],
+  [
+    "NOME / RAZÃO SOCIAL",
+    "AGROSPE"
+  ],
+  [
+    "CPF / CNPJ",
+    "918.165.380001-24",
+    null,
+    null,
+    null,
+    null,
+    "IE",
+    1540053617
+  ],
+  [
+    "ENDEREÇO",
+    0
+  ],
+  [
+    "BAIRRO / DISTRITO",
+    0,
+    null,
+    null,
+    null,
+    "CEP",
+    0,
+    null,
+    null,
+    "UF",
+    0
+  ],
+  [
+    "MUNICÍPIO",
+    "VACARIA",
+    null,
+    null,
+    null,
+    "CONTATO",
+    0
+  ],
+  [
+    "FONES",
+    996651295,
+    null,
+    null,
+    null,
+    "EMAIL",
+    0
+  ],
+  [
+    "REPRESENTANTE",
+    0
+  ],
+  [],
+  [],
+  [
+    "A CIKLO INDÚSTRIA E COMÉRCIO DE GERADORES LTDA, atendendo à sua estimada solicitação e de acordo com os dados informados por V. Sa., tem a satisfação de lhe apresentar, para análise, a proposta abaixo:"
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Selecione o modelo gerador",
+    null,
+    null,
+    null,
+    null,
+    "Selecione a tensão"
+  ],
+  [],
+  [
+    "1. PRODUTO",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "100/90FECHADO MANUAL PERKINS",
+    null,
+    null,
+    null,
+    null,
+    "TRIFÁSICO,380/220V"
+  ],
+  [],
+  [
+    "ITEM",
+    "QT",
+    "UNID",
+    "DESCRIÇÃO",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "VLR. UNIT",
+    "VLR. TOTAL"
+  ],
+  [
+    1,
+    1,
+    "",
+    "GRUPO GERADOR A DIESEL, MARCA CIKLO GERADORES, MODELO 100/90KVA, FECHADO, MANUAL, \r\n TRIFÁSICO,380/220V",
+    null,
+    null,
+    null,
+    null,
+    null,
+    110608,
+    110608
+  ],
+  [
+    2,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    0,
+    null,
+    "Só preencha os dados acima se quiser alterar ao lado"
+  ],
+  [
+    3,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    0
+  ],
+  [
+    4,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    0
+  ],
+  [
+    "TOTAL",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    110608
+  ],
+  [],
+  [
+    "Proteções do gerador"
+  ],
+  [],
+  [
+    "- Sobre/subtensão; Sobre/subfrequência; Inversão de sequência de fase; \r\n- Sobrecorrente temporizado. "
+  ],
+  [
+    ""
+  ],
+  [
+    "1.1 MOTOR",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Selecione o motor"
+  ],
+  [
+    "MOTOR PERKINS 100KVA MOD 1104A-44TG2",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "MOTOR PERKINS 100KVA MOD 1104A-44TG2"
+  ],
+  [
+    "As características técnicas principais do motor são as encontradas abaixo:\r\n- motor de partida;\r\n- alternador para carregamento de baterias;\r\n- filtros de ar, combustível, filtro separador de água, filtro de óleo lubrificante; \r\n- radiador completo;\r\n- 04 cilindros em linha, turbinado."
+  ],
+  [
+    "Proteções do motor"
+  ],
+  [
+    "Proteções do motor: \r\n- Sub/sobre velocidade; Baixa pressão do óleo; Alta temperatura da água; \r\nsub/sobre frequência."
+  ],
+  [
+    ""
+  ],
+  [],
+  [
+    "1.2 ALTERNADOR",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Selecione o alternador"
+  ],
+  [
+    "ALTERNADOR MARCA WEG",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "ALTERNADOR MARCA WEG"
+  ],
+  [
+    "As características técnicas principais do alternador são:\r\n- Alternador sem escovas 4P;\r\n- Asseguram proteção mecânica contra toque de dedos, corpos estranhos, sólidos dinâmicos superiores a 12mm;\r\n- Sistema de excitação com bobina auxiliar que garante rápida resposta, ótima estabilidade, manutenção de corrente de curto-circuito de 300% da In por 10 segundos, processo rápido de recuperação de tensão e excelente desempenho a partida de motores de indução.\r\n- Regulador Eletrônico de Tensão"
+  ],
+  [],
+  [
+    "1.3 MÓDULO",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Selecione o módulo"
+  ],
+  [
+    "CONTROLADOR DEIF SGC120 - ATÉ 140KVA",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "CONTROLADOR DEIF SGC120 - ATÉ 140KVA"
+  ],
+  [
+    "- Medição de tensão e corrente; \r\n- Medição da tensão da bateria; \r\n- Medição da temperatura da água; \r\n- Medição da pressão do óleo; \r\n- Medição de Rpm; \r\n- Medição nível combustível; \r\n- Lógica de partida semanal; \r\n- Contador de horas de funcionamento; \r\n- Contador de partidas; \r\n- Controle cíclico de manutenção preventiva; \r\n- Alimentação painel de comando: 12 ou 24 \r\n- Porta CAN J-1939.\r\n"
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Selecione o grupo de acessórios"
+  ],
+  [
+    "1.4 ACESSÓRIOS",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "CABINADO DE 84 A 140  KVA"
+  ],
+  [
+    "- 01 baterias de partida 100A, com cabos e terminais;\r\n- tanque de combustível na base do equipamento,100 litros;\r\n- Conjunto de manuais técnicos;\r\n- Silencioso tipo hospitalar;\r\n- Sistema de Carenagem, insonorizada para 75 dB(A) a sete metros de distância com variação de +- 2,5dB(A), considerando uma medição a campo livre, sob uma média aritmética a partir de sete pontos e uma propagação semi-esférica;\r\n- Pintura da Carenagem em e-coat + pó para marezia;\r\n- Base estanque, incluso de bacia de contenção capaz de absorver 110% dos fluídos do motor à diesel; \r\n- Sistema de silenciosos hospitalares instalados internamente na carenagem;\r\n- Dois compartimentos distintos, um para sistema de controle, outro para o disjuntor de saída;\r\n- Radiador genuíno, fornecido pelo fabricante do motor;\r\n- Sistema de atenuação acústica;\r\n"
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "👈 acessórios extras"
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Selecione o id do dimensionamento"
+  ],
+  [
+    "DIMENSÕES",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "84 A 100 KVA CARENADO PERKINS"
+  ],
+  [
+    "comprimento 2400 x largura 1100 x alt 1700 – peso 1480KG."
+  ],
+  [],
+  [
+    "CONSIDERAÇÕES GERAIS"
+  ],
+  [
+    "O escopo de fornecimento da Ciklo Geradores foi elaborado conforme informações enviadas por V.Sa., se limitando inteiramente aos itens descritos nesta, não constituindo no fornecimento de energia. Na eventual indisponibilidade de funcionamento de energia. Na eventual indisponibilidade de funcionamento dos equipamentos, a Ciklo Geradores não retrata nenhuma forma de ressarcimento por lucros cessantes e/ou perdas e danos ao cliente e/ou terceiros."
+  ],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [],
+  [
+    null,
+    "Foto ilustrativa"
+  ],
+  [],
+  [
+    "GARANTIA"
+  ],
+  [
+    "O prazo de garantia do equipamento é de 12 (doze) meses ou 1.000 (mil) horas contados a partir da entrega técnica, ou de 15 meses contados a partir da emissão da nota fiscal."
+  ],
+  [],
+  [
+    "VALIDADE DA PROPOSTA:",
+    null,
+    null,
+    "10 (dez) dias;"
+  ],
+  [],
+  [
+    "PRAZO DE ENTREGA:",
+    null,
+    "20 dias após confirmação do pedido."
+  ],
+  [],
+  [
+    "FORMA DE PAGAMENTO:",
+    null,
+    null,
+    "Entrada no pedido de 30% e saldo na emissão da nota fiscal."
+  ],
+  [],
+  [
+    "FRETE",
+    "Pago."
+  ],
+  [
+    "Alíquota de ICMS: 17%.\r\nCaso cliente pague DIFAL (diferencial de alíquota), a responsabilidade de pagamento será do cliente."
+  ],
+  [
+    "IPI",
+    "Isento"
+  ],
+  [
+    "Código FINAME:",
+    "-"
+  ],
+  [
+    "Código MDA",
+    "-"
+  ],
+  [],
+  [
+    "DADOS DE FATURAMENTO (FÁBRICA)"
+  ],
+  [],
+  [
+    "CIKLO INDÚSTRIA E COMÉRCIO DE GERADORES LTDA - CNPJ: 17.206.381/0001-62"
+  ],
+  [
+    "Rodovia RS 122, nº 854, Km 126 - Bairro Interior - CEP: 95.250-000 - Antônio Prado/RS"
+  ],
+  [],
+  [
+    "DADOS BANCÁRIOS PARA DEPÓSITO"
+  ],
+  [
+    "Banco do Brasil",
+    null,
+    null,
+    null,
+    "CNPJ: 17.206.381/0001-62"
+  ],
+  [
+    "Ag: 0669-6",
+    null,
+    null,
+    null,
+    "Sicredi (748)"
+  ],
+  [
+    "C/C: 12.396-X",
+    null,
+    null,
+    null,
+    "Ag: 0259"
+  ],
+  [
+    "PIX: ciklo@ciklogeradores.com.br",
+    null,
+    null,
+    null,
+    "C/C: 34.700-00"
+  ],
+  [
+    null,
+    null,
+    null,
+    null,
+    "PIX: 17.206.381/0001-62"
+  ],
+  [],
+  [],
+  [
+    "Estamos à disposição para quaisquer dúvidas/esclarecimentos."
+  ],
+  [
+    "Atenciosamente,"
+  ],
+  [],
+  [],
+  [
+    "Representante / Ciklo",
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Cliente / comprador"
+  ],
+  [],
+  [],
+  [
+    "Eu, ______________________________________________________ DECLARO expressamente a intenção de adquirir o grupo gerador, e ACEITO as especificações do presente orçamento, comprometendo-me com todos os termos acima expostos."
+  ],
+  [],
+  [],
+  [],
+  [],
+  [
+    "____/____/_____"
+  ],
+  [],
+  [],
+  [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Assinatura do comprador"
+  ]
+]
