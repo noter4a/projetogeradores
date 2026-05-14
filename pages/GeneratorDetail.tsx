@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Generator, GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -128,46 +128,48 @@ const GeneratorDetail: React.FC = () => {
   // Socket.io Listener moved to GeneratorContext.tsx
   // This ensures Dashboard and Detail views are always in sync.
 
-  // --- Real-Time Power History (Live Chart) ---
-  const MAX_POINTS = 60; // ~10 minutes at 10s intervals
-  const SAMPLE_INTERVAL_MS = 10_000; // 10 seconds
-
+  // --- Historical Power Chart (DB-backed) ---
+  const [chartRange, setChartRange] = useState<'24h' | '7d' | '30d'>('24h');
   const [powerHistory, setPowerHistory] = useState<{ time: string; power: number }[]>([]);
-  const lastSampleRef = useRef<number>(0);
+  const [chartLoading, setChartLoading] = useState(false);
 
-  // Reset history when generator changes
-  useEffect(() => {
-    setPowerHistory([]);
-    lastSampleRef.current = 0;
-  }, [gen?.id]);
-
-  // Sample activePowerTotal every SAMPLE_INTERVAL_MS
-  useEffect(() => {
-    if (!gen) return;
-
-    const samplePower = () => {
-      const now = Date.now();
-      // Prevent duplicate samples within the same interval
-      if (now - lastSampleRef.current < SAMPLE_INTERVAL_MS - 500) return;
-      lastSampleRef.current = now;
-
-      const currentPower = Number(gen.activePowerTotal || gen.activePower || 0);
-      const timeLabel = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-      setPowerHistory(prev => {
-        const newPoint = { time: timeLabel, power: Math.max(0, currentPower) };
-        const updated = [...prev, newPoint];
-        // Keep only the last MAX_POINTS entries
-        return updated.length > MAX_POINTS ? updated.slice(-MAX_POINTS) : updated;
+  // Fetch historical readings from DB
+  const fetchReadings = useCallback(async () => {
+    if (!id) return;
+    setChartLoading(true);
+    try {
+      const token = localStorage.getItem('ciklo_auth_token');
+      const res = await fetch(`/api/generators/${id}/readings?range=${chartRange}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-    };
+      if (res.ok) {
+        const data = await res.json();
+        const formatted = data.map((row: any) => {
+          const date = new Date(row.time);
+          let timeLabel: string;
+          if (chartRange === '24h') {
+            timeLabel = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          } else {
+            timeLabel = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
+                        date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          }
+          return { time: timeLabel, power: Number(row.power) || 0 };
+        });
+        setPowerHistory(formatted);
+      }
+    } catch (err) {
+      console.error('Failed to fetch readings:', err);
+    } finally {
+      setChartLoading(false);
+    }
+  }, [id, chartRange]);
 
-    // Capture first point immediately
-    samplePower();
-
-    const interval = setInterval(samplePower, SAMPLE_INTERVAL_MS);
+  // Fetch on mount, range change, and periodically
+  useEffect(() => {
+    fetchReadings();
+    const interval = setInterval(fetchReadings, 30_000); // refresh every 30s
     return () => clearInterval(interval);
-  }, [gen?.id, gen?.activePowerTotal, gen?.activePower]);
+  }, [fetchReadings]);
 
   // Calculate chart Y-axis max for better visualization
   const chartMaxPower = useMemo(() => {
@@ -900,29 +902,50 @@ const GeneratorDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Load Chart Section — Real-Time */}
+          {/* Load Chart Section — Historical (DB-backed) */}
           <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <h3 className="text-white font-bold flex items-center gap-2">
                 <TrendingUp size={18} className="text-ciklo-orange" /> Curva de Carga (kW)
               </h3>
-              <div className="flex gap-4 text-xs text-gray-400 items-center">
-                <span className="flex items-center gap-1.5">
+              <div className="flex items-center gap-3">
+                {/* Time Range Filter Buttons */}
+                <div className="flex bg-gray-900 rounded-lg p-0.5 border border-gray-700">
+                  {([['24h', '24h'], ['7d', '7 dias'], ['30d', '1 mês']] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setChartRange(value)}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                        chartRange === value
+                          ? 'bg-ciklo-orange text-black shadow'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <span className="flex items-center gap-1.5 text-xs text-gray-400">
                   <div className="w-2.5 h-2.5 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50"></div>
                   Potência Ativa
                 </span>
-                <span className="text-gray-600 font-mono">
-                  {powerHistory.length > 0 ? `${powerHistory.length} pts` : 'Aguardando...'}
+                <span className="text-gray-600 font-mono text-xs">
+                  {chartLoading ? '...' : powerHistory.length > 0 ? `${powerHistory.length} pts` : ''}
                 </span>
               </div>
             </div>
 
             <div className="h-[350px] w-full">
-              {powerHistory.length === 0 ? (
+              {chartLoading && powerHistory.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-gray-600">
+                  <TrendingUp size={48} className="mb-3 opacity-30 animate-pulse" />
+                  <p className="text-sm">Carregando dados históricos...</p>
+                </div>
+              ) : powerHistory.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-gray-600">
                   <TrendingUp size={48} className="mb-3 opacity-30" />
-                  <p className="text-sm">Coletando dados de potência...</p>
-                  <p className="text-xs text-gray-700 mt-1">O gráfico será atualizado a cada 10 segundos</p>
+                  <p className="text-sm">Nenhum dado registrado para este período</p>
+                  <p className="text-xs text-gray-700 mt-1">Os dados serão coletados automaticamente</p>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">

@@ -181,6 +181,27 @@ const initDb = async (retries = 15, delay = 5000) => {
                 );
             `);
 
+            // Create Generator Readings Table (Historical Power Data for Charts)
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS generator_readings (
+                    id SERIAL PRIMARY KEY,
+                    generator_id VARCHAR(50) NOT NULL,
+                    active_power NUMERIC(10,2) DEFAULT 0,
+                    rpm NUMERIC DEFAULT 0,
+                    frequency NUMERIC(5,2) DEFAULT 0,
+                    voltage_l1 NUMERIC DEFAULT 0,
+                    current_l1 NUMERIC DEFAULT 0,
+                    fuel_level NUMERIC DEFAULT 0,
+                    engine_temp NUMERIC DEFAULT 0,
+                    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+
+            // Create index for fast time-range queries
+            try {
+                await client.query(`CREATE INDEX IF NOT EXISTS idx_readings_gen_time ON generator_readings (generator_id, recorded_at DESC)`);
+            } catch(e) { console.log('Index creation skipped:', e.message); }
+
             // --- QUOTATION MODULE (QM) TABLES ---
             await client.query(`
                 CREATE TABLE IF NOT EXISTS qm_clientes (
@@ -656,6 +677,51 @@ router.delete('/generators/:id', authenticateToken, async (req, res) => {
 });
 
 
+
+// GET /api/generators/:id/readings - Historical Power Data for Charts
+router.get('/generators/:id/readings', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const range = req.query.range || '24h'; // 24h, 7d, 30d
+
+    let intervalSql;
+    let bucket; // seconds for downsampling
+    switch (range) {
+        case '7d':
+            intervalSql = '7 days';
+            bucket = 300; // 5 min avg
+            break;
+        case '30d':
+            intervalSql = '30 days';
+            bucket = 1800; // 30 min avg
+            break;
+        case '24h':
+        default:
+            intervalSql = '24 hours';
+            bucket = 60; // 1 min avg
+            break;
+    }
+
+    try {
+        // Downsample to avoid returning thousands of rows
+        const result = await pool.query(`
+            SELECT 
+                to_timestamp(floor(extract(epoch from recorded_at) / $2) * $2) as time,
+                ROUND(AVG(active_power)::numeric, 2) as power,
+                ROUND(AVG(rpm)::numeric, 0) as rpm,
+                ROUND(AVG(frequency)::numeric, 2) as frequency
+            FROM generator_readings
+            WHERE (generator_id = $1 OR generator_id = (SELECT connection_info->>'ip' FROM generators WHERE id = $1 LIMIT 1))
+              AND recorded_at >= NOW() - $3::interval
+            GROUP BY time
+            ORDER BY time ASC
+        `, [id, bucket, intervalSql]);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Get readings error:', err);
+        res.status(500).json({ message: 'Erro ao buscar leituras.' });
+    }
+});
 
 // FIX #8: Alarm Routes protegidas com autenticação
 app.use('/api/alarms', authenticateToken, alarmRoutes);
