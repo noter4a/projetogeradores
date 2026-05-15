@@ -354,14 +354,6 @@ const Catalog: React.FC = () => {
                         <label className="block text-sm text-gray-400 mb-1">Unidade (Ex: UN)</label>
                         <input type="text" value={formData.unidade || 'UN'} onChange={e => setFormData({...formData, unidade: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" />
                       </div>
-                      <div className="col-span-1">
-                        <label className="block text-sm text-gray-400 mb-1">Valor Unitário Base (R$)</label>
-                        <CurrencyInput
-                          value={formData.valor_unitario}
-                          onChange={(val) => setFormData({...formData, valor_unitario: val})}
-                          className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange"
-                        />
-                      </div>
                       <div className="col-span-1 border-t border-gray-800 pt-3 md:border-none md:pt-0 mt-2 md:mt-0">
                         <label className="block text-sm text-gray-400 mb-1">FINAME</label>
                         <input type="text" value={formData.finame || ''} onChange={e => setFormData({...formData, finame: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white outline-none focus:border-ciklo-orange" placeholder="Código FINAME (opcional)" />
@@ -416,7 +408,7 @@ const Catalog: React.FC = () => {
                       <th className="p-4 font-medium hidden md:table-cell">{activeTab === 'motores' ? 'ESP 2.1' : activeTab === 'alternadores' ? 'ESP 1.1' : activeTab === 'modulos' ? 'ESP 3.1' : 'Descrição'}</th>
                       {activeTab === 'modulos' && <th className="p-4 font-medium hidden lg:table-cell">Imagem</th>}
                       {(activeTab === 'geradores' || activeTab === 'motores') && <th className="p-4 font-medium hidden lg:table-cell">{activeTab === 'motores' ? 'PROTEÇÃO 2' : 'Proteção'}</th>}
-                      {activeTab === 'geradores' && <th className="p-4 font-medium">Valor Base</th>}
+
                     </>
                   )}
                   <th className="p-4 font-medium text-right w-24">Ações</th>
@@ -467,9 +459,7 @@ const Catalog: React.FC = () => {
                           {(activeTab === 'geradores' || activeTab === 'motores') && (
                             <td className="p-4 text-gray-300 hidden lg:table-cell">{item.protecao || '-'}</td>
                           )}
-                          {activeTab === 'geradores' && (
-                            <td className="p-4 text-ciklo-yellow font-medium">{formatCurrency(item.valor_unitario)}</td>
-                          )}
+
                         </>
                       )}
                       
