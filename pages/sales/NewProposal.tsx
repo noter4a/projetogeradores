@@ -90,11 +90,7 @@ const NewProposal: React.FC = () => {
     setItens(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
-      // Auto-fill unit price when generator changes
-      if (field === 'geradorId') {
-        const gen = generators.find(g => g.id.toString() === value);
-        if (gen) updated[index].valorUnit = Number(gen.valor_unitario) || 0;
-      }
+
       return updated;
     });
   };
@@ -237,7 +233,7 @@ const NewProposal: React.FC = () => {
                           const numB = parseFloat((b.modelo || '').match(/[\d.\/]+/)?.[0]?.split('/')[0] || '0');
                           return numA - numB;
                         }).map(g => (
-                          <option key={g.id} value={g.id}>{g.modelo} - {formatCurrency(g.valor_unitario || 0)}</option>
+                          <option key={g.id} value={g.id}>{g.modelo}</option>
                         ))}
                         <option value="__new__">{String.fromCodePoint(10133)} Cadastrar Novo Gerador</option>
                       </select>
