@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
@@ -16,11 +16,11 @@
             },
             colors: {
               ciklo: {
-                black: '#121212',
-                dark: '#1E1E1E',
-                card: '#252525',
-                yellow: '#FACC15', // Matches Tailwind yellow-400
-                orange: '#F97316', // Matches Tailwind orange-500
+                black: 'var(--ciklo-black)',
+                dark: 'var(--ciklo-dark)',
+                card: 'var(--ciklo-card)',
+                yellow: '#FACC15',
+                orange: '#F97316',
               }
             }
           }
@@ -28,23 +28,214 @@
       }
     </script>
     <style>
+      /* ========================================
+         THEME VARIABLES
+         ======================================== */
+      :root {
+        --ciklo-black: #121212;
+        --ciklo-dark: #1E1E1E;
+        --ciklo-card: #252525;
+      }
+
+      html.light {
+        --ciklo-black: #F3F4F6;
+        --ciklo-dark: #E5E7EB;
+        --ciklo-card: #FFFFFF;
+      }
+
+      /* ========================================
+         DARK MODE (Default)
+         ======================================== */
       body {
-        background-color: #121212;
+        background-color: var(--ciklo-black);
         color: #e5e5e5;
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
+
+      /* Custom Scrollbar - Dark */
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: #1e1e1e; }
+      ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #F97316; }
+
+      /* ========================================
+         LIGHT MODE OVERRIDES
+         Global CSS overrides that remap Tailwind
+         utility classes when html.light is active
+         ======================================== */
+
+      /* --- Body & Base Text --- */
+      html.light body {
+        background-color: var(--ciklo-black);
+        color: #1f2937;
       }
-      ::-webkit-scrollbar-track {
-        background: #1e1e1e;
+
+      /* Scrollbar Light */
+      html.light ::-webkit-scrollbar-track { background: #f3f4f6; }
+      html.light ::-webkit-scrollbar-thumb { background: #d1d5db; }
+
+      /* --- Text Color Overrides --- */
+      html.light .text-white { color: #111827 !important; }
+      html.light .text-gray-300 { color: #374151 !important; }
+      html.light .text-gray-400 { color: #6b7280 !important; }
+      html.light .text-gray-500 { color: #9ca3af !important; }
+      html.light .text-gray-600 { color: #9ca3af !important; }
+      html.light .text-gray-100 { color: #374151 !important; }
+      html.light .text-gray-200 { color: #4b5563 !important; }
+
+      /* Specific icon text for light mode */
+      html.light .text-ciklo-yellow { color: #d97706 !important; }
+
+      /* --- Background Color Overrides --- */
+      html.light .bg-ciklo-black { background-color: var(--ciklo-black) !important; }
+      html.light .bg-ciklo-dark { background-color: var(--ciklo-dark) !important; }
+      html.light .bg-ciklo-card { background-color: var(--ciklo-card) !important; }
+
+      html.light .bg-gray-800 { background-color: #e5e7eb !important; }
+      html.light .bg-gray-900 { background-color: #f3f4f6 !important; }
+      html.light .bg-gray-700 { background-color: #e5e7eb !important; }
+      html.light .bg-gray-950 { background-color: #f9fafb !important; }
+      html.light .bg-\[\#1a1a1a\] { background-color: #f9fafb !important; }
+      html.light .bg-gray-600 { background-color: #d1d5db !important; }
+
+      /* Background opacity variants */
+      html.light .bg-gray-800\/50 { background-color: rgba(229,231,235,0.5) !important; }
+      html.light .bg-gray-800\/30 { background-color: rgba(229,231,235,0.3) !important; }
+      html.light .bg-gray-700\/50 { background-color: rgba(209,213,219,0.5) !important; }
+      html.light .bg-gray-700\/30 { background-color: rgba(209,213,219,0.3) !important; }
+      html.light .bg-gray-900\/50 { background-color: rgba(243,244,246,0.5) !important; }
+      html.light .bg-gray-900\/30 { background-color: rgba(243,244,246,0.3) !important; }
+
+      /* White/Black opacity overrides */
+      html.light .bg-white\/5 { background-color: rgba(0,0,0,0.03) !important; }
+      html.light .bg-black\/80 { background-color: rgba(0,0,0,0.5) !important; }
+      html.light .bg-black\/50 { background-color: rgba(0,0,0,0.3) !important; }
+      html.light .bg-black { background-color: #f3f4f6 !important; }
+
+      /* --- Border Color Overrides --- */
+      html.light .border-gray-800 { border-color: #e5e7eb !important; }
+      html.light .border-gray-700 { border-color: #d1d5db !important; }
+      html.light .border-gray-600 { border-color: #d1d5db !important; }
+      html.light .border-gray-700\/50 { border-color: rgba(209,213,219,0.5) !important; }
+
+      /* --- Divide Color Overrides --- */
+      html.light .divide-gray-800 > :not([hidden]) ~ :not([hidden]) {
+        border-color: #e5e7eb !important;
       }
-      ::-webkit-scrollbar-thumb {
-        background: #444;
-        border-radius: 4px;
+
+      /* --- Hover Overrides --- */
+      html.light .hover\:bg-gray-800:hover { background-color: #e5e7eb !important; }
+      html.light .hover\:bg-gray-700:hover { background-color: #d1d5db !important; }
+      html.light .hover\:text-white:hover { color: #111827 !important; }
+
+      /* --- Ring/Focus Overrides --- */
+      html.light .focus\:border-ciklo-orange:focus { border-color: #F97316 !important; }
+
+      /* --- Input/Select Overrides --- */
+      html.light input.bg-ciklo-black,
+      html.light select.bg-ciklo-black,
+      html.light textarea.bg-ciklo-black,
+      html.light .bg-ciklo-black input,
+      html.light .bg-ciklo-black select {
+        background-color: #f9fafb !important;
+        color: #111827 !important;
+        border-color: #d1d5db !important;
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #F97316;
+
+      html.light input::placeholder,
+      html.light textarea::placeholder {
+        color: #9ca3af !important;
+      }
+
+      html.light select option {
+        background-color: #ffffff;
+        color: #111827;
+      }
+
+      /* --- Shadow Overrides --- */
+      html.light .shadow-xl { box-shadow: 0 4px 20px rgba(0,0,0,0.06) !important; }
+      html.light .shadow-2xl { box-shadow: 0 8px 30px rgba(0,0,0,0.08) !important; }
+      html.light .shadow-lg { box-shadow: 0 2px 12px rgba(0,0,0,0.06) !important; }
+
+      /* --- Placeholder Text --- */
+      html.light .placeholder-gray-600::placeholder { color: #9ca3af !important; }
+
+      /* --- Status Badges & Semantic Colors (keep readable in light mode) --- */
+      html.light .bg-green-500\/20 { background-color: rgba(34,197,94,0.12) !important; }
+      html.light .bg-green-500\/10 { background-color: rgba(34,197,94,0.08) !important; }
+      html.light .bg-red-500\/20 { background-color: rgba(239,68,68,0.12) !important; }
+      html.light .bg-red-500\/10 { background-color: rgba(239,68,68,0.08) !important; }
+      html.light .bg-blue-500\/10 { background-color: rgba(59,130,246,0.08) !important; }
+      html.light .bg-purple-500\/10 { background-color: rgba(168,85,247,0.08) !important; }
+      html.light .bg-orange-500\/10 { background-color: rgba(249,115,22,0.08) !important; }
+      html.light .bg-ciklo-orange\/10 { background-color: rgba(249,115,22,0.08) !important; }
+      html.light .bg-amber-500\/10 { background-color: rgba(245,158,11,0.08) !important; }
+      html.light .bg-teal-500\/10 { background-color: rgba(20,184,166,0.08) !important; }
+
+      html.light .bg-red-900\/20 { background-color: rgba(239,68,68,0.08) !important; }
+      html.light .bg-red-900\/40 { background-color: rgba(239,68,68,0.12) !important; }
+      html.light .bg-red-900\/10 { background-color: rgba(239,68,68,0.05) !important; }
+      html.light .bg-green-900\/20 { background-color: rgba(34,197,94,0.08) !important; }
+      html.light .bg-green-900\/40 { background-color: rgba(34,197,94,0.12) !important; }
+      html.light .bg-red-900 { background-color: rgba(239,68,68,0.15) !important; }
+      html.light .bg-red-500\/10 { background-color: rgba(239,68,68,0.06) !important; }
+      html.light .bg-orange-500\/10 { background-color: rgba(249,115,22,0.06) !important; }
+      html.light .bg-green-500\/10 { background-color: rgba(34,197,94,0.06) !important; }
+
+      /* Red/Green borders */
+      html.light .border-red-900\/40 { border-color: rgba(239,68,68,0.2) !important; }
+      html.light .border-red-900\/60 { border-color: rgba(239,68,68,0.25) !important; }
+      html.light .border-red-900 { border-color: rgba(239,68,68,0.2) !important; }
+      html.light .border-green-900\/40 { border-color: rgba(34,197,94,0.2) !important; }
+      html.light .border-green-900 { border-color: rgba(34,197,94,0.2) !important; }
+      html.light .border-red-500\/20 { border-color: rgba(239,68,68,0.15) !important; }
+      html.light .border-red-500\/30 { border-color: rgba(239,68,68,0.2) !important; }
+      html.light .border-green-500\/20 { border-color: rgba(34,197,94,0.15) !important; }
+      html.light .border-green-500\/30 { border-color: rgba(34,197,94,0.2) !important; }
+      html.light .border-blue-500\/20 { border-color: rgba(59,130,246,0.15) !important; }
+      html.light .border-blue-500\/30 { border-color: rgba(59,130,246,0.2) !important; }
+      html.light .border-purple-500\/20 { border-color: rgba(168,85,247,0.15) !important; }
+      html.light .border-orange-500\/20 { border-color: rgba(249,115,22,0.15) !important; }
+      html.light .border-orange-900 { border-color: rgba(249,115,22,0.2) !important; }
+      html.light .border-amber-500\/20 { border-color: rgba(245,158,11,0.15) !important; }
+      html.light .border-teal-500\/20 { border-color: rgba(20,184,166,0.15) !important; }
+
+      /* --- Hover border --- */
+      html.light .hover\:border-ciklo-orange:hover { border-color: #F97316 !important; }
+      html.light .hover\:border-gray-600:hover { border-color: #9ca3af !important; }
+
+      /* --- CTA Buttons (orange/yellow gradient) stay dark text --- */
+      html.light .bg-gradient-to-r.from-ciklo-yellow.to-ciklo-orange,
+      html.light .bg-gradient-to-r.from-ciklo-orange {
+        color: #000000 !important;
+      }
+
+      /* --- Hover effects for action buttons --- */
+      html.light .hover\:bg-red-500\/10:hover { background-color: rgba(239,68,68,0.08) !important; }
+      html.light .hover\:bg-orange-500\/10:hover { background-color: rgba(249,115,22,0.08) !important; }
+      html.light .hover\:bg-green-500\/10:hover { background-color: rgba(34,197,94,0.08) !important; }
+
+      /* --- Print styles (unchanged) --- */
+      @media print {
+        body { background-color: white !important; color: black !important; }
+        .print\:bg-white { background-color: white !important; }
+        .print\:hidden { display: none !important; }
+      }
+
+      /* --- SVG/Chart overrides for light mode --- */
+      html.light .recharts-cartesian-grid line { stroke: #e5e7eb !important; }
+      html.light .recharts-text { fill: #6b7280 !important; }
+
+      /* --- Font mono text in light --- */
+      html.light .font-mono { color: inherit; }
+
+      /* --- Transition for smooth theme switch --- */
+      *, *::before, *::after {
+        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, box-shadow 0.2s ease;
+      }
+      /* Exclude animations from transition */
+      .animate-spin, .animate-pulse, .animate-spin-slow, .animate-bounce {
+        transition: none !important;
       }
     </style>
   <script type="importmap">
