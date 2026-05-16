@@ -1,11 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Zap, LogOut, Settings2, Users, MessageCircle, Wallet, AlertTriangle, BookOpen, FileText, FolderOpen } from 'lucide-react';
+import { LayoutDashboard, Zap, LogOut, Settings2, Users, MessageCircle, Wallet, AlertTriangle, BookOpen, FileText, FolderOpen, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { UserRole } from '../types';
 
 const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/' },
@@ -41,8 +43,6 @@ const Sidebar: React.FC = () => {
             <p className="text-xs text-gray-400 truncate capitalize">{user?.role.toLowerCase()}</p>
           </div>
         </div>
-        
-
       </div>
 
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -125,6 +125,20 @@ const Sidebar: React.FC = () => {
       </nav>
 
       <div className="p-4 border-t border-gray-800 space-y-2">
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-all duration-200 group"
+          title={theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
+        >
+          {theme === 'dark' ? (
+            <Sun size={20} className="text-ciklo-yellow group-hover:rotate-45 transition-transform duration-300" />
+          ) : (
+            <Moon size={20} className="text-blue-400 group-hover:-rotate-12 transition-transform duration-300" />
+          )}
+          <span className="font-medium">{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
+        </button>
+
         <a 
           href="https://wa.me/555432931095" 
           target="_blank" 
