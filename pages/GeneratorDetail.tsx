@@ -76,6 +76,23 @@ const GeneratorDetail: React.FC = () => {
   const [gen, setGen] = useState<Generator | undefined>(foundGen);
   const [controlLoading, setControlLoading] = useState<string | null>(null);
 
+  // Connection status: check if data was received in the last 60 seconds
+  const [isConnected, setIsConnected] = useState(false);
+
+  useEffect(() => {
+    const checkConnection = () => {
+      if (gen?.lastDataReceived) {
+        const elapsed = Date.now() - gen.lastDataReceived;
+        setIsConnected(elapsed < 60_000); // 60 seconds threshold
+      } else {
+        setIsConnected(false);
+      }
+    };
+    checkConnection();
+    const interval = setInterval(checkConnection, 5_000); // Check every 5s
+    return () => clearInterval(interval);
+  }, [gen?.lastDataReceived]);
+
   // Tab State
   const [activeTab, setActiveTab] = useState<'operational' | 'modbus'>('operational');
 
@@ -411,9 +428,9 @@ const GeneratorDetail: React.FC = () => {
                   <Radio size={18} className="text-ciklo-orange" /> Painel de Controle Remoto
                 </h3>
                 <div className="flex items-center gap-2">
-                  <div className="px-2 py-1 rounded bg-gray-900 border border-gray-700 text-[10px] font-mono text-ciklo-yellow flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                    CONECTADO
+                <div className={`px-2 py-1 rounded bg-gray-900 border ${isConnected ? 'border-gray-700' : 'border-red-900'} text-[10px] font-mono ${isConnected ? 'text-ciklo-yellow' : 'text-red-500'} flex items-center gap-1`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                    {isConnected ? 'CONECTADO' : 'DESCONECTADO'}
                   </div>
                 </div>
               </div>

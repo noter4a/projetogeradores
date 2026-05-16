@@ -98,6 +98,9 @@ export interface Generator {
   operationMode?: 'AUTO' | 'MANUAL' | 'INHIBITED';
   breakerMains?: 'OPEN' | 'CLOSED'; // Disjuntor Rede
   breakerGen?: 'OPEN' | 'CLOSED';   // Disjuntor Gerador
+
+  // Connection tracking
+  lastDataReceived?: number; // Unix timestamp (ms) of last data received via MQTT/Socket
 }
 
 export interface MaintenanceLog {

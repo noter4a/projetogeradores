@@ -68,6 +68,7 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
           return {
             ...gen,
             ...data.data,
+            lastDataReceived: Date.now(),
           };
         }
         return gen;
