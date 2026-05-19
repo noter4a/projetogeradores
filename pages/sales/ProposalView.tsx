@@ -65,22 +65,17 @@ const ProposalView: React.FC = () => {
           .letterhead-thead { display: table-header-group; }
           .letterhead-tbody { display: table-row-group; }
 
-          /* Esconde tfoot visual no print, usa o fixo */
-          .letterhead-tfoot { display: none; }
+          /* tfoot repete o footer no RODAPÉ de cada página garantindo espaço */
+          .letterhead-tfoot { display: table-footer-group; }
 
-          /* Footer fixo no fundo de TODAS as paginas */
+          /* Footer fixo escondido, vamos usar o tfoot nativo da tabela */
           .print-footer-fixed {
-            display: block !important;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            z-index: 1000;
+            display: none !important;
           }
 
-          /* Padding para conteudo nao sobrepor o footer */
+          /* Remove padding artificial */
           .content-cell {
-            padding-bottom: 40mm !important;
+            padding-bottom: 5mm !important;
           }
         }
       `}</style>
