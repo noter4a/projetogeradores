@@ -328,42 +328,44 @@ const ProposalView: React.FC = () => {
           </div>
         </div>
 
-        {/* Bank Details - sempre na última página */}
-        <div className="text-xs mb-8" style={{ pageBreakBefore: 'always' }}>
-           <div className="font-bold underline mb-2 text-center text-sm">DADOS BANCÁRIOS PARA DEPÓSITO</div>
-           <div className="text-center font-bold mb-2">CIKLO INDÚSTRIA E COMÉRCIO DE GERADORES LTDA - CNPJ: 17.206.381/0001-62</div>
-           <div className="flex justify-center gap-10">
-              <div>
-                <strong>Banco do Brasil</strong><br/>
-                Ag: 0669-6<br/>
-                C/C: 12.396-X<br/>
-                PIX: ciklo@ciklogeradores.com.br
-              </div>
-              <div>
-                <strong>Sicredi (748)</strong><br/>
-                Ag: 0259<br/>
-                C/C: 34.700-00<br/>
-                PIX: 17.206.381/0001-62
-              </div>
-           </div>
-        </div>
+        {/* Bank Details & Signatures - Ocupa o restante do espaço ou pula para a próxima página INTEIRO */}
+        <div className="break-inside-avoid">
+          <div className="text-xs mb-8">
+             <div className="font-bold underline mb-2 text-center text-sm">DADOS BANCÁRIOS PARA DEPÓSITO</div>
+             <div className="text-center font-bold mb-2">CIKLO INDÚSTRIA E COMÉRCIO DE GERADORES LTDA - CNPJ: 17.206.381/0001-62</div>
+             <div className="flex justify-center gap-10">
+                <div>
+                  <strong>Banco do Brasil</strong><br/>
+                  Ag: 0669-6<br/>
+                  C/C: 12.396-X<br/>
+                  PIX: ciklo@ciklogeradores.com.br
+                </div>
+                <div>
+                  <strong>Sicredi (748)</strong><br/>
+                  Ag: 0259<br/>
+                  C/C: 34.700-00<br/>
+                  PIX: 17.206.381/0001-62
+                </div>
+             </div>
+          </div>
 
-        {/* Signatures */}
-        <div className="text-sm text-center mb-10">
-          <p>Estamos à disposição para quaisquer dúvidas/esclarecimentos. Atenciosamente,</p>
-        </div>
+          {/* Signatures */}
+          <div className="text-sm text-center mb-10">
+            <p>Estamos à disposição para quaisquer dúvidas/esclarecimentos. Atenciosamente,</p>
+          </div>
 
-        <div className="flex justify-between items-end mt-16 px-10 text-sm">
-           <div className="text-center flex-1">
-             <div className="border-t border-black pt-1 px-8 inline-block">Representante / Ciklo</div>
-           </div>
-           <div className="text-center flex-1">
-             <div className="border-t border-black pt-1 px-8 inline-block">Cliente / comprador</div>
-           </div>
-        </div>
-        
-        <div className="mt-8 text-xs text-justify italic px-4 border-t border-gray-300 pt-4">
-          Eu, ______________________________________________________ DECLARO expressamente a intenção de adquirir o grupo gerador, e ACEITO as especificações do presente orçamento, comprometendo-me com todos os termos acima expostos. <br/><br/> Data: ____/____/_____
+          <div className="flex justify-between items-end mt-16 px-10 text-sm">
+             <div className="text-center flex-1">
+               <div className="border-t border-black pt-1 px-8 inline-block">Representante / Ciklo</div>
+             </div>
+             <div className="text-center flex-1">
+               <div className="border-t border-black pt-1 px-8 inline-block">Cliente / comprador</div>
+             </div>
+          </div>
+          
+          <div className="mt-8 text-xs text-justify italic px-4 border-t border-gray-300 pt-4">
+            Eu, ______________________________________________________ DECLARO expressamente a intenção de adquirir o grupo gerador, e ACEITO as especificações do presente orçamento, comprometendo-me com todos os termos acima expostos. <br/><br/> Data: ____/____/_____
+          </div>
         </div>
               </td>
             </tr>
