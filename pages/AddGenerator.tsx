@@ -22,7 +22,8 @@ const AddGenerator: React.FC = () => {
     protocol: 'modbus_tcp',
     ip: '',
     port: '',
-    slaveId: '1'
+    slaveId: '1',
+    deviceType: 'modem'
   });
 
   // Load existing data if editing
@@ -40,7 +41,8 @@ const AddGenerator: React.FC = () => {
           protocol: existingGen.protocol || 'modbus_tcp',
           ip: existingGen.ip || '',
           port: existingGen.port || '',
-          slaveId: existingGen.slaveId || '1'
+          slaveId: existingGen.slaveId || '1',
+          deviceType: existingGen.deviceType || 'modem'
         });
       }
     }
@@ -70,7 +72,8 @@ const AddGenerator: React.FC = () => {
           protocol: formData.protocol,
           ip: formData.ip,
           port: formData.port,
-          slaveId: formData.slaveId
+          slaveId: formData.slaveId,
+          deviceType: formData.deviceType
         };
         updateGenerator(updatedGen);
       }
@@ -104,7 +107,8 @@ const AddGenerator: React.FC = () => {
         protocol: formData.protocol,
         ip: formData.ip,
         port: formData.port,
-        slaveId: formData.slaveId
+        slaveId: formData.slaveId,
+        deviceType: formData.deviceType
       };
       addGenerator(newGen);
     }
@@ -204,6 +208,19 @@ const AddGenerator: React.FC = () => {
               className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
               placeholder="Ex: Modbus Local"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Dispositivo de Telemetria</label>
+            <select
+              name="deviceType"
+              value={formData.deviceType}
+              onChange={handleChange}
+              className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
+            >
+              <option value="modem">Modem Telemetria (JSON/4G)</option>
+              <option value="dr164">USR-DR164 (WiFi Transparente)</option>
+            </select>
           </div>
 
           <div>

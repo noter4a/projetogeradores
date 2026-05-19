@@ -581,6 +581,7 @@ router.get('/generators', authenticateToken, async (req, res) => {
             ip: row.connection_info.ip,
             port: row.connection_info.port,
             slaveId: row.connection_info.slaveId,
+            deviceType: row.connection_info.deviceType || 'modem',
 
             // Map Persistent Real-Time Values
             fuelLevel: row.fuel_level || 0,
@@ -625,7 +626,8 @@ router.post('/generators', authenticateToken, async (req, res) => {
             protocol: gen.protocol,
             ip: gen.ip,
             port: gen.port,
-            slaveId: gen.slaveId
+            slaveId: gen.slaveId,
+            deviceType: gen.deviceType || 'modem'
         };
 
         await pool.query(
@@ -650,7 +652,8 @@ router.put('/generators/:id', authenticateToken, async (req, res) => {
             protocol: gen.protocol,
             ip: gen.ip,
             port: gen.port,
-            slaveId: gen.slaveId
+            slaveId: gen.slaveId,
+            deviceType: gen.deviceType || 'modem'
         };
 
         await pool.query(

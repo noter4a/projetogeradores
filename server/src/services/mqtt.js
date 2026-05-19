@@ -37,6 +37,139 @@ let lastConnectionError = null;
 let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands
 
+// ==========================================
+// USR-DR164 TRANSPARENT MODE SUPPORT
+// ==========================================
+// DR164 sends/receives raw Modbus RTU bytes over MQTT (no JSON wrapper).
+// We track pending requests to correlate responses, and poll sequentially.
+let dr164Devices = [];
+const dr164PendingRequests = new Map();   // deviceId -> { requestHex, slaveId, fn, startAddress, quantity, sentAt }
+const dr164ResponseResolvers = new Map(); // deviceId -> resolve() function for async polling
+let dr164PollingActive = false;
+
+const DR164_POLL_SEQUENCE = [
+    { startAddress: 60, quantity: 5 },   // Run Hours (Reg 60-64)
+    { startAddress: 1,  quantity: 9 },   // Gen Voltages (Reg 1-9)
+    { startAddress: 51, quantity: 11 },  // Engine (Reg 51-61)
+    { startAddress: 14, quantity: 9 },   // Mains Voltages (Reg 14-22)
+    { startAddress: 23, quantity: 3 },   // Current/Breaker (Reg 23-25)
+    { startAddress: 29, quantity: 3 },   // Active Power (Reg 29-31)
+    { startAddress: 66, quantity: 1 },   // Alarm (Reg 66)
+    { startAddress: 77, quantity: 2 },   // Inputs + Mode (Reg 77-78)
+    { startAddress: 16, quantity: 1 },   // Status (Reg 16)
+    { startAddress: 65, quantity: 12 },  // Alarms Complete (Reg 65-76)
+];
+
+const dr164Sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+function waitForDR164Response(deviceId, timeoutMs) {
+    return new Promise((resolve) => {
+        dr164ResponseResolvers.set(deviceId, resolve);
+        setTimeout(() => {
+            if (dr164ResponseResolvers.has(deviceId)) {
+                dr164ResponseResolvers.delete(deviceId);
+                dr164PendingRequests.delete(deviceId);
+                console.log(`[DR164] ⏱ Timeout waiting for ${deviceId}`);
+                resolve();
+            }
+        }, timeoutMs);
+    });
+}
+
+/**
+ * Handle binary response from DR164 device.
+ * Creates a synthetic JSON payload compatible with existing decodeSgc120Payload parser.
+ */
+function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
+    const pending = dr164PendingRequests.get(deviceId);
+    if (!pending) {
+        console.log(`[DR164] Received binary data for ${deviceId} but no pending request — ignoring.`);
+        return;
+    }
+
+    const respHex = rawBuffer.toString('hex');
+    console.log(`[DR164] Response for ${deviceId}: ${respHex} (Req: Addr ${pending.startAddress}, Qty ${pending.quantity})`);
+
+    // Create synthetic modem payload that the existing parser understands
+    const syntheticPayload = {
+        modbusRequest: [pending.requestHex],
+        modbusResponse: [respHex]
+    };
+
+    // Clear pending request BEFORE processing to avoid re-entry issues
+    dr164PendingRequests.delete(deviceId);
+
+    // Resolve the polling promise so next request can proceed
+    const resolver = dr164ResponseResolvers.get(deviceId);
+    if (resolver) {
+        dr164ResponseResolvers.delete(deviceId);
+        resolver();
+    }
+
+    // Return the synthetic payload so the main handler can process it
+    return syntheticPayload;
+}
+
+/**
+ * Poll a single DR164 device sequentially (one Modbus request at a time).
+ */
+async function pollDR164Device(device) {
+    if (!client || !client.connected) return;
+
+    const topic = `devices/command/${device.id}`;
+    console.log(`[DR164] Starting poll cycle for ${device.id} (Slave ${device.slaveId})`);
+
+    for (const req of DR164_POLL_SEQUENCE) {
+        if (!client || !client.connected) break;
+
+        const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity);
+
+        // Store pending request info for response correlation
+        dr164PendingRequests.set(device.id, {
+            requestHex: frame.toString('hex').toUpperCase(),
+            slaveId: device.slaveId,
+            fn: 3,
+            startAddress: req.startAddress,
+            quantity: req.quantity,
+            sentAt: Date.now()
+        });
+
+        // Send raw binary frame to DR164
+        client.publish(topic, frame);
+
+        // Wait for response (3s timeout)
+        await waitForDR164Response(device.id, 3000);
+
+        // Gap between requests (RS485 needs settling time)
+        await dr164Sleep(500);
+    }
+
+    console.log(`[DR164] Poll cycle complete for ${device.id}`);
+}
+
+/**
+ * DR164 polling loop — runs sequentially through all DR164 devices.
+ */
+async function dr164PollingLoop() {
+    if (dr164PollingActive) return;
+    dr164PollingActive = true;
+
+    try {
+        for (const device of dr164Devices) {
+            if (!client || !client.connected) break;
+            await pollDR164Device(device);
+            await dr164Sleep(1000); // Gap between devices
+        }
+    } catch (err) {
+        console.error('[DR164] Polling loop error:', err.message);
+    }
+
+    dr164PollingActive = false;
+}
+// ==========================================
+// END DR164 SUPPORT
+// ==========================================
+
 // Configuration
 const BROKER_URL = process.env.MQTT_BROKER_URL;
 if (!BROKER_URL) {
@@ -117,7 +250,20 @@ export const initMqttService = (io) => {
     client.on('message', (topic, message) => {
         try {
             console.log(`[MQTT] Message received on ${topic}`); // Debug log
-            const payload = JSON.parse(message.toString());
+
+            // DR164 SUPPORT: Try JSON parse first (existing modem pathway).
+            // If it fails, the message is raw binary from a DR164 device.
+            let payload;
+            try {
+                payload = JSON.parse(message.toString());
+            } catch (jsonErr) {
+                // Not JSON — DR164 transparent binary mode
+                const deviceId = topic.split('/').pop();
+                const syntheticPayload = handleDR164BinaryResponse(deviceId, message, io);
+                if (!syntheticPayload) return; // No pending request, ignore
+                // Use the synthetic payload and continue with existing processing below
+                payload = syntheticPayload;
+            }
             // console.log('[MQTT] Payload Keys:', Object.keys(payload));
             if (payload.modbusRequest && payload.modbusRequest.length === 0) {
                 console.log('[MQTT] WARNING: Received payload with EMPTY modbusRequest! Gateway might have rejected the command.');
@@ -759,28 +905,47 @@ export const initMqttService = (io) => {
     const updatePollingList = async () => {
         try {
             const res = await pool.query("SELECT connection_info FROM generators");
-            const newDevices = res.rows
-                .filter(row => row.connection_info && row.connection_info.ip) // Ensure valid config
-                .map(row => ({
-                    id: row.connection_info.ip,
-                    slaveId: parseInt(row.connection_info.slaveId) || 1 // Fetch Slave ID or Default 1
-                }));
+            const allRows = res.rows
+                .filter(row => row.connection_info && row.connection_info.ip);
 
-            // Inform newly added devices of their required configurations
+            // Separate modem (default) vs DR164 devices
+            const modemRows = allRows.filter(row => (row.connection_info.deviceType || 'modem') !== 'dr164');
+            const dr164Rows = allRows.filter(row => row.connection_info.deviceType === 'dr164');
+
+            // --- MODEM DEVICES (existing logic, unchanged) ---
+            const newModemDevices = modemRows.map(row => ({
+                id: row.connection_info.ip,
+                slaveId: parseInt(row.connection_info.slaveId) || 1
+            }));
+
             const currentIds = new Set(devicesToPoll.map(d => d.id));
-            const newlyAdded = newDevices.filter(d => !currentIds.has(d.id));
+            const newlyAdded = newModemDevices.filter(d => !currentIds.has(d.id));
 
-            devicesToPoll = newDevices;
+            devicesToPoll = newModemDevices;
 
             if (newlyAdded.length > 0 && client && client.connected) {
-                console.log(`[MQTT] Detected ${newlyAdded.length} new generator(s). Sending configuration...`);
+                console.log(`[MQTT] Detected ${newlyAdded.length} new modem generator(s). Sending configuration...`);
                 newlyAdded.forEach(device => {
                     const topic = `devices/command/${device.id}`;
                     restorePolling(client, topic, device.slaveId, device.id);
                 });
             }
 
-            // console.log('[MQTT] Updated Polling List:', devicesToPoll);
+            // --- DR164 DEVICES (new logic) ---
+            const newDR164List = dr164Rows.map(row => ({
+                id: row.connection_info.ip,
+                slaveId: parseInt(row.connection_info.slaveId) || 1
+            }));
+
+            const prevDr164Ids = new Set(dr164Devices.map(d => d.id));
+            const newDr164Added = newDR164List.filter(d => !prevDr164Ids.has(d.id));
+            dr164Devices = newDR164List;
+
+            if (newDr164Added.length > 0) {
+                console.log(`[DR164] Detected ${newDr164Added.length} new DR164 generator(s): ${newDr164Added.map(d => d.id).join(', ')}`);
+            }
+
+            // console.log('[MQTT] Updated Polling List:', devicesToPoll, 'DR164:', dr164Devices);
         } catch (err) {
             console.error('[MQTT] Failed to update polling list:', err.message);
         }
@@ -915,6 +1080,15 @@ export const initMqttService = (io) => {
             });
         }
     }, 15000);
+
+    // DR164 SEQUENTIAL POLLING LOOP
+    // Runs every 15 seconds. Each DR164 device is polled sequentially
+    // (one Modbus request at a time, wait for response, then next).
+    setInterval(() => {
+        if (dr164Devices.length > 0 && client && client.connected) {
+            dr164PollingLoop();
+        }
+    }, 15000);
 };
 
 // ==========================================
@@ -1031,21 +1205,53 @@ export const sendControlCommand = (deviceId, action) => {
         pausedDevices.add(deviceId);
         console.log(`[MQTT-CMD] Pausing polling for ${deviceId} (10s timeout)`);
 
-        // Since devicesToPoll is local to this module, we can access it.
-        // Ensure we find the slaveId.
-        const device = devicesToPoll.find(d => d.id === deviceId);
+        // Search in both modem and DR164 device lists
+        let device = devicesToPoll.find(d => d.id === deviceId);
+        let isDR164 = false;
 
         if (!device) {
-            const available = devicesToPoll.map(d => d.id).join(', ');
-            console.error(`[MQTT-CMD] Device ${deviceId} not found. Available: [${available}]`);
-            return { success: false, error: `Device '${deviceId}' not found in polling list. Available: [${available}]` };
+            device = dr164Devices.find(d => d.id === deviceId);
+            if (device) isDR164 = true;
+        }
+
+        if (!device) {
+            const allAvailable = [...devicesToPoll, ...dr164Devices].map(d => d.id).join(', ');
+            console.error(`[MQTT-CMD] Device ${deviceId} not found. Available: [${allAvailable}]`);
+            return { success: false, error: `Device '${deviceId}' not found in polling list. Available: [${allAvailable}]` };
         }
 
         const { slaveId } = device;
         const topic = `devices/command/${deviceId}`;
 
-        console.log(`[MQTT-CMD] Action: ${action} -> Device: ${deviceId} (Slave ${slaveId})`);
+        console.log(`[MQTT-CMD] Action: ${action} -> Device: ${deviceId} (Slave ${slaveId}) [${isDR164 ? 'DR164' : 'Modem'}]`);
 
+        // DR164: Send raw Modbus binary (no JSON wrapper)
+        if (isDR164) {
+            let commandValue;
+            switch (action) {
+                case 'start':  commandValue = 2;  break;
+                case 'stop':   commandValue = 1;  break;
+                case 'auto':   commandValue = 4;  break;
+                case 'manual': commandValue = 1;  break;
+                case 'reset': case 'ack': commandValue = 64; break;
+                default:
+                    return { success: false, error: `Unknown action '${action}'` };
+            }
+
+            const buf = createModbusWriteMultipleRequest(slaveId, 0, [commandValue]);
+            client.publish(topic, buf); // Raw binary frame
+            console.log(`[DR164-CMD] ${action.toUpperCase()}: Sent raw Modbus to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
+
+            // Resume polling after 5s (DR164 doesn't need restorePolling)
+            setTimeout(() => {
+                pausedDevices.delete(deviceId);
+                console.log(`[DR164-CMD] Resumed polling for ${deviceId}`);
+            }, 5000);
+
+            return { success: true };
+        }
+
+        // MODEM: Existing command logic below (unchanged)
         let valueToWrite = 0;
 
         // Logic based on User Documentation / Confirmation
