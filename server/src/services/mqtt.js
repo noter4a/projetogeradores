@@ -70,8 +70,8 @@ function waitForDR164Response(deviceId, timeoutMs) {
             if (dr164ResponseResolvers.has(deviceId)) {
                 dr164ResponseResolvers.delete(deviceId);
                 dr164PendingRequests.delete(deviceId);
-                console.log(`[DR164] ⏱ Timeout waiting for ${deviceId}`);
-                resolve();
+                console.log(`[DR164] ⏱ Timeout waiting for ${deviceId} (${timeoutMs}ms)`);
+                resolve('timeout');
             }
         }, timeoutMs);
     });
@@ -118,12 +118,18 @@ async function pollDR164Device(device) {
     if (!client || !client.connected) return;
 
     const topic = `devices/command/${device.id}`;
-    console.log(`[DR164] Starting poll cycle for ${device.id} (Slave ${device.slaveId})`);
+    console.log(`[DR164] Starting poll cycle for ${device.id} (Slave ${device.slaveId}) — ${DR164_POLL_SEQUENCE.length} steps`);
 
+    let stepIndex = 0;
     for (const req of DR164_POLL_SEQUENCE) {
-        if (!client || !client.connected) break;
+        stepIndex++;
+        if (!client || !client.connected) {
+            console.log(`[DR164] Client disconnected, aborting cycle for ${device.id}`);
+            break;
+        }
 
         try {
+            console.log(`[DR164] [${device.id}] Step ${stepIndex}/${DR164_POLL_SEQUENCE.length}: Addr ${req.startAddress}, Qty ${req.quantity}`);
             const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity);
 
             // Store pending request info for response correlation
@@ -139,8 +145,11 @@ async function pollDR164Device(device) {
             // Send raw binary frame to DR164
             client.publish(topic, frame);
 
-            // Wait for response (3s timeout)
-            await waitForDR164Response(device.id, 3000);
+            // Wait for response (5s timeout — DR164 transparent mode is slower than direct modem)
+            await waitForDR164Response(device.id, 5000);
+
+            // Normal gap between requests
+            await dr164Sleep(1000);
         } catch (stepErr) {
             console.error(`[DR164] Error polling ${device.id} addr ${req.startAddress}: ${stepErr.message}`);
             // Clean up any dangling state for this device
@@ -148,10 +157,9 @@ async function pollDR164Device(device) {
             if (dr164ResponseResolvers.has(device.id)) {
                 dr164ResponseResolvers.delete(device.id);
             }
+            // Longer recovery after error — give the gateway time to flush
+            await dr164Sleep(3000);
         }
-
-        // Gap between requests (RS485 needs settling time)
-        await dr164Sleep(500);
     }
 
     console.log(`[DR164] Poll cycle complete for ${device.id}`);
