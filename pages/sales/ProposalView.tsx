@@ -57,7 +57,7 @@ const ProposalView: React.FC = () => {
           margin: 0;
         }
         @media print {
-          body { margin: 0; padding: 0; background: white; }
+          body { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
           .proposal-a4 { width: 210mm !important; box-shadow: none !important; margin: 0 !important; }
 
@@ -201,7 +201,7 @@ const ProposalView: React.FC = () => {
 
           {/* Gerador Protections */}
           {gerador?.protecao && (
-            <div>
+            <div className="break-inside-avoid">
               <div className="font-bold underline mb-1">Proteções do gerador</div>
               <div className="whitespace-pre-wrap pl-2">{gerador.protecao}</div>
             </div>
@@ -209,7 +209,7 @@ const ProposalView: React.FC = () => {
 
           {/* Motor */}
           {proposal.motor && (
-            <div>
+            <div className="break-inside-avoid">
               <div className="font-bold underline mb-1">1.1 MOTOR: {proposal.motor.modelo}</div>
               <div className="whitespace-pre-wrap pl-2 mb-2">{proposal.motor.descricao}</div>
               {proposal.motor.protecao && (
@@ -223,7 +223,7 @@ const ProposalView: React.FC = () => {
 
           {/* Alternator */}
           {proposal.alternador && (
-            <div>
+            <div className="break-inside-avoid">
               <div className="font-bold underline mb-1">1.2 ALTERNADOR: {proposal.alternador.modelo}</div>
               <div className="whitespace-pre-wrap pl-2">{proposal.alternador.descricao}</div>
             </div>
@@ -231,7 +231,7 @@ const ProposalView: React.FC = () => {
 
           {/* Module */}
           {proposal.modulo && (
-            <div>
+            <div className="break-inside-avoid">
               <div className="font-bold underline mb-1">1.3 MÓDULO: {proposal.modulo.modelo}</div>
               <div className="whitespace-pre-wrap pl-2 mb-2">{proposal.modulo.descricao}</div>
               {proposal.modulo.imagem_base64 && (
@@ -248,7 +248,7 @@ const ProposalView: React.FC = () => {
 
           {/* Accessories */}
           {proposal.acessorio && (
-            <div>
+            <div className="break-inside-avoid">
               <div className="font-bold underline mb-1">1.4 ACESSÓRIOS: {proposal.acessorio.grupo}</div>
               <div className="whitespace-pre-wrap pl-2">{proposal.acessorio.itens_incluidos}</div>
             </div>
@@ -256,7 +256,7 @@ const ProposalView: React.FC = () => {
 
           {/* Dimensions */}
           {proposal.dimensao && (
-            <div>
+            <div className="break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
               <div className="font-bold underline mb-1">DIMENSÕES: {proposal.dimensao.id_dimensionamento}</div>
               <div className="whitespace-pre-wrap pl-2 mb-2">{proposal.dimensao.dimensoes}</div>
               {proposal.dimensao.imagem_base64 && (
