@@ -55,10 +55,9 @@ const DR164_POLL_SEQUENCE = [
     { startAddress: 14, quantity: 9 },   // Mains Voltages (Reg 14-22)
     { startAddress: 23, quantity: 3 },   // Current/Breaker (Reg 23-25)
     { startAddress: 29, quantity: 3 },   // Active Power (Reg 29-31)
-    { startAddress: 66, quantity: 1 },   // Alarm (Reg 66)
     { startAddress: 77, quantity: 2 },   // Inputs + Mode (Reg 77-78)
     { startAddress: 16, quantity: 1 },   // Status (Reg 16)
-    { startAddress: 65, quantity: 12 },  // Alarms Complete (Reg 65-76)
+    { startAddress: 65, quantity: 12 },  // Alarms Complete (Reg 65-76) — SINGLE SOURCE OF TRUTH for alarm state
 ];
 
 const dr164Sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
