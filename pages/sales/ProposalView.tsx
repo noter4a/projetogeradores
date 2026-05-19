@@ -65,17 +65,22 @@ const ProposalView: React.FC = () => {
           .letterhead-thead { display: table-header-group; }
           .letterhead-tbody { display: table-row-group; }
 
-          /* tfoot repete o footer no RODAPÉ de cada página garantindo espaço */
+          /* tfoot atua apenas como um 'espaçador invisível' no final de cada folha para não sobrepor */
           .letterhead-tfoot { display: table-footer-group; }
 
-          /* Footer fixo escondido, vamos usar o tfoot nativo da tabela */
+          /* O footer visual de verdade fica fixo no pé da página */
           .print-footer-fixed {
-            display: none !important;
+            display: block !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
           }
 
           /* Remove padding artificial */
           .content-cell {
-            padding-bottom: 5mm !important;
+            padding-bottom: 0 !important;
           }
         }
       `}</style>
@@ -103,11 +108,11 @@ const ProposalView: React.FC = () => {
             </tr>
           </thead>
 
-          {/* TFOOT — repete no rodapé de cada página impressa */}
+          {/* TFOOT — Espaçador invisível para empurrar o conteúdo e não sobrepor o footer fixo */}
           <tfoot className="letterhead-tfoot">
             <tr>
               <td style={{ padding: 0 }}>
-                <img src="/timbrada_footer.png" alt="" style={{ width: '100%', display: 'block' }} />
+                <img src="/timbrada_footer.png" alt="" style={{ width: '100%', display: 'block', opacity: 0 }} />
               </td>
             </tr>
           </tfoot>
