@@ -46,6 +46,7 @@ let dr164Devices = [];
 const dr164PendingRequests = new Map();   // deviceId -> { requestHex, slaveId, fn, startAddress, quantity, sentAt }
 const dr164ResponseResolvers = new Map(); // deviceId -> resolve() function for async polling
 let dr164PollingActive = false;
+let dr164PollingStartedAt = null;
 
 const DR164_POLL_SEQUENCE = [
     { startAddress: 60, quantity: 5 },   // Run Hours (Reg 60-64)
@@ -122,23 +123,32 @@ async function pollDR164Device(device) {
     for (const req of DR164_POLL_SEQUENCE) {
         if (!client || !client.connected) break;
 
-        const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity);
+        try {
+            const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity);
 
-        // Store pending request info for response correlation
-        dr164PendingRequests.set(device.id, {
-            requestHex: frame.toString('hex').toUpperCase(),
-            slaveId: device.slaveId,
-            fn: 3,
-            startAddress: req.startAddress,
-            quantity: req.quantity,
-            sentAt: Date.now()
-        });
+            // Store pending request info for response correlation
+            dr164PendingRequests.set(device.id, {
+                requestHex: frame.toString('hex').toUpperCase(),
+                slaveId: device.slaveId,
+                fn: 3,
+                startAddress: req.startAddress,
+                quantity: req.quantity,
+                sentAt: Date.now()
+            });
 
-        // Send raw binary frame to DR164
-        client.publish(topic, frame);
+            // Send raw binary frame to DR164
+            client.publish(topic, frame);
 
-        // Wait for response (3s timeout)
-        await waitForDR164Response(device.id, 3000);
+            // Wait for response (3s timeout)
+            await waitForDR164Response(device.id, 3000);
+        } catch (stepErr) {
+            console.error(`[DR164] Error polling ${device.id} addr ${req.startAddress}: ${stepErr.message}`);
+            // Clean up any dangling state for this device
+            dr164PendingRequests.delete(device.id);
+            if (dr164ResponseResolvers.has(device.id)) {
+                dr164ResponseResolvers.delete(device.id);
+            }
+        }
 
         // Gap between requests (RS485 needs settling time)
         await dr164Sleep(500);
@@ -149,10 +159,20 @@ async function pollDR164Device(device) {
 
 /**
  * DR164 polling loop — runs sequentially through all DR164 devices.
+ * Uses a finally block to GUARANTEE the active flag is always reset.
  */
 async function dr164PollingLoop() {
-    if (dr164PollingActive) return;
+    if (dr164PollingActive) {
+        // Safety: if polling has been active for more than 3 minutes, force reset
+        if (dr164PollingStartedAt && (Date.now() - dr164PollingStartedAt > 180000)) {
+            console.warn('[DR164] ⚠️ Polling was stuck for >3min, forcing reset.');
+            dr164PollingActive = false;
+        } else {
+            return;
+        }
+    }
     dr164PollingActive = true;
+    dr164PollingStartedAt = Date.now();
 
     try {
         for (const device of dr164Devices) {
@@ -162,9 +182,10 @@ async function dr164PollingLoop() {
         }
     } catch (err) {
         console.error('[DR164] Polling loop error:', err.message);
+    } finally {
+        dr164PollingActive = false;
+        dr164PollingStartedAt = null;
     }
-
-    dr164PollingActive = false;
 }
 // ==========================================
 // END DR164 SUPPORT
