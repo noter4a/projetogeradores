@@ -90,7 +90,9 @@ router.get('/', (req, res) => {
 const initDb = async (retries = 15, delay = 5000) => {
     for (let i = 0; i < retries; i++) {
         try {
-            const client = await pool.connec            // Create Companies Table
+            const client = await pool.connect();
+            
+            // Create Companies Table
             await client.query(`
                 CREATE TABLE IF NOT EXISTS companies (
                     id SERIAL PRIMARY KEY,
