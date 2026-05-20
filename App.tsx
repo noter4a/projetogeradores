@@ -9,6 +9,7 @@ import AlarmCenter from './pages/AlarmCenter'; // NEW
 import FleetManagement from './pages/FleetManagement';
 import AddGenerator from './pages/AddGenerator';
 import UserManagement from './pages/UserManagement';
+import CompanyManagement from './pages/CompanyManagement';
 import Reports from './pages/Reports';
 import Maintenance from './pages/Maintenance';
 import Alarms from './pages/Alarms';
@@ -207,6 +208,12 @@ const AppContent: React.FC = () => {
         <Route path="/users" element={
           <AdminRoute>
             <Layout><UserManagement /></Layout>
+          </AdminRoute>
+        } />
+
+        <Route path="/companies" element={
+          <AdminRoute>
+            <Layout><CompanyManagement /></Layout>
           </AdminRoute>
         } />
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGenerators } from '../context/GeneratorContext';
 import { useUsers } from '../context/UserContext';
 import { GeneratorStatus } from '../types';
-import { Trash2, PlusCircle, MapPin, Zap, Server, Pencil } from 'lucide-react';
+import { Trash2, PlusCircle, MapPin, Zap, Server, Pencil, Building } from 'lucide-react';
 
 const FleetManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -49,6 +49,7 @@ const FleetManagement: React.FC = () => {
             <thead className="bg-[#1a1a1a] text-gray-500 text-[11px] uppercase tracking-wider font-bold border-b border-gray-800">
               <tr>
                 <th className="p-4 pl-6">Identificação</th>
+                <th className="p-4">Empresa</th>
                 <th className="p-4">Localização</th>
                 <th className="p-4">Modelo</th>
                 <th className="p-4">Potência</th>
@@ -75,6 +76,12 @@ const FleetManagement: React.FC = () => {
                           <p className="font-bold text-white text-sm">{gen.name}</p>
                           <p className="text-[10px] text-gray-500 font-mono mt-0.5">{gen.id}</p>
                         </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-gray-400 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Building size={14} className="text-gray-600" />
+                        {gen.companyName || <span className="text-gray-600 italic">Nenhuma</span>}
                       </div>
                     </td>
                     <td className="p-4 text-gray-400 text-sm">

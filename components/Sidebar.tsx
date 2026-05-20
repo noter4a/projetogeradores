@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Zap, LogOut, Settings2, Users, MessageCircle, Wallet, AlertTriangle, BookOpen, FileText, FolderOpen, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Zap, LogOut, Settings2, Users, MessageCircle, Wallet, AlertTriangle, BookOpen, FileText, FolderOpen, Sun, Moon, Building } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { UserRole } from '../types';
@@ -106,6 +106,19 @@ const Sidebar: React.FC = () => {
              >
                 <Settings2 size={20} />
                 <span className="font-medium">Gerenciar Grupos Geradores</span>
+             </NavLink>
+             <NavLink
+               to="/companies"
+               className={({ isActive }) =>
+                 `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 mb-1 ${
+                   isActive
+                     ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                     : 'hover:bg-gray-800 hover:text-white'
+                 }`
+               }
+             >
+                <Building size={20} />
+                <span className="font-medium">Gerenciar Empresas</span>
              </NavLink>
              <NavLink
                to="/users"

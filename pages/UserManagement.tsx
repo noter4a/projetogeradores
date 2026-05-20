@@ -2,15 +2,28 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
-import { UserRole, User } from '../types';
-import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Eye, Wallet, ChevronLeft, ChevronRight } from 'lucide-react';
+import { UserRole, User, Company } from '../types';
+import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Eye, Wallet, ChevronLeft, ChevronRight, Building } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
   const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();
   const { user: currentUser, token } = useAuth();
   const { generators } = useGenerators();
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Fetch Companies list
+  useEffect(() => {
+    if (token) {
+      fetch('/api/companies', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => setCompanies(data))
+        .catch(err => console.error('Error fetching companies:', err));
+    }
+  }, [token]);
 
   // Pagination
   const ITEMS_PER_PAGE = 10;
@@ -32,12 +45,13 @@ const UserManagement: React.FC = () => {
     email: '',
     password: '',
     role: UserRole.TECHNICIAN,
-    assignedGeneratorIds: [] as string[]
+    assignedGeneratorIds: [] as string[],
+    companyId: undefined as number | undefined
   });
 
   const handleOpenAdd = () => {
     setEditingId(null);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [] });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [], companyId: undefined });
     setIsFormOpen(true);
   };
 
@@ -48,7 +62,8 @@ const UserManagement: React.FC = () => {
       email: user.email,
       password: '', // Don't show existing password
       role: user.role,
-      assignedGeneratorIds: user.assignedGeneratorIds || []
+      assignedGeneratorIds: user.assignedGeneratorIds || [],
+      companyId: user.companyId
     });
     setIsFormOpen(true);
   };
@@ -78,7 +93,8 @@ const UserManagement: React.FC = () => {
           // Only update password if provided, otherwise keep existing
           password: formData.password || existingUser.password || '123456',
           role: formData.role as UserRole,
-          assignedGeneratorIds: (formData.role === UserRole.ADMIN || formData.role === UserRole.ORCAMENTOS) ? [] : formData.assignedGeneratorIds
+          assignedGeneratorIds: (formData.role === UserRole.ADMIN || formData.role === UserRole.ORCAMENTOS) ? [] : formData.assignedGeneratorIds,
+          companyId: formData.companyId
         });
       }
     } else {
@@ -89,13 +105,14 @@ const UserManagement: React.FC = () => {
         email: formData.email,
         password: formData.password || '123456',
         role: formData.role as UserRole,
-        assignedGeneratorIds: (formData.role === UserRole.ADMIN || formData.role === UserRole.ORCAMENTOS) ? [] : formData.assignedGeneratorIds
+        assignedGeneratorIds: (formData.role === UserRole.ADMIN || formData.role === UserRole.ORCAMENTOS) ? [] : formData.assignedGeneratorIds,
+        companyId: formData.companyId
       };
       await addUser(user);
     }
 
     setIsFormOpen(false);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [] });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [], companyId: undefined });
     setEditingId(null);
   };
 
@@ -186,6 +203,19 @@ const UserManagement: React.FC = () => {
                   <option value={UserRole.MONITOR}>Monitoramento</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Empresa / Grupo</label>
+                <select
+                  value={formData.companyId || ''}
+                  onChange={e => setFormData({ ...formData, companyId: e.target.value ? Number(e.target.value) : undefined })}
+                  className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none"
+                >
+                  <option value="">Nenhuma Empresa / Sem Grupo</option>
+                  {companies.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Generator Assignment Section - Hide for Admins and Orcamentos */}
@@ -252,6 +282,7 @@ const UserManagement: React.FC = () => {
               <tr>
                 <th className="p-4 pl-6">Usuário</th>
                 <th className="p-4">Contato</th>
+                <th className="p-4">Empresa</th>
                 <th className="p-4">Perfil</th>
                 <th className="p-4">Acesso</th>
                 <th className="p-4 text-center">Ações</th>
@@ -276,6 +307,12 @@ const UserManagement: React.FC = () => {
                       <Mail size={14} className="text-gray-600" />
                       {u.email}
                     </div>
+                  </td>
+                  <td className="p-4 text-sm text-gray-300">
+                    <span className="flex items-center gap-1.5 text-gray-400">
+                      <Building size={14} className="text-gray-600" />
+                      {u.companyName || <span className="text-gray-600 italic">Nenhuma</span>}
+                    </span>
                   </td>
                   <td className="p-4">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${u.role === UserRole.ADMIN ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :

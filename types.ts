@@ -7,6 +7,12 @@ export enum UserRole {
   ORCAMENTOS = 'ORCAMENTOS',
 }
 
+export interface Company {
+  id: number;
+  name: string;
+  created_at?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -14,7 +20,8 @@ export interface User {
   email: string;
   password?: string;
   assignedGeneratorIds?: string[];
-  // credits?: number; // REMOVED
+  companyId?: number;
+  companyName?: string;
 }
 
 export enum GeneratorStatus {
@@ -31,6 +38,8 @@ export interface Generator {
   model: string;
   powerKVA: number;
   status: GeneratorStatus;
+  companyId?: number;
+  companyName?: string;
   fuelLevel: number;
   engineTemp: number; // Celsius
   oilPressure: number; // Bar

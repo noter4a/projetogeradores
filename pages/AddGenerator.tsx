@@ -1,15 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, Server, Cpu, MapPin, Zap } from 'lucide-react';
+import { Save, Server, Cpu, MapPin, Zap, Building } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGenerators } from '../context/GeneratorContext';
-import { Generator, GeneratorStatus } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { Generator, GeneratorStatus, Company } from '../types';
 
 const AddGenerator: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // Get ID from URL if editing
   const { addGenerator, updateGenerator, generators } = useGenerators();
+  const { token } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -23,8 +26,21 @@ const AddGenerator: React.FC = () => {
     ip: '',
     port: '',
     slaveId: '1',
-    deviceType: 'modem'
+    deviceType: 'modem',
+    companyId: ''
   });
+
+  // Fetch companies list
+  useEffect(() => {
+    if (token) {
+      fetch('/api/companies', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => setCompanies(data))
+        .catch(err => console.error('Error fetching companies in AddGenerator:', err));
+    }
+  }, [token]);
 
   // Load existing data if editing
   useEffect(() => {
@@ -42,7 +58,8 @@ const AddGenerator: React.FC = () => {
           ip: existingGen.ip || '',
           port: existingGen.port || '',
           slaveId: existingGen.slaveId || '1',
-          deviceType: existingGen.deviceType || 'modem'
+          deviceType: existingGen.deviceType || 'modem',
+          companyId: existingGen.companyId ? existingGen.companyId.toString() : ''
         });
       }
     }
@@ -73,7 +90,8 @@ const AddGenerator: React.FC = () => {
           ip: formData.ip,
           port: formData.port,
           slaveId: formData.slaveId,
-          deviceType: formData.deviceType
+          deviceType: formData.deviceType,
+          companyId: formData.companyId ? Number(formData.companyId) : undefined
         };
         updateGenerator(updatedGen);
       }
@@ -108,7 +126,8 @@ const AddGenerator: React.FC = () => {
         ip: formData.ip,
         port: formData.port,
         slaveId: formData.slaveId,
-        deviceType: formData.deviceType
+        deviceType: formData.deviceType,
+        companyId: formData.companyId ? Number(formData.companyId) : undefined
       };
       addGenerator(newGen);
     }
@@ -189,6 +208,23 @@ const AddGenerator: React.FC = () => {
                 />
               </div>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1 flex items-center gap-1.5">
+              <Building size={16} className="text-gray-500" /> Empresa / Grupo Responsável
+            </label>
+            <select
+              name="companyId"
+              value={formData.companyId}
+              onChange={handleChange}
+              className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
+            >
+              <option value="">Nenhuma Empresa / Sem Grupo</option>
+              {companies.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 

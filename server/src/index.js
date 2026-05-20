@@ -90,25 +90,46 @@ router.get('/', (req, res) => {
 const initDb = async (retries = 15, delay = 5000) => {
     for (let i = 0; i < retries; i++) {
         try {
-            const client = await pool.connect();
+            const client = await pool.connec            // Create Companies Table
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS companies (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
 
             // Create Users Table
             await client.query(`
-          CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            email VARCHAR(255) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL,
-            name VARCHAR(255) NOT NULL,
-            role VARCHAR(50) NOT NULL,
-            assigned_generators TEXT[], 
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-        `);
+              CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                role VARCHAR(50) NOT NULL,
+                assigned_generators TEXT[], 
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                company_id INT REFERENCES companies(id) ON DELETE SET NULL
+              );
+            `);
 
-            // Migration: Add credits column if not exists (REMOVED PER USER REQUEST)
-            // try {
-            //    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits NUMERIC(10,2) DEFAULT 0");
-            // } catch (e) { ... }
+            // Migration: Add company_id to users if table already existed without it
+            try {
+                await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS company_id INT REFERENCES companies(id) ON DELETE SET NULL");
+            } catch (e) {
+                console.log("Migration users.company_id already applied or failed:", e.message);
+            }
+
+            // Seed default company if none exists
+            let defaultCompanyId = null;
+            const companyCheck = await client.query("SELECT id FROM companies WHERE name = 'Ciklo Energia'");
+            if (companyCheck.rows.length === 0) {
+                console.log('Seeding default company...');
+                const newCompany = await client.query("INSERT INTO companies (name) VALUES ('Ciklo Energia') RETURNING id");
+                defaultCompanyId = newCompany.rows[0].id;
+            } else {
+                defaultCompanyId = companyCheck.rows[0].id;
+            }
 
             // Check if admin exists, if not seed default users
             const adminCheck = await client.query("SELECT * FROM users WHERE email = 'admin@ciklo.com'");
@@ -120,20 +141,20 @@ const initDb = async (retries = 15, delay = 5000) => {
 
                 // Admin
                 await client.query(
-                    "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
-                    ['Administrador Ciklo', 'admin@ciklo.com', hashedPassword, 'ADMIN', []]
+                    "INSERT INTO users (name, email, password, role, assigned_generators, company_id) VALUES ($1, $2, $3, $4, $5, $6)",
+                    ['Administrador Ciklo', 'admin@ciklo.com', hashedPassword, 'ADMIN', [], defaultCompanyId]
                 );
 
                 // Technician
                 await client.query(
-                    "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
-                    ['Técnico Operacional', 'tech@ciklo.com', hashedPassword, 'TECHNICIAN', ['GEN-001', 'GEN-003']]
+                    "INSERT INTO users (name, email, password, role, assigned_generators, company_id) VALUES ($1, $2, $3, $4, $5, $6)",
+                    ['Técnico Operacional', 'tech@ciklo.com', hashedPassword, 'TECHNICIAN', ['GEN-001', 'GEN-003'], defaultCompanyId]
                 );
 
                 // Client
                 await client.query(
-                    "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
-                    ['Cliente Final', 'client@company.com', hashedPassword, 'CLIENT', ['GEN-002']]
+                    "INSERT INTO users (name, email, password, role, assigned_generators, company_id) VALUES ($1, $2, $3, $4, $5, $6)",
+                    ['Cliente Final', 'client@company.com', hashedPassword, 'CLIENT', ['GEN-002'], defaultCompanyId]
                 );
 
                 console.log('Default users created.');
@@ -162,9 +183,19 @@ const initDb = async (retries = 15, delay = 5000) => {
                     run_hours NUMERIC, total_hours NUMERIC,
                     active_power NUMERIC, power_factor NUMERIC,
                     
-                    voltage_l12 NUMERIC, voltage_l23 NUMERIC, voltage_l31 NUMERIC
+                    voltage_l12 NUMERIC, voltage_l23 NUMERIC, voltage_l31 NUMERIC,
+                    company_id INT REFERENCES companies(id) ON DELETE SET NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             `);
+
+            // Migration: Add company_id and created_at to generators if table already existed without them
+            try {
+                await client.query("ALTER TABLE generators ADD COLUMN IF NOT EXISTS company_id INT REFERENCES companies(id) ON DELETE SET NULL");
+                await client.query("ALTER TABLE generators ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+            } catch (e) {
+                console.log("Migration generators.company_id already applied or failed:", e.message);
+            }
 
             // Create Alarm History Table (Moved from db.js for safety)
             await client.query(`
@@ -179,7 +210,7 @@ const initDb = async (retries = 15, delay = 5000) => {
                     acknowledged_at TIMESTAMP,
                     acknowledged_by VARCHAR(100)
                 );
-            `);
+            `);      `);
 
             // Create Generator Readings Table (Historical Power Data for Charts)
             await client.query(`
@@ -393,7 +424,7 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
 
         // 3. Generate Token
         const token = jwt.sign(
-            { id: user.id, role: user.role, email: user.email },
+            { id: user.id, role: user.role, email: user.email, companyId: user.company_id },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -406,7 +437,8 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                assignedGeneratorIds: user.assigned_generators || []
+                assignedGeneratorIds: user.assigned_generators || [],
+                companyId: user.company_id
             }
         });
 
@@ -438,10 +470,16 @@ router.get('/users', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado.' });
     }
     try {
-        // Removed 'credits' from selection
-        const result = await pool.query('SELECT id, name, email, role, assigned_generators, created_at FROM users ORDER BY created_at DESC');
+        const result = await pool.query(`
+            SELECT u.id, u.name, u.email, u.role, u.assigned_generators, u.company_id, c.name as company_name, u.created_at 
+            FROM users u
+            LEFT JOIN companies c ON u.company_id = c.id
+            ORDER BY u.created_at DESC
+        `);
         res.json(result.rows.map(user => ({
             ...user,
+            companyId: user.company_id,
+            companyName: user.company_name,
             assignedGeneratorIds: user.assigned_generators || [] // Map DB field to frontend expected prop
         })));
     } catch (err) {
@@ -456,13 +494,13 @@ router.put('/users/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado.' });
     }
     const { id } = req.params;
-    const { name, email, role, assignedGeneratorIds, credentials_password } = req.body; // Removed credits
+    const { name, email, role, assignedGeneratorIds, credentials_password, companyId } = req.body;
 
     try {
-        // Update basic info (Removed credits from Update)
+        // Update basic info
         await pool.query(
-            "UPDATE users SET name=$1, email=$2, role=$3, assigned_generators=$4 WHERE id=$5",
-            [name, email, role, assignedGeneratorIds || [], id]
+            "UPDATE users SET name=$1, email=$2, role=$3, assigned_generators=$4, company_id=$5 WHERE id=$6",
+            [name, email, role, assignedGeneratorIds || [], companyId || null, id]
         );
 
         // Update password if provided
@@ -506,7 +544,7 @@ router.post('/auth/register', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem criar usuários.' });
     }
 
-    const { name, email, password, role, assigned_generators } = req.body;
+    const { name, email, password, role, assigned_generators, companyId } = req.body;
 
     if (!name || !email || !password || !role) {
         return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
@@ -525,8 +563,8 @@ router.post('/auth/register', authenticateToken, async (req, res) => {
 
         // Insert User
         await pool.query(
-            "INSERT INTO users (name, email, password, role, assigned_generators) VALUES ($1, $2, $3, $4, $5)",
-            [name, email, hashedPassword, role, assigned_generators || []]
+            "INSERT INTO users (name, email, password, role, assigned_generators, company_id) VALUES ($1, $2, $3, $4, $5, $6)",
+            [name, email, hashedPassword, role, assigned_generators || [], companyId || null]
         );
 
         res.status(201).json({ message: 'Usuário criado com sucesso.' });
@@ -534,6 +572,85 @@ router.post('/auth/register', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('Register error:', err);
         res.status(500).json({ message: 'Erro ao criar usuário.' });
+    }
+});
+
+// --- COMPANIES CRUD ROUTES ---
+
+// GET /api/companies - PROTECTED (All authenticated users can list)
+router.get('/companies', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM companies ORDER BY name ASC');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Get companies error:', err);
+        res.status(500).json({ message: 'Erro ao buscar empresas.' });
+    }
+});
+
+// POST /api/companies - PROTECTED (Admin Only)
+router.post('/companies', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem criar empresas.' });
+    }
+    const { name } = req.body;
+    if (!name) {
+        return res.status(400).json({ message: 'Nome da empresa é obrigatório.' });
+    }
+    try {
+        const check = await pool.query('SELECT * FROM companies WHERE name = $1', [name]);
+        if (check.rows.length > 0) {
+            return res.status(400).json({ message: 'Empresa com este nome já existe.' });
+        }
+        const result = await pool.query('INSERT INTO companies (name) VALUES ($1) RETURNING *', [name]);
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('Create company error:', err);
+        res.status(500).json({ message: 'Erro ao criar empresa.' });
+    }
+});
+
+// PUT /api/companies/:id - PROTECTED (Admin Only)
+router.put('/companies/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem atualizar empresas.' });
+    }
+    const { id } = req.params;
+    const { name } = req.body;
+    if (!name) {
+        return res.status(400).json({ message: 'Nome da empresa é obrigatório.' });
+    }
+    try {
+        const check = await pool.query('SELECT * FROM companies WHERE name = $1 AND id <> $2', [name, id]);
+        if (check.rows.length > 0) {
+            return res.status(400).json({ message: 'Outra empresa com este nome já existe.' });
+        }
+        const result = await pool.query('UPDATE companies SET name = $1 WHERE id = $2 RETURNING *', [name, id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Empresa não encontrada.' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Update company error:', err);
+        res.status(500).json({ message: 'Erro ao atualizar empresa.' });
+    }
+});
+
+// DELETE /api/companies/:id - PROTECTED (Admin Only)
+router.delete('/companies/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem remover empresas.' });
+    }
+    const { id } = req.params;
+    try {
+        const result = await pool.query('DELETE FROM companies WHERE id = $1 RETURNING *', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Empresa não encontrada.' });
+        }
+        res.json({ message: 'Empresa removida com sucesso.' });
+    } catch (err) {
+        console.error('Delete company error:', err);
+        res.status(500).json({ message: 'Erro ao remover empresa.' });
     }
 });
 
@@ -566,7 +683,23 @@ router.post('/control', authenticateToken, async (req, res) => {
 // FIX #9: Rota protegida com autenticação
 router.get('/generators', authenticateToken, async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM generators ORDER BY created_at ASC');
+        let query = `
+            SELECT g.*, c.name as company_name 
+            FROM generators g 
+            LEFT JOIN companies c ON g.company_id = c.id
+        `;
+        const params = [];
+        
+        // Filter by company_id if user is not admin and has a company_id
+        if (req.user.role !== 'ADMIN' && req.user.companyId) {
+            query += ` WHERE g.company_id = $1`;
+            params.push(req.user.companyId);
+        }
+        
+        query += ` ORDER BY g.created_at ASC`;
+
+        const result = await pool.query(query, params);
+        
         // Map DB fields to Frontend types
         const generators = result.rows.map(row => ({
             id: row.id,
@@ -582,6 +715,8 @@ router.get('/generators', authenticateToken, async (req, res) => {
             port: row.connection_info.port,
             slaveId: row.connection_info.slaveId,
             deviceType: row.connection_info.deviceType || 'modem',
+            companyId: row.company_id,
+            companyName: row.company_name,
 
             // Map Persistent Real-Time Values
             fuelLevel: row.fuel_level || 0,
@@ -631,8 +766,8 @@ router.post('/generators', authenticateToken, async (req, res) => {
         };
 
         await pool.query(
-            "INSERT INTO generators (id, name, location, model, power_kva, status, connection_info) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-            [gen.id, gen.name, gen.location, gen.model, gen.powerKVA, gen.status || 'STOPPED', JSON.stringify(connectionInfo)]
+            "INSERT INTO generators (id, name, location, model, power_kva, status, connection_info, company_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            [gen.id, gen.name, gen.location, gen.model, gen.powerKVA, gen.status || 'STOPPED', JSON.stringify(connectionInfo), gen.companyId || null]
         );
         res.status(201).json({ message: 'Gerador criado com sucesso' });
     } catch (err) {
@@ -657,8 +792,8 @@ router.put('/generators/:id', authenticateToken, async (req, res) => {
         };
 
         await pool.query(
-            "UPDATE generators SET name=$1, location=$2, model=$3, power_kva=$4, status=$5, connection_info=$6 WHERE id=$7",
-            [gen.name, gen.location, gen.model, gen.powerKVA, gen.status, JSON.stringify(connectionInfo), id]
+            "UPDATE generators SET name=$1, location=$2, model=$3, power_kva=$4, status=$5, connection_info=$6, company_id=$7 WHERE id=$8",
+            [gen.name, gen.location, gen.model, gen.powerKVA, gen.status, JSON.stringify(connectionInfo), gen.companyId || null, id]
         );
         res.json({ message: 'Gerador atualizado' });
     } catch (err) {
