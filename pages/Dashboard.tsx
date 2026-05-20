@@ -115,6 +115,19 @@ const Dashboard: React.FC = () => {
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="flex items-center gap-2">
                         <StatusBadge status={gen.status} />
+                        {(() => {
+                          const isConnected = gen.lastDataReceived && (Date.now() - gen.lastDataReceived) < 60_000;
+                          return (
+                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 whitespace-nowrap ${
+                              isConnected
+                                ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                                : 'bg-red-500/10 text-red-400 border-red-500/30'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
+                              {isConnected ? 'CONECTADO' : 'DESCONECTADO'}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
