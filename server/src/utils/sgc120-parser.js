@@ -122,13 +122,20 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
 
   let result = {};
 
-  // Block 60: Run Hours (Reg 60=Hours, Reg 62=Minutes)
+  // Block 60: Run Hours (Reg60+61 = 32-bit Hours, Reg62 = Minutes)
+  // From real data: 01030a 0000 0048 002b 1384 0015
+  //   Reg60=0x0000 (hi word), Reg61=0x0048 (72 = lo word) → 72 hours
+  //   Reg62=0x002B (43 minutes)
   if (startAddress === 60 && regs.length >= 3) {
-    const hours = u16(regs, 0);   // Reg 60
-    const minutes = u16(regs, 2); // Reg 62 (Skipping 61)
+    const hoursHi = u16(regs, 0);  // Reg 60 (high word)
+    const hoursLo = u16(regs, 1);  // Reg 61 (low word)
+    const hours = (hoursHi << 16) | hoursLo; // 32-bit total hours
+    const minutes = u16(regs, 2);  // Reg 62
 
     // Calculate decimal for easier display/DB
     const decimal = hours + (minutes / 60.0);
+
+    console.log(`[PARSER] RunHours Block: Reg60=${hoursHi}, Reg61=${hoursLo} → ${hours}h ${minutes}m (${decimal.toFixed(2)})`);
 
     return {
       block: "RUNHOURS_60",
