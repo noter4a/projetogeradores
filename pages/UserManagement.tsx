@@ -45,13 +45,12 @@ const UserManagement: React.FC = () => {
     email: '',
     password: '',
     role: UserRole.TECHNICIAN,
-    assignedGeneratorIds: [] as string[],
     companyId: undefined as number | undefined
   });
 
   const handleOpenAdd = () => {
     setEditingId(null);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [], companyId: undefined });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined });
     setIsFormOpen(true);
   };
 
@@ -62,21 +61,9 @@ const UserManagement: React.FC = () => {
       email: user.email,
       password: '', // Don't show existing password
       role: user.role,
-      assignedGeneratorIds: user.assignedGeneratorIds || [],
       companyId: user.companyId
     });
     setIsFormOpen(true);
-  };
-
-  const toggleGeneratorAssignment = (genId: string) => {
-    setFormData(prev => {
-      const current = prev.assignedGeneratorIds;
-      if (current.includes(genId)) {
-        return { ...prev, assignedGeneratorIds: current.filter(id => id !== genId) };
-      } else {
-        return { ...prev, assignedGeneratorIds: [...current, genId] };
-      }
-    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,7 +80,7 @@ const UserManagement: React.FC = () => {
           // Only update password if provided, otherwise keep existing
           password: formData.password || existingUser.password || '123456',
           role: formData.role as UserRole,
-          assignedGeneratorIds: (formData.role === UserRole.ADMIN || formData.role === UserRole.ORCAMENTOS) ? [] : formData.assignedGeneratorIds,
+          assignedGeneratorIds: [],
           companyId: formData.companyId
         });
       }
@@ -105,14 +92,14 @@ const UserManagement: React.FC = () => {
         email: formData.email,
         password: formData.password || '123456',
         role: formData.role as UserRole,
-        assignedGeneratorIds: (formData.role === UserRole.ADMIN || formData.role === UserRole.ORCAMENTOS) ? [] : formData.assignedGeneratorIds,
+        assignedGeneratorIds: [],
         companyId: formData.companyId
       };
       await addUser(user);
     }
 
     setIsFormOpen(false);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, assignedGeneratorIds: [], companyId: undefined });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined });
     setEditingId(null);
   };
 
@@ -218,42 +205,7 @@ const UserManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Generator Assignment Section - Hide for Admins and Orcamentos */}
-            {formData.role !== UserRole.ADMIN && formData.role !== UserRole.ORCAMENTOS && (
-              <div className="border-t border-gray-800 pt-4">
-                <h4 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
-                  <Server size={16} className="text-ciklo-orange" />
-                  Atribuir Geradores
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {generators.map(gen => (
-                    <label
-                      key={gen.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${formData.assignedGeneratorIds.includes(gen.id)
-                        ? 'bg-ciklo-orange/10 border-ciklo-orange'
-                        : 'bg-ciklo-black border-gray-700 hover:border-gray-600'
-                        }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.assignedGeneratorIds.includes(gen.id)}
-                        onChange={() => toggleGeneratorAssignment(gen.id)}
-                        className="w-4 h-4 rounded border-gray-600 text-ciklo-orange focus:ring-ciklo-orange bg-gray-800"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${formData.assignedGeneratorIds.includes(gen.id) ? 'text-ciklo-yellow' : 'text-gray-300'}`}>
-                          {gen.name}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">{gen.location}</p>
-                      </div>
-                    </label>
-                  ))}
-                  {generators.length === 0 && (
-                    <p className="text-sm text-gray-500 col-span-3">Nenhum gerador disponível para atribuição.</p>
-                  )}
-                </div>
-              </div>
-            )}
+
 
             <div className="flex justify-end gap-3 pt-2">
               <button
@@ -334,12 +286,10 @@ const UserManagement: React.FC = () => {
                         <span className="text-xs text-green-500 font-medium">Acesso Total</span>
                       ) : u.role === UserRole.ORCAMENTOS ? (
                         <span className="text-xs text-amber-400 font-medium">Vendas & Orçamentos</span>
+                      ) : u.companyId ? (
+                        <span className="text-xs text-blue-400 font-medium">Acesso por Empresa</span>
                       ) : (
-                        <span className="text-xs text-gray-400">
-                          {u.assignedGeneratorIds && u.assignedGeneratorIds.length > 0
-                            ? `${u.assignedGeneratorIds.length} Gerador(es)`
-                            : 'Nenhum gerador atribuído'}
-                        </span>
+                        <span className="text-xs text-gray-500 italic">Sem acesso (Sem Empresa)</span>
                       )}
                     </div>
                   </td>

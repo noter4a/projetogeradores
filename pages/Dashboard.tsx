@@ -35,10 +35,10 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { generators: allGenerators } = useGenerators();
 
-  // Filter generators based on user assignment (Admins see all)
+  // Filter generators based on user assignment (Admins see all, others see their company's generators)
   const generators = user?.role === UserRole.ADMIN
     ? allGenerators
-    : allGenerators.filter(g => user?.assignedGeneratorIds?.includes(g.id));
+    : allGenerators.filter(g => g.companyId === user?.companyId);
 
   const runningGens = generators.filter(g => g.status === GeneratorStatus.RUNNING).length;
 

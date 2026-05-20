@@ -102,6 +102,7 @@ export interface Generator {
   ip?: string;
   port?: string;
   slaveId?: string;
+  deviceType?: string;
 
   // New Control Fields
   operationMode?: 'AUTO' | 'MANUAL' | 'INHIBITED';

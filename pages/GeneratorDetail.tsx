@@ -132,8 +132,8 @@ const GeneratorDetail: React.FC = () => {
     }
   }, [gen?.alarms?.startFailure]);
 
-  // Access check
-  const hasAccess = user?.role === UserRole.ADMIN || (user?.assignedGeneratorIds?.includes(id || ''));
+  // Access check (Admins see all, others see if their company matches generator's company)
+  const hasAccess = user?.role === UserRole.ADMIN || (user?.companyId !== undefined && gen?.companyId === user?.companyId);
 
   // Sync with context if context updates (e.g. status change from elsewhere)
   useEffect(() => {

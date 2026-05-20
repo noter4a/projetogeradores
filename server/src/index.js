@@ -692,10 +692,10 @@ router.get('/generators', authenticateToken, async (req, res) => {
         `;
         const params = [];
         
-        // Filter by company_id if user is not admin and has a company_id
-        if (req.user.role !== 'ADMIN' && req.user.companyId) {
+        // Filter by company_id if user is not admin
+        if (req.user.role !== 'ADMIN') {
             query += ` WHERE g.company_id = $1`;
-            params.push(req.user.companyId);
+            params.push(req.user.companyId || -1);
         }
         
         query += ` ORDER BY g.created_at ASC`;

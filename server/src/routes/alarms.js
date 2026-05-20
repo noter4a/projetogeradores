@@ -27,9 +27,9 @@ router.get('/', async (req, res) => {
             conditions.push(`a.end_time IS NULL AND a.acknowledged = FALSE`);
         }
 
-        // Filter by company_id if user is not admin and has a company_id
-        if (req.user && req.user.role !== 'ADMIN' && req.user.companyId) {
-            values.push(req.user.companyId);
+        // Filter by company_id if user is not admin
+        if (req.user && req.user.role !== 'ADMIN') {
+            values.push(req.user.companyId || -1);
             conditions.push(`(g.company_id = $${values.length} OR g2.company_id = $${values.length})`);
         }
 

@@ -10,7 +10,9 @@ import { sendAlarmEmail } from './email.js';
 const notifyUsersAboutAlarm = async (clientPool, generatorId, generatorName, alarmCode, alarmMessage) => {
     try {
         const res = await clientPool.query(
-            `SELECT email FROM users WHERE role = 'ADMIN' OR $1 = ANY(assigned_generators)`,
+            `SELECT u.email FROM users u 
+             LEFT JOIN generators g ON g.company_id = u.company_id 
+             WHERE u.role = 'ADMIN' OR g.id = $1`,
             [generatorId]
         );
         const emails = res.rows.map(row => row.email);
