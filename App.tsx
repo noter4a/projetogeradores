@@ -107,7 +107,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-200 ease-in-out z-30 md:flex md:flex-col w-64 bg-ciklo-card border-r border-gray-800 print:hidden`}>
+      <div className={`fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-200 ease-in-out z-30 md:flex md:flex-col w-full md:w-64 bg-ciklo-card border-r border-gray-800 print:hidden`}>
         <Sidebar />
       </div>
 
