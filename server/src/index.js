@@ -210,7 +210,7 @@ const initDb = async (retries = 15, delay = 5000) => {
                     acknowledged_at TIMESTAMP,
                     acknowledged_by VARCHAR(100)
                 );
-            `);      `);
+            `);
 
             // Create Generator Readings Table (Historical Power Data for Charts)
             await client.query(`
