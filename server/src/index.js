@@ -595,7 +595,7 @@ router.post('/companies', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') {
         return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem criar empresas.' });
     }
-    const { name } = req.body;
+    const { name, generatorIds } = req.body;
     if (!name) {
         return res.status(400).json({ message: 'Nome da empresa é obrigatório.' });
     }
@@ -605,7 +605,16 @@ router.post('/companies', authenticateToken, async (req, res) => {
             return res.status(400).json({ message: 'Empresa com este nome já existe.' });
         }
         const result = await pool.query('INSERT INTO companies (name) VALUES ($1) RETURNING *', [name]);
-        res.status(201).json(result.rows[0]);
+        const newCompany = result.rows[0];
+
+        if (generatorIds && Array.isArray(generatorIds) && generatorIds.length > 0) {
+            await pool.query(
+                'UPDATE generators SET company_id = $1 WHERE id = ANY($2)',
+                [newCompany.id, generatorIds]
+            );
+        }
+
+        res.status(201).json(newCompany);
     } catch (err) {
         console.error('Create company error:', err);
         res.status(500).json({ message: 'Erro ao criar empresa.' });
@@ -618,7 +627,7 @@ router.put('/companies/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem atualizar empresas.' });
     }
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, generatorIds } = req.body;
     if (!name) {
         return res.status(400).json({ message: 'Nome da empresa é obrigatório.' });
     }
@@ -631,6 +640,24 @@ router.put('/companies/:id', authenticateToken, async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Empresa não encontrada.' });
         }
+
+        // 1. Remove company_id from generators that are no longer selected
+        if (generatorIds && Array.isArray(generatorIds)) {
+            await pool.query(
+                'UPDATE generators SET company_id = NULL WHERE company_id = $1 AND NOT (id = ANY($2))',
+                [id, generatorIds]
+            );
+            // 2. Associate new generators
+            if (generatorIds.length > 0) {
+                await pool.query(
+                    'UPDATE generators SET company_id = $1 WHERE id = ANY($2)',
+                    [id, generatorIds]
+                );
+            }
+        } else {
+            await pool.query('UPDATE generators SET company_id = NULL WHERE company_id = $1', [id]);
+        }
+
         res.json(result.rows[0]);
     } catch (err) {
         console.error('Update company error:', err);

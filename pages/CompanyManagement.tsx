@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useGenerators } from '../context/GeneratorContext';
 import { Company } from '../types';
-import { Building, Plus, Trash2, Edit, Check, X, FolderPlus } from 'lucide-react';
+import { Building, Plus, Trash2, Edit, Check, X, FolderPlus, Server } from 'lucide-react';
 
 const CompanyManagement: React.FC = () => {
   const { token } = useAuth();
+  const { generators } = useGenerators();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -13,6 +15,7 @@ const CompanyManagement: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [companyName, setCompanyName] = useState('');
+  const [selectedGeneratorIds, setSelectedGeneratorIds] = useState<string[]>([]);
 
   const fetchCompanies = async () => {
     if (!token) return;
@@ -44,13 +47,31 @@ const CompanyManagement: React.FC = () => {
   const handleOpenAdd = () => {
     setEditingId(null);
     setCompanyName('');
+    setSelectedGeneratorIds([]);
     setIsFormOpen(true);
   };
 
   const handleOpenEdit = (company: Company) => {
     setEditingId(company.id);
     setCompanyName(company.name);
+    
+    // Filter generators that already belong to this company
+    const associatedIds = generators
+      .filter(g => g.companyId === company.id)
+      .map(g => g.id);
+    setSelectedGeneratorIds(associatedIds);
+    
     setIsFormOpen(true);
+  };
+
+  const toggleGeneratorSelection = (genId: string) => {
+    setSelectedGeneratorIds(prev => {
+      if (prev.includes(genId)) {
+        return prev.filter(id => id !== genId);
+      } else {
+        return [...prev, genId];
+      }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,12 +89,16 @@ const CompanyManagement: React.FC = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ name: companyName.trim() }),
+        body: JSON.stringify({ 
+          name: companyName.trim(),
+          generatorIds: selectedGeneratorIds
+        }),
       });
 
       if (res.ok) {
         setIsFormOpen(false);
         setCompanyName('');
+        setSelectedGeneratorIds([]);
         setEditingId(null);
         await fetchCompanies();
       } else {
@@ -163,6 +188,49 @@ const CompanyManagement: React.FC = () => {
                 className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none"
                 placeholder="Ex: Companhia de Energia Alfa"
               />
+            </div>
+
+            {/* Grid de Seleção de Geradores */}
+            <div className="border-t border-gray-800 pt-4">
+              <h4 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                <Server size={16} className="text-ciklo-orange" />
+                Associar Geradores a esta Empresa
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {generators.map(gen => {
+                  const isSelected = selectedGeneratorIds.includes(gen.id);
+                  const isOwnedByAnother = gen.companyId !== undefined && gen.companyId !== editingId;
+                  
+                  return (
+                    <label
+                      key={gen.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-ciklo-orange/10 border-ciklo-orange'
+                          : 'bg-ciklo-black border-gray-700 hover:border-gray-600'
+                      } ${isOwnedByAnother ? 'opacity-60' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleGeneratorSelection(gen.id)}
+                        className="w-4 h-4 rounded border-gray-600 text-ciklo-orange focus:ring-ciklo-orange bg-gray-800"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${isSelected ? 'text-ciklo-yellow' : 'text-gray-300'}`}>
+                          {gen.name}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {isOwnedByAnother ? `Grupo atual: ${gen.companyName}` : gen.location}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+                {generators.length === 0 && (
+                  <p className="text-sm text-gray-500 col-span-3">Nenhum gerador disponível no sistema.</p>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
