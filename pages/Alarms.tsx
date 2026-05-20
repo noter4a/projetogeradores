@@ -1,7 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, AlertCircle, CheckCircle, Trash2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, AlertCircle, CheckCircle, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+
+const ITEMS_PER_PAGE = 15;
 
 interface AlarmRecord {
   id: number;
@@ -21,6 +23,7 @@ const Alarms: React.FC = () => {
   const [alarms, setAlarms] = useState<AlarmRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchAlarms = async () => {
     setLoading(true);
@@ -81,8 +84,13 @@ const Alarms: React.FC = () => {
   };
 
   const activeCount = alarms.filter(a => !a.end_time).length;
-  const criticalCount = alarms.filter(a => !a.end_time).length; // All active alarms are critical
+  const criticalCount = alarms.filter(a => !a.end_time).length;
   const resolvedCount = alarms.filter(a => !!a.end_time).length;
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(alarms.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedAlarms = alarms.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   const formatDuration = (alarm: AlarmRecord) => {
     if (!alarm.end_time) return null;
@@ -184,7 +192,7 @@ const Alarms: React.FC = () => {
                    </td>
                  </tr>
               )}
-              {alarms.map((alarm) => {
+              {pagedAlarms.map((alarm) => {
                 const isActive = !alarm.end_time;
                 const duration = formatDuration(alarm);
                 return (
@@ -242,6 +250,55 @@ const Alarms: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800">
+            <p className="text-sm text-gray-500">
+              Mostrando {((safePage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(safePage * ITEMS_PER_PAGE, alarms.length)} de {alarms.length} registros
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 2)
+                .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === '...' ? (
+                    <span key={`dots-${idx}`} className="px-2 text-gray-600">...</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p as number)}
+                      className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+                        safePage === p
+                          ? 'bg-ciklo-orange text-black font-bold'
+                          : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                className="p-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
