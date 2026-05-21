@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Zap, 
@@ -24,14 +24,26 @@ import { UserRole } from '../types';
 const Sidebar: React.FC = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
 
   // Mobile navigation view state
-  const [currentView, setCurrentView] = useState<'main' | 'generators' | 'sales' | 'admin'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'generators' | 'sales' | 'admin'>(() => {
+    const saved = sessionStorage.getItem('mobile_menu_view');
+    return (saved as any) || 'main';
+  });
 
-  // Reset mobile menu view on route changes
+  const changeView = (view: 'main' | 'generators' | 'sales' | 'admin') => {
+    setCurrentView(view);
+    sessionStorage.setItem('mobile_menu_view', view);
+  };
+
+  // Sync view on mobile home navigation
   useEffect(() => {
-    setCurrentView('main');
-  }, [window.location.pathname]);
+    if (location.pathname === '/') {
+      const saved = sessionStorage.getItem('mobile_menu_view');
+      setCurrentView((saved as any) || 'main');
+    }
+  }, [location]);
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/dashboard' },
@@ -224,7 +236,7 @@ const Sidebar: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 {user?.role !== UserRole.ORCAMENTOS && (
                   <button
-                    onClick={() => setCurrentView('generators')}
+                    onClick={() => changeView('generators')}
                     className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
@@ -236,7 +248,7 @@ const Sidebar: React.FC = () => {
 
                 {(user?.role === UserRole.ADMIN || user?.role === UserRole.ORCAMENTOS) && (
                   <button
-                    onClick={() => setCurrentView('sales')}
+                    onClick={() => changeView('sales')}
                     className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
@@ -248,7 +260,7 @@ const Sidebar: React.FC = () => {
 
                 {user?.role === UserRole.ADMIN && (
                   <button
-                    onClick={() => setCurrentView('admin')}
+                    onClick={() => changeView('admin')}
                     className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
@@ -264,7 +276,7 @@ const Sidebar: React.FC = () => {
           {currentView === 'generators' && (
             <div className="space-y-4">
               <button
-                onClick={() => setCurrentView('main')}
+                onClick={() => changeView('main')}
                 className="flex items-center gap-2 text-sm text-ciklo-orange font-bold hover:underline mb-2"
               >
                 ← Voltar ao Menu Principal
@@ -296,7 +308,7 @@ const Sidebar: React.FC = () => {
           {currentView === 'sales' && (
             <div className="space-y-4">
               <button
-                onClick={() => setCurrentView('main')}
+                onClick={() => changeView('main')}
                 className="flex items-center gap-2 text-sm text-ciklo-orange font-bold hover:underline mb-2"
               >
                 ← Voltar ao Menu Principal
@@ -348,7 +360,7 @@ const Sidebar: React.FC = () => {
           {currentView === 'admin' && (
             <div className="space-y-4">
               <button
-                onClick={() => setCurrentView('main')}
+                onClick={() => changeView('main')}
                 className="flex items-center gap-2 text-sm text-ciklo-orange font-bold hover:underline mb-2"
               >
                 ← Voltar ao Menu Principal
