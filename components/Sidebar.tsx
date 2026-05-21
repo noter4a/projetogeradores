@@ -34,7 +34,7 @@ const Sidebar: React.FC = () => {
   }, [window.location.pathname]);
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'Painel', path: '/' },
+    { icon: LayoutDashboard, label: 'Painel', path: '/dashboard' },
     { icon: AlertTriangle, label: 'Central de Alarmes', path: '/alarms' },
   ];
 
@@ -271,7 +271,7 @@ const Sidebar: React.FC = () => {
               </button>
               <div className="grid grid-cols-2 gap-4">
                 <NavLink
-                  to="/"
+                  to="/dashboard"
                   className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
                 >
                   <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">

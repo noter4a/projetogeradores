@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { UserRole } from './types';
 import Login from './pages/Login.tsx';
 import Dashboard from './pages/Dashboard';
@@ -84,49 +85,66 @@ const MonitoringRoute = ({ children }: { children?: React.ReactNode }) => {
 };
 
 const Layout = ({ children }: { children?: React.ReactNode }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
   const { user } = useAuth();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Close sidebar on route change on mobile
   useEffect(() => {
-    setIsSidebarOpen(false);
-  }, [location]);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
+  if (isMobile) {
+    if (location.pathname === '/') {
+      return (
+        <div className="flex h-screen bg-ciklo-black overflow-hidden w-full">
+          {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
+          <div className="w-full h-full">
+            <Sidebar />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex h-screen bg-ciklo-black overflow-hidden flex-col w-full">
+        {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
+        
+        {/* Mobile Header with Back Button */}
+        <header className="flex items-center justify-between p-4 bg-ciklo-card border-b border-gray-800 print:hidden">
+          <Link to="/" className="flex items-center gap-2 text-white hover:text-ciklo-orange transition-colors">
+            <ArrowLeft size={20} className="text-ciklo-orange" />
+            <span className="font-bold text-sm">Voltar ao Menu</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-ciklo-yellow to-ciklo-orange flex items-center justify-center font-bold text-[11px] text-black">
+              C
+            </div>
+            <span className="font-bold text-xs text-gray-300 tracking-wider">CIKLO</span>
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 bg-ciklo-black">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
+  // Desktop Layout
   return (
     <div className="flex h-screen print:h-auto bg-ciklo-black print:bg-white overflow-hidden print:overflow-visible">
-      {/* Global Alarm Popup - Hidden for Orcamentos users */}
       {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
 
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition duration-200 ease-in-out z-30 md:flex md:flex-col w-full md:w-64 bg-ciklo-card border-r border-gray-800 print:hidden`}>
+      {/* Desktop Sidebar */}
+      <div className="flex flex-col w-64 bg-ciklo-card border-r border-gray-800 print:hidden">
         <Sidebar />
       </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible w-full">
-        {/* Mobile Header */}
-        <header className="md:hidden flex items-center justify-between p-4 bg-ciklo-card border-b border-gray-800 print:hidden">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-ciklo-yellow to-ciklo-orange flex items-center justify-center font-bold text-black">
-              C
-            </div>
-            <span className="font-bold text-white tracking-wider">CIKLO</span>
-          </div>
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-white">
-            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </header>
-
-        <main className="flex-1 overflow-x-hidden overflow-y-auto print:overflow-visible bg-ciklo-black print:bg-white p-4 md:p-6 print:p-0">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto print:overflow-visible bg-ciklo-black print:bg-white p-6 print:p-0">
           {children}
         </main>
       </div>
@@ -151,6 +169,18 @@ const AppContent: React.FC = () => {
         {/* NoCredits route removed */}
 
         <Route path="/" element={
+          <ProtectedRoute>
+            <Layout>
+              {window.innerWidth < 768 ? (
+                <></>
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )}
+            </Layout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/dashboard" element={
           <ProtectedRoute>
             <Layout><DashboardRedirect /></Layout>
           </ProtectedRoute>
