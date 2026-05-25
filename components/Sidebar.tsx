@@ -15,13 +15,20 @@ import {
   Sun, 
   Moon, 
   Building,
-  Server
+  Server,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { UserRole } from '../types';
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
@@ -61,149 +68,183 @@ const Sidebar: React.FC = () => {
     <div className="h-full">
       {/* DESKTOP VERSION (hidden on mobile, flex on md and above) */}
       <div className="hidden md:flex flex-col h-full text-gray-300">
-        <div className="p-6 flex items-center gap-3 border-b border-gray-800">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-ciklo-yellow to-ciklo-orange flex items-center justify-center shadow-lg shadow-orange-500/20">
-            <Zap className="text-black fill-black" size={24} />
+        {/* Header with logo and collapse toggle */}
+        <div className={`p-4 flex items-center ${collapsed ? 'justify-center' : 'justify-between'} border-b border-gray-800 relative`}>
+          <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-ciklo-yellow to-ciklo-orange flex items-center justify-center shadow-lg shadow-orange-500/20 flex-shrink-0">
+              <Zap className="text-black fill-black" size={24} />
+            </div>
+            {!collapsed && (
+              <div className="overflow-hidden">
+                <h1 className="text-xl font-bold text-white tracking-wide">CIKLO</h1>
+                <p className="text-[10px] text-ciklo-yellow uppercase tracking-widest font-semibold">Geradores</p>
+              </div>
+            )}
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-wide">CIKLO</h1>
-            <p className="text-[10px] text-ciklo-yellow uppercase tracking-widest font-semibold">Geradores</p>
-          </div>
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              className={`w-7 h-7 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-200 flex-shrink-0 ${collapsed ? 'absolute -right-3.5 top-6 z-10 shadow-md border border-gray-700' : ''}`}
+              title={collapsed ? 'Expandir menu' : 'Retrair menu'}
+            >
+              {collapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={14} />}
+            </button>
+          )}
         </div>
 
-        <div className="p-4 border-b border-gray-800">
-          <div className="flex items-center gap-3 p-3 bg-ciklo-dark rounded-lg border border-gray-700">
-            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-white">
+        {/* User info */}
+        {!collapsed ? (
+          <div className="p-4 border-b border-gray-800">
+            <div className="flex items-center gap-3 p-3 bg-ciklo-dark rounded-lg border border-gray-700">
+              <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                {user?.name.charAt(0)}
+              </div>
+              <div className="overflow-hidden flex-1">
+                <p className="text-sm font-medium text-white truncate">{user?.name}</p>
+                <p className="text-xs text-gray-400 truncate capitalize">{user?.role.toLowerCase()}</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 border-b border-gray-800 flex justify-center">
+            <div className="w-9 h-9 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-white" title={`${user?.name} (${user?.role})`}>
               {user?.name.charAt(0)}
             </div>
-            <div className="overflow-hidden flex-1">
-              <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-              <p className="text-xs text-gray-400 truncate capitalize">{user?.role.toLowerCase()}</p>
-            </div>
           </div>
-        </div>
+        )}
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        {/* Navigation */}
+        <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-4'} space-y-2 overflow-y-auto`}>
           {user?.role !== UserRole.ORCAMENTOS && (
             <div className="mb-6">
-              <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Monitoramento</p>
+              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Monitoramento</p>}
               {navItems.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  title={collapsed ? item.label : undefined}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                    `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 ${
                       isActive
                         ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
                         : 'hover:bg-gray-800 hover:text-white'
                     }`
                   }
                 >
-                  <item.icon size={20} />
-                  <span className="font-medium">{item.label}</span>
+                  <item.icon size={20} className="flex-shrink-0" />
+                  {!collapsed && <span className="font-medium">{item.label}</span>}
                 </NavLink>
               ))}
             </div>
           )}
 
-          {/* Sales & Quotation Module - Visible for Admin and Orcamentos */}
+          {/* Sales & Quotation Module */}
           {(user?.role === UserRole.ADMIN || user?.role === UserRole.ORCAMENTOS) && (
             <div className="mb-6">
-              <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Vendas & Orçamentos</p>
+              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Vendas & Orçamentos</p>}
+              {collapsed && <div className="border-t border-gray-800 my-3"></div>}
               {salesItems.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  title={collapsed ? item.label : undefined}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 mb-1 ${
+                    `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mb-1 ${
                       isActive
                         ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
                         : 'hover:bg-gray-800 hover:text-white'
                     }`
                   }
                 >
-                  <item.icon size={20} />
-                  <span className="font-medium">{item.label}</span>
+                  <item.icon size={20} className="flex-shrink-0" />
+                  {!collapsed && <span className="font-medium">{item.label}</span>}
                 </NavLink>
               ))}
             </div>
           )}
 
+          {/* Administration */}
           {user?.role === UserRole.ADMIN && (
-            <div className="pt-4 mt-4 border-t border-gray-800">
-              <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Administração</p>
+            <div className={`pt-4 mt-4 border-t border-gray-800`}>
+              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Administração</p>}
               <NavLink
                 to="/fleet"
+                title={collapsed ? 'Gerenciar Grupos Geradores' : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 ${
                     isActive
                       ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
                       : 'hover:bg-gray-800 hover:text-white'
                   }`
                 }
               >
-                <Settings2 size={20} />
-                <span className="font-medium">Gerenciar Grupos Geradores</span>
+                <Settings2 size={20} className="flex-shrink-0" />
+                {!collapsed && <span className="font-medium">Gerenciar Grupos Geradores</span>}
               </NavLink>
               <NavLink
                 to="/companies"
+                title={collapsed ? 'Gerenciar Empresas' : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 mb-1 ${
+                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mb-1 ${
                     isActive
                       ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
                       : 'hover:bg-gray-800 hover:text-white'
                   }`
                 }
               >
-                <Building size={20} />
-                <span className="font-medium">Gerenciar Empresas</span>
+                <Building size={20} className="flex-shrink-0" />
+                {!collapsed && <span className="font-medium">Gerenciar Empresas</span>}
               </NavLink>
               <NavLink
                 to="/users"
+                title={collapsed ? 'Controle de Contas' : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 ${
                     isActive
                       ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
                       : 'hover:bg-gray-800 hover:text-white'
                   }`
                 }
               >
-                <Users size={20} />
-                <span className="font-medium">Controle de Contas</span>
+                <Users size={20} className="flex-shrink-0" />
+                {!collapsed && <span className="font-medium">Controle de Contas</span>}
               </NavLink>
             </div>
           )}
         </nav>
 
-        <div className="p-4 border-t border-gray-800 space-y-2">
+        {/* Footer actions */}
+        <div className={`${collapsed ? 'p-2' : 'p-4'} border-t border-gray-800 space-y-2`}>
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-all duration-200 group"
-            title={theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
+            className={`flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 w-full rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-all duration-200 group`}
+            title={collapsed ? (theme === 'dark' ? 'Modo Claro' : 'Modo Escuro') : (theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro')}
           >
             {theme === 'dark' ? (
-              <Sun size={20} className="text-ciklo-yellow group-hover:rotate-45 transition-transform duration-300" />
+              <Sun size={20} className="text-ciklo-yellow group-hover:rotate-45 transition-transform duration-300 flex-shrink-0" />
             ) : (
-              <Moon size={20} className="text-blue-400 group-hover:-rotate-12 transition-transform duration-300" />
+              <Moon size={20} className="text-blue-400 group-hover:-rotate-12 transition-transform duration-300 flex-shrink-0" />
             )}
-            <span className="font-medium">{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
+            {!collapsed && <span className="font-medium">{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>}
           </button>
 
           <a 
             href="https://wa.me/555432931095" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-gray-400 hover:bg-green-500/10 hover:text-green-400 transition-all duration-200"
+            className={`flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 w-full rounded-lg text-gray-400 hover:bg-green-500/10 hover:text-green-400 transition-all duration-200`}
+            title={collapsed ? 'Suporte WhatsApp' : undefined}
           >
-            <MessageCircle size={20} />
-            <span className="font-medium">Suporte WhatsApp</span>
+            <MessageCircle size={20} className="flex-shrink-0" />
+            {!collapsed && <span className="font-medium">Suporte WhatsApp</span>}
           </a>
           <button
             onClick={logout}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200"
+            className={`flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 w-full rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200`}
+            title={collapsed ? 'Sair do Sistema' : undefined}
           >
-            <LogOut size={20} />
-            <span className="font-medium">Sair do Sistema</span>
+            <LogOut size={20} className="flex-shrink-0" />
+            {!collapsed && <span className="font-medium">Sair do Sistema</span>}
           </button>
         </div>
       </div>

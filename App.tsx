@@ -88,6 +88,9 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
   const location = useLocation();
   const { user } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('ciklo_sidebar_collapsed') === 'true';
+  });
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -138,8 +141,8 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
       {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
 
       {/* Desktop Sidebar */}
-      <div className="flex flex-col w-64 bg-ciklo-card border-r border-gray-800 print:hidden">
-        <Sidebar />
+      <div className={`flex flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-ciklo-card border-r border-gray-800 print:hidden transition-all duration-300 ease-in-out`}>
+        <Sidebar collapsed={sidebarCollapsed} onToggleCollapse={() => { const next = !sidebarCollapsed; setSidebarCollapsed(next); localStorage.setItem('ciklo_sidebar_collapsed', String(next)); }} />
       </div>
 
       {/* Main Content */}
