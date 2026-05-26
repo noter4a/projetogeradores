@@ -568,11 +568,7 @@ const GeneratorDetail: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="mt-2 text-center">
-              <p className="text-[10px] text-gray-500 font-mono">
-                DEBUG: Reg23={gen.reg23} | Reg24={gen.reg24} | Reg77=0x{gen.reg77_hex || '?'} | Reg78=0x{gen.reg78_hex || '?'}
-              </p>
-            </div>
+
           </div>
         </div>
       </div>
