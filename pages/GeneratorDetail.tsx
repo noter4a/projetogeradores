@@ -922,34 +922,46 @@ const GeneratorDetail: React.FC = () => {
       {/* NEW ALARM POPUP */}
       <AlarmPopup generatorId={gen.ip || gen.id} />
 
-      {/* Top Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      {/* Top Bar - Full on desktop, minimal on mobile */}
+      {isMobile ? (
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/')}
             className="p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors"
           >
             <ChevronLeft size={24} />
           </button>
-          <div>
-            <h1 className="text-2xl font-bold text-white">{gen.name}</h1>
-            <p className="text-gray-400 flex items-center gap-2 text-sm">
-              <span className={`w-2 h-2 rounded-full ${gen.status === GeneratorStatus.RUNNING ? 'bg-green-500' : 'bg-red-500'}`}></span>
-              Status: {gen.status} | {gen.model}
-            </p>
-          </div>
+          <h1 className="text-lg font-bold text-white truncate">{gen.name}</h1>
         </div>
-
-        {canControl && (
-          <div className="flex items-center gap-2">
-            {user?.role === UserRole.ADMIN && (
-              <button className="p-2 bg-red-900/50 hover:bg-red-900 text-red-500 border border-red-900 rounded-lg" title="Parada de Emergência">
-                <AlertOctagon size={20} />
-              </button>
-            )}
+      ) : (
+        <div className="flex flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-white">{gen.name}</h1>
+              <p className="text-gray-400 flex items-center gap-2 text-sm">
+                <span className={`w-2 h-2 rounded-full ${gen.status === GeneratorStatus.RUNNING ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                Status: {gen.status} | {gen.model}
+              </p>
+            </div>
           </div>
-        )}
-      </div>
+
+          {canControl && (
+            <div className="flex items-center gap-2">
+              {user?.role === UserRole.ADMIN && (
+                <button className="p-2 bg-red-900/50 hover:bg-red-900 text-red-500 border border-red-900 rounded-lg" title="Parada de Emergência">
+                  <AlertOctagon size={20} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs Navigation - hidden on mobile */}
       <div className="border-b border-gray-800 hidden md:block">
