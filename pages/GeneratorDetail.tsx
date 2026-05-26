@@ -8,7 +8,7 @@ import { useAlarms } from '../context/AlarmContext';
 import AlarmPopup from '../components/AlarmPopup'; // NEW
 import {
   Power, AlertOctagon, RotateCcw, Settings, Gauge,
-  Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, Lock,
+  Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, ChevronDown, ChevronUp, Lock,
   RefreshCw, UtilityPole, Cable, TrendingUp, BarChart3, Play, Square,
   Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban
 } from 'lucide-react';
@@ -83,29 +83,24 @@ const GeneratorDetail: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Mobile sub-tab state
-  const [mobileSubTab, setMobileSubTab] = useState<string>(canControl ? 'remote_control' : 'mechanical');
+  // Mobile accordion state - which sections are expanded
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    if (canControl) initial.add('remote_control');
+    return initial;
+  });
 
-  // Dynamic mobile tabs based on permissions
-  const mobileTabs = useMemo(() => {
-    const tabs = [];
-    if (canControl) {
-      tabs.push({ id: 'remote_control', label: 'Controle Remoto', icon: Radio });
-    }
-    tabs.push(
-      { id: 'mechanical', label: 'Mecânicos', icon: Settings },
-      { id: 'electrical', label: 'Elétricos', icon: Zap },
-      { id: 'load_curve', label: 'Curva de Carga', icon: TrendingUp }
-    );
-    return tabs;
-  }, [canControl]);
-
-  // Adjust active tab if permissions change
-  useEffect(() => {
-    if (!canControl && mobileSubTab === 'remote_control') {
-      setMobileSubTab('mechanical');
-    }
-  }, [canControl, mobileSubTab]);
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  };
 
   // Find generator from context
   const foundGen = generators.find(g => g.id === id);
@@ -999,38 +994,114 @@ const GeneratorDetail: React.FC = () => {
       {activeTab === 'operational' && (
         <div className="space-y-6 animate-in fade-in duration-300">
           {isMobile ? (
-            <>
-              {/* Mobile Sub-tab Selector */}
-              <div className="grid grid-cols-2 gap-2 bg-ciklo-dark/30 p-1.5 rounded-xl border border-gray-800/80">
-                {mobileTabs.map(tab => {
-                  const Icon = tab.icon;
-                  const isActive = mobileSubTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setMobileSubTab(tab.id)}
-                      className={`
-                        flex flex-col items-center justify-center py-3.5 px-2 rounded-lg border transition-all gap-1.5 duration-200
-                        ${isActive 
-                          ? 'bg-ciklo-orange text-black border-ciklo-orange font-bold shadow-md shadow-orange-950/20 scale-[1.02]' 
-                          : 'bg-ciklo-card/60 text-gray-400 border-transparent hover:text-gray-200 hover:bg-ciklo-card'}
-                      `}
-                    >
-                      <Icon size={18} className={isActive ? 'text-black' : 'text-gray-400'} />
-                      <span className="text-[11px] tracking-wide uppercase font-semibold">{tab.label}</span>
-                    </button>
-                  );
-                })}
+            <div className="space-y-2">
+              {/* Accordion: Controle Remoto */}
+              {canControl && (
+                <div className="rounded-xl border border-gray-800 overflow-hidden bg-ciklo-card">
+                  <button
+                    onClick={() => toggleSection('remote_control')}
+                    className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${expandedSections.has('remote_control') ? 'bg-ciklo-orange' : 'bg-gray-800'}`}>
+                        <Radio size={18} className={expandedSections.has('remote_control') ? 'text-black' : 'text-ciklo-orange'} />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-white font-bold text-sm block">Controle Remoto</span>
+                        <span className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                          {isConnected ? 'Conectado' : 'Desconectado'} • {gen.operationMode || 'AUTO'}
+                        </span>
+                      </div>
+                    </div>
+                    {expandedSections.has('remote_control') ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                  </button>
+                  {expandedSections.has('remote_control') && (
+                    <div className="px-4 pb-4 animate-in fade-in duration-200">
+                      {renderRemoteControl()}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Accordion: Parâmetros Mecânicos */}
+              <div className="rounded-xl border border-gray-800 overflow-hidden bg-ciklo-card">
+                <button
+                  onClick={() => toggleSection('mechanical')}
+                  className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${expandedSections.has('mechanical') ? 'bg-ciklo-orange' : 'bg-gray-800'}`}>
+                      <Settings size={18} className={expandedSections.has('mechanical') ? 'text-black' : 'text-ciklo-orange'} />
+                    </div>
+                    <div className="text-left">
+                      <span className="text-white font-bold text-sm block">Parâmetros Mecânicos</span>
+                      <span className="text-[11px] text-gray-500">
+                        RPM: {gen.rpm} • Temp: {gen.engineTemp}°C • Comb: {gen.fuelLevel}%
+                      </span>
+                    </div>
+                  </div>
+                  {expandedSections.has('mechanical') ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                </button>
+                {expandedSections.has('mechanical') && (
+                  <div className="px-4 pb-4 animate-in fade-in duration-200">
+                    {renderMechanicalParameters()}
+                  </div>
+                )}
               </div>
 
-              {/* Mobile Sub-tab Contents */}
-              <div className="animate-in fade-in duration-300 space-y-6">
-                {mobileSubTab === 'remote_control' && renderRemoteControl()}
-                {mobileSubTab === 'mechanical' && renderMechanicalParameters()}
-                {mobileSubTab === 'electrical' && renderElectricalParameters()}
-                {mobileSubTab === 'load_curve' && renderLoadCurve()}
+              {/* Accordion: Parâmetros Elétricos */}
+              <div className="rounded-xl border border-gray-800 overflow-hidden bg-ciklo-card">
+                <button
+                  onClick={() => toggleSection('electrical')}
+                  className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${expandedSections.has('electrical') ? 'bg-ciklo-orange' : 'bg-gray-800'}`}>
+                      <Zap size={18} className={expandedSections.has('electrical') ? 'text-black' : 'text-ciklo-yellow'} />
+                    </div>
+                    <div className="text-left">
+                      <span className="text-white font-bold text-sm block">Parâmetros Elétricos</span>
+                      <span className="text-[11px] text-gray-500">
+                        Potência: {Number(gen.activePowerTotal || 0).toFixed(1)} kW • FP: {gen.powerFactor}
+                      </span>
+                    </div>
+                  </div>
+                  {expandedSections.has('electrical') ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                </button>
+                {expandedSections.has('electrical') && (
+                  <div className="px-4 pb-4 animate-in fade-in duration-200">
+                    {renderElectricalParameters()}
+                  </div>
+                )}
               </div>
-            </>
+
+              {/* Accordion: Curva de Carga */}
+              <div className="rounded-xl border border-gray-800 overflow-hidden bg-ciklo-card">
+                <button
+                  onClick={() => toggleSection('load_curve')}
+                  className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${expandedSections.has('load_curve') ? 'bg-ciklo-orange' : 'bg-gray-800'}`}>
+                      <TrendingUp size={18} className={expandedSections.has('load_curve') ? 'text-black' : 'text-ciklo-orange'} />
+                    </div>
+                    <div className="text-left">
+                      <span className="text-white font-bold text-sm block">Curva de Carga</span>
+                      <span className="text-[11px] text-gray-500">
+                        Período: {chartRange === '24h' ? '24 horas' : chartRange === '7d' ? '7 dias' : '1 mês'} • {powerHistory.length} pontos
+                      </span>
+                    </div>
+                  </div>
+                  {expandedSections.has('load_curve') ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                </button>
+                {expandedSections.has('load_curve') && (
+                  <div className="px-4 pb-4 animate-in fade-in duration-200">
+                    {renderLoadCurve()}
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <>
               {/* Desktop Layout */}
