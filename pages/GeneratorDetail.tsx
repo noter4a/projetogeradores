@@ -71,6 +71,42 @@ const GeneratorDetail: React.FC = () => {
   const { generators, updateGenerator } = useGenerators();
   const { alarms } = useAlarms();
 
+  // Permissions checks
+  const canControl = user?.role === UserRole.ADMIN || user?.role === UserRole.TECHNICIAN || user?.role === UserRole.CLIENT;
+  const canAccessAdvanced = user?.role === UserRole.ADMIN || user?.role === UserRole.TECHNICIAN;
+
+  // Mobile responsive state
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Mobile sub-tab state
+  const [mobileSubTab, setMobileSubTab] = useState<string>(canControl ? 'remote_control' : 'mechanical');
+
+  // Dynamic mobile tabs based on permissions
+  const mobileTabs = useMemo(() => {
+    const tabs = [];
+    if (canControl) {
+      tabs.push({ id: 'remote_control', label: 'Controle Remoto', icon: Radio });
+    }
+    tabs.push(
+      { id: 'mechanical', label: 'Mecânicos', icon: Settings },
+      { id: 'electrical', label: 'Elétricos', icon: Zap },
+      { id: 'load_curve', label: 'Curva de Carga', icon: TrendingUp }
+    );
+    return tabs;
+  }, [canControl]);
+
+  // Adjust active tab if permissions change
+  useEffect(() => {
+    if (!canControl && mobileSubTab === 'remote_control') {
+      setMobileSubTab('mechanical');
+    }
+  }, [canControl, mobileSubTab]);
+
   // Find generator from context
   const foundGen = generators.find(g => g.id === id);
   const [gen, setGen] = useState<Generator | undefined>(foundGen);
@@ -217,11 +253,7 @@ const GeneratorDetail: React.FC = () => {
 
   if (!gen) return <div className="text-white p-6">Gerador não encontrado ou foi removido.</div>;
 
-  // Allows Admin, Technician AND Client to control. Monitor is excluded.
-  const canControl = user?.role === UserRole.ADMIN || user?.role === UserRole.TECHNICIAN || user?.role === UserRole.CLIENT;
-
-  // Advanced control is RESTRICTED to Admin and Technician only. Client is excluded.
-  const canAccessAdvanced = user?.role === UserRole.ADMIN || user?.role === UserRole.TECHNICIAN;
+  // Permissions are declared at the component scope level
 
   const handleControl = (action: string) => {
     if (!canControl) return;
@@ -337,6 +369,552 @@ const GeneratorDetail: React.FC = () => {
 
   const activeAlarms = alarms.filter(a => a.generatorId === gen.id && a.active);
 
+  const renderRemoteControl = () => {
+    if (!canControl) return null;
+    return (
+      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-5">
+        <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
+          <h3 className="text-white font-bold flex items-center gap-2 text-sm uppercase tracking-wider">
+            <Radio size={18} className="text-ciklo-orange" /> Painel de Controle Remoto
+          </h3>
+          <div className="flex items-center gap-2">
+            <div className={`px-2 py-1 rounded bg-gray-900 border ${isConnected ? 'border-gray-700' : 'border-red-900'} text-[10px] font-mono ${isConnected ? 'text-ciklo-yellow' : 'text-red-500'} flex items-center gap-1`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+              {isConnected ? 'CONECTADO' : 'DESCONECTADO'}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Operation Mode & Remote Command (Left side - 5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-[10px] text-gray-500 uppercase font-bold">Modo de Operação</label>
+                <button
+                  onClick={() => handleControl('reset')}
+                  className="text-[10px] flex items-center gap-1 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-2 py-0.5 rounded border border-gray-700 transition-colors"
+                >
+                  <RotateCcw size={10} /> RESET FALHAS
+                </button>
+              </div>
+              <div className="flex bg-gray-900/50 p-1.5 rounded-lg border border-gray-800 relative">
+                <div className="flex-1 flex gap-2">
+                  {/* AUTO BUTTON */}
+                  <button
+                    disabled={gen.operationMode === 'AUTO'}
+                    onClick={() => handleControl('auto')}
+                    className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
+                      ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100' // Added cursor-default & opacity-100
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                  >
+                    <RefreshCw size={14} className={gen.operationMode === 'AUTO' ? 'animate-spin-slow' : ''} /> AUTOMÁTICO
+                  </button>
+
+                  {/* MANUAL BUTTON */}
+                  <button
+                    disabled={gen.operationMode === 'MANUAL'}
+                    onClick={() => handleControl('manual')}
+                    className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
+                      ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100' // Added cursor-default & opacity-100
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                  >
+                    <Settings size={14} className={gen.operationMode === 'MANUAL' ? 'animate-spin-slow' : ''} /> MANUAL
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800 mt-4 relative">
+                <label className="text-[10px] text-gray-500 uppercase font-bold mb-3 block text-center">Comando Remoto</label>
+                <div className="flex gap-3">
+                  <button
+                    disabled={gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO'}
+                    onClick={() => handleControl('start')}
+                    className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO'
+                      ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-500 text-white border-green-500 hover:shadow-green-900/20'
+                      }`}
+                  >
+                    <Play size={18} fill="currentColor" /> PARTIDA
+                  </button>
+                  <button
+                    disabled={gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO'}
+                    onClick={() => handleControl('stop')}
+                    className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO'
+                      ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
+                      : 'bg-red-600 hover:bg-red-500 text-white border-red-500 hover:shadow-red-900/20'
+                      }`}
+                  >
+                    <Square size={18} fill="currentColor" /> PARAR
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider for mobile/desktop */}
+          <div className="hidden lg:block lg:col-span-1 border-l border-gray-800 mx-auto h-full w-px"></div>
+
+          {/* QTA (Right side - 6 cols) */}
+          <div className="lg:col-span-6 flex flex-col justify-center">
+            <div className="text-center mb-6">
+              <label className="text-[10px] text-gray-500 uppercase font-bold block">Status da Transferência (QTA)</label>
+              <span className="text-xs font-mono text-gray-400">
+                {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' : 'Controle Manual Habilitado'}
+              </span>
+            </div>
+
+            <div className="flex flex-col items-center justify-center relative px-2 md:px-4 py-8 bg-gray-900/30 rounded-xl border border-dashed border-gray-800">
+              {/* SVG Single Line Diagram */}
+              <div className="w-full max-w-[500px] h-[120px] relative">
+                <svg viewBox="0 0 500 120" className="w-full h-full drop-shadow-lg">
+                  {/* DEFS for Glows */}
+                  <defs>
+                    <filter id="glow-green" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                      <feMerge>
+                        <feMergeNode in="coloredBlur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                    <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                      <feMerge>
+                        <feMergeNode in="coloredBlur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+
+                  {/* --- STATIC LINES --- */}
+                  <line x1="50" y1="80" x2="130" y2="80" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"} strokeWidth="4" className="transition-colors duration-500" />
+                  <line x1="170" y1="80" x2="200" y2="80" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#374151"} strokeWidth="4" className="transition-colors duration-500" />
+                  <line x1="300" y1="80" x2="330" y2="80" stroke={gen.genBreakerClosed ? "#22c55e" : "#374151"} strokeWidth="4" className="transition-colors duration-500" />
+                  <line x1="370" y1="80" x2="450" y2="80" stroke={gen.genBreakerClosed ? "#22c55e" : "#ef4444"} strokeWidth="4" className="transition-colors duration-500" />
+
+                  {/* --- ICONS --- */}
+                  {(() => {
+                    const isMainsPresent = (gen.mainsVoltageL1 && gen.mainsVoltageL1 > 10) || (gen.avgVoltage && gen.avgVoltage > 10);
+                    return (
+                      <g transform="translate(10, 50)" className={isMainsPresent ? "text-green-500" : "text-gray-500"}>
+                        <circle cx="20" cy="20" r="22" fill="none" stroke={isMainsPresent ? "#22c55e" : "#6b7280"} strokeWidth="3" />
+                        <UtilityPole size={24} x={8} y={8} className="text-current" strokeWidth={1.5} />
+                        {gen.mainsBreakerClosed && (
+                          <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
+                        )}
+                        <text x="20" y="-10" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold">REDE</text>
+                      </g>
+                    );
+                  })()}
+
+                  <g transform="translate(450, 55)">
+                    <circle cx="20" cy="20" r="22" fill="none" stroke={gen.status === GeneratorStatus.RUNNING ? "#22c55e" : "#6b7280"} strokeWidth="3" />
+                    <text x="20" y="26" textAnchor="middle" fill={gen.status === GeneratorStatus.RUNNING ? "#22c55e" : "#6b7280"} fontSize="20" fontWeight="bold">G</text>
+                    {gen.status === GeneratorStatus.RUNNING && (
+                      <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
+                    )}
+                    <text x="20" y="-15" textAnchor="middle" fill="currentColor" className="text-gray-400" fontSize="12" fontWeight="bold">GERADOR</text>
+                  </g>
+
+                  <g transform="translate(200, 55)">
+                    <rect x="0" y="0" width="100" height="50" rx="4" fill="#1f2937" stroke={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#374151"} strokeWidth="3" />
+                    <text x="50" y="30" textAnchor="middle" fill={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#6b7280"} fontSize="14" fontWeight="bold" letterSpacing="2">CARGA</text>
+                  </g>
+
+                  <g
+                    className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' ? 'cursor-not-allowed opacity-50' : ''}`}
+                    onClick={() => { if (gen.operationMode !== 'AUTO') handleControl('toggleMains'); }}
+                  >
+                    <rect x="120" y="30" width="60" height="60" fill="transparent" />
+                    <line
+                      x1="130" y1="80" x2="170" y2="80"
+                      stroke={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"}
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      className="transition-all duration-500 ease-in-out"
+                      transform={gen.mainsBreakerClosed ? "rotate(0 130 80)" : "rotate(-35 130 80)"}
+                    />
+                    <circle cx="130" cy="80" r="4" fill="#fff" />
+                    <circle cx="170" cy="80" r="4" fill="#fff" />
+                    <text x="150" y="110" textAnchor="middle" fontSize="10" fill={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"} fontWeight="bold">
+                      {gen.mainsBreakerClosed ? 'FECHADO' : 'ABERTO'}
+                    </text>
+                  </g>
+
+                  <g
+                    className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' ? 'cursor-not-allowed opacity-50' : ''}`}
+                    onClick={() => { if (gen.operationMode !== 'AUTO') handleControl('toggleGen'); }}
+                  >
+                    <rect x="320" y="30" width="60" height="60" fill="transparent" />
+                    <line
+                      x1="370" y1="80" x2="330" y2="80"
+                      stroke={gen.genBreakerClosed ? "#22c55e" : "#ef4444"}
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      className="transition-all duration-500 ease-in-out"
+                      transform={gen.genBreakerClosed ? "rotate(0 370 80)" : "rotate(35 370 80)"}
+                    />
+                    <circle cx="370" cy="80" r="4" fill="#fff" />
+                    <circle cx="330" cy="80" r="4" fill="#fff" />
+                    <text x="350" y="110" textAnchor="middle" fontSize="10" fill={gen.genBreakerClosed ? "#22c55e" : "#ef4444"} fontWeight="bold">
+                      {gen.genBreakerClosed ? 'FECHADO' : 'ABERTO'}
+                    </text>
+                  </g>
+                </svg>
+
+                <div className="absolute top-0 right-0">
+                  {gen.operationMode === 'AUTO' && (
+                    <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">
+                      Controle Automático (Chaves Bloqueadas)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 text-center">
+              <p className="text-[10px] text-gray-500 font-mono">
+                DEBUG: Reg23={gen.reg23} | Reg24={gen.reg24} | Reg77=0x{gen.reg77_hex || '?'} | Reg78=0x{gen.reg78_hex || '?'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMechanicalParameters = () => {
+    return (
+      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
+        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+          <Settings size={18} className="text-ciklo-orange" /> Parâmetros Mecânicos
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <CircularGauge value={gen.rpm} max={2500} label="RPM Motor" unit="rpm" color="text-blue-500" />
+          <CircularGauge value={gen.oilPressure} max={10} label="Pressão Óleo" unit="bar" color="text-red-500" />
+        </div>
+        <div className="mt-4 space-y-3">
+          <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+            <div className="flex items-center gap-2 text-gray-400">
+              <Thermometer size={18} /> Temp. Motor
+            </div>
+            <span className="text-xl font-bold text-white">{gen.engineTemp}°C</span>
+          </div>
+          <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+            <div className="flex items-center gap-2 text-gray-400">
+              <Droplets size={18} /> Nível Combustível
+            </div>
+            <span className={`text-xl font-bold ${gen.fuelLevel < 20 ? 'text-red-500' : 'text-green-500'}`}>{gen.fuelLevel}%</span>
+          </div>
+          <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+            <div className="flex items-center gap-2 text-gray-400">
+              <Battery size={18} /> Tensão Bateria
+            </div>
+            <span className="text-xl font-bold text-white">{gen.batteryVoltage} V</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderElectricalParameters = () => {
+    return (
+      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6 h-full flex flex-col">
+        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+          <Zap size={18} className="text-ciklo-yellow" /> Parâmetros Elétricos
+        </h3>
+
+        {/* Big Power Display */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-ciklo-orange">
+            <p className="text-gray-400 text-xs uppercase font-bold">Potência Ativa Total</p>
+            <p className="text-3xl font-bold text-white mt-1">{Number(gen.activePowerTotal || 0).toFixed(1)} <span className="text-base font-normal text-gray-500">kW</span></p>
+          </div>
+          <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-blue-500">
+            <p className="text-gray-400 text-xs uppercase font-bold">Fator de Potência</p>
+            <p className="text-3xl font-bold text-white mt-1">{gen.powerFactor} <span className="text-base font-normal text-gray-500">cos φ</span></p>
+          </div>
+        </div>
+
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* GENERATOR COLUMN */}
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
+              <div className="flex items-center gap-2 text-green-500">
+                <Power size={18} />
+                <span className="font-bold uppercase tracking-wider text-sm">Gerador</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Toggle Phase-Neutral / Phase-Phase */}
+                <div className="flex bg-gray-800 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setVoltageViewMode('PN')}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                  >
+                    F-N
+                  </button>
+                  <button
+                    onClick={() => setVoltageViewMode('PP')}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                  >
+                    F-F
+                  </button>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-gray-400 block">Frequência</span>
+                  <span className="text-lg font-bold text-white">{Number(gen.frequency || 0).toFixed(1)} Hz</span>
+                </div>
+              </div>
+            </div>
+            <table className="w-full text-left">
+              <thead className="text-[10px] text-gray-500 uppercase">
+                <tr>
+                  <th className="pb-2">Fase</th>
+                  <th className="pb-2 text-right">Tensão</th>
+                  <th className="pb-2 text-right">Corrente</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800 text-sm">
+                {voltageViewMode === 'PN' ? (
+                  <>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L1</td>
+                      <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL1 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-blue-400">{Number(gen.currentL1 || 0).toFixed(0)} A</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L2</td>
+                      <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL2 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-blue-400">{Number(gen.currentL2 || 0).toFixed(0)} A</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L3</td>
+                      <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL3 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-blue-400">{Number(gen.currentL3 || 0).toFixed(0)} A</td>
+                    </tr>
+                  </>
+                ) : (
+                  <>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L1-L2</td>
+                      <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL12 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-blue-400">{Number(gen.currentL1 || 0).toFixed(0)} A</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L2-L3</td>
+                      <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL23 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-blue-400">{Number(gen.currentL2 || 0).toFixed(0)} A</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L3-L1</td>
+                      <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL31 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-blue-400">{Number(gen.currentL3 || 0).toFixed(0)} A</td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* MAINS COLUMN */}
+          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
+              <div className="flex items-center gap-2 text-gray-400">
+                <UtilityPole size={18} />
+                <span className="font-bold uppercase tracking-wider text-sm">Rede</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Toggle Phase-Neutral / Phase-Phase */}
+                <div className="flex bg-gray-800 rounded-lg p-0.5">
+                  <button
+                    onClick={() => setMainsVoltageViewMode('PN')}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                  >
+                    F-N
+                  </button>
+                  <button
+                    onClick={() => setMainsVoltageViewMode('PP')}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                  >
+                    F-F
+                  </button>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-gray-400 block">Frequência</span>
+                  <span className="text-lg font-bold text-white">{Number(gen.mainsFrequency || 0).toFixed(1)} Hz</span>
+                </div>
+              </div>
+            </div>
+            <table className="w-full text-left">
+              <thead className="text-[10px] text-gray-500 uppercase">
+                <tr>
+                  <th className="pb-2">Fase</th>
+                  <th className="pb-2 text-right">Tensão</th>
+                  <th className="pb-2 text-right">Corrente</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800 text-sm">
+                {mainsVoltageViewMode === 'PN' ? (
+                  <>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L1</td>
+                      <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL1 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL1 || 0).toFixed(0)} A</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L2</td>
+                      <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL2 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL2 || 0).toFixed(0)} A</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L3</td>
+                      <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL3 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL3 || 0).toFixed(0)} A</td>
+                    </tr>
+                  </>
+                ) : (
+                  <>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L1-L2</td>
+                      <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL12 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-blue-400">{Number(gen.mainsCurrentL1 || 0).toFixed(0)} A</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L2-L3</td>
+                      <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL23 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-blue-400">{Number(gen.mainsCurrentL2 || 0).toFixed(0)} A</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 text-gray-300 font-bold">L3-L1</td>
+                      <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL31 || 0).toFixed(0)} V</td>
+                      <td className="py-2 text-right text-blue-400">{Number(gen.mainsCurrentL3 || 0).toFixed(0)} A</td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="mt-6 p-4 bg-gray-800/50 rounded-lg border border-dashed border-gray-700 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <Timer className="text-gray-400" />
+            <div>
+              <p className="text-xs text-gray-500">Horímetro Total</p>
+              <p className="text-xl font-mono text-white">{Number(gen.totalHours || 0).toFixed(2)} h</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderLoadCurve = () => {
+    return (
+      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <h3 className="text-white font-bold flex items-center gap-2">
+            <TrendingUp size={18} className="text-ciklo-orange" /> Curva de Carga (kW)
+          </h3>
+          <div className="flex items-center gap-3">
+            <div className="flex bg-gray-900 rounded-lg p-0.5 border border-gray-700">
+              {([['24h', '24h'], ['7d', '7 dias'], ['30d', '1 mês']] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setChartRange(value)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                    chartRange === value
+                      ? 'bg-ciklo-orange text-black shadow'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+              <div className="w-2.5 h-2.5 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50"></div>
+              Potência Ativa
+            </span>
+            <span className="text-gray-600 font-mono text-xs">
+              {chartLoading ? '...' : powerHistory.length > 0 ? `${powerHistory.length} pts` : ''}
+            </span>
+          </div>
+        </div>
+
+        <div className="h-[350px] w-full">
+          {chartLoading && powerHistory.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-600">
+              <TrendingUp size={48} className="mb-3 opacity-30 animate-pulse" />
+              <p className="text-sm">Carregando dados históricos...</p>
+            </div>
+          ) : powerHistory.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-600">
+              <TrendingUp size={48} className="mb-3 opacity-30" />
+              <p className="text-sm">Nenhum dado registrado para este período</p>
+              <p className="text-xs text-gray-700 mt-1">Os dados serão coletados automaticamente</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={powerHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
+                    <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+                <XAxis
+                  dataKey="time"
+                  stroke="#555"
+                  tick={{ fontSize: 10, fill: '#666' }}
+                  minTickGap={40}
+                  axisLine={{ stroke: '#333' }}
+                />
+                <YAxis
+                  stroke="#555"
+                  tick={{ fontSize: 10, fill: '#666' }}
+                  domain={[0, chartMaxPower]}
+                  unit=" kW"
+                  axisLine={{ stroke: '#333' }}
+                  width={65}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#111',
+                    borderColor: '#444',
+                    color: '#fff',
+                    borderRadius: '10px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    padding: '12px 16px',
+                  }}
+                  labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
+                  itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
+                  formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
+                />
+                <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
+                <Area
+                  type="monotone"
+                  dataKey="power"
+                  stroke="#FACC15"
+                  strokeWidth={2.5}
+                  fillOpacity={1}
+                  fill="url(#colorPowerLive)"
+                  dot={false}
+                  activeDot={{ r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 }}
+                  animationDuration={500}
+                  isAnimationActive={powerHistory.length <= 2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 relative pb-10">
       {/* Full Screen Loading Overlay */}
@@ -420,607 +998,54 @@ const GeneratorDetail: React.FC = () => {
       {/* OPERATIONAL TAB */}
       {activeTab === 'operational' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          {/* Unified Control & QTA Section */}
-          {canControl && (
-            <div className="bg-ciklo-card rounded-xl border border-gray-800 p-5">
-              <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
-                <h3 className="text-white font-bold flex items-center gap-2 text-sm uppercase tracking-wider">
-                  <Radio size={18} className="text-ciklo-orange" /> Painel de Controle Remoto
-                </h3>
-                <div className="flex items-center gap-2">
-                <div className={`px-2 py-1 rounded bg-gray-900 border ${isConnected ? 'border-gray-700' : 'border-red-900'} text-[10px] font-mono ${isConnected ? 'text-ciklo-yellow' : 'text-red-500'} flex items-center gap-1`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                    {isConnected ? 'CONECTADO' : 'DESCONECTADO'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Operation Mode & Remote Command (Left side - 5 cols) */}
-                <div className="lg:col-span-5 space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-[10px] text-gray-500 uppercase font-bold">Modo de Operação</label>
-                      <button
-                        onClick={() => handleControl('reset')}
-                        className="text-[10px] flex items-center gap-1 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-2 py-0.5 rounded border border-gray-700 transition-colors"
-                      >
-                        <RotateCcw size={10} /> RESET FALHAS
-                      </button>
-                    </div>
-                    <div className="flex bg-gray-900/50 p-1.5 rounded-lg border border-gray-800 relative">
-                      <div className="flex-1 flex gap-2">
-                        {/* AUTO BUTTON */}
-                        <button
-                          disabled={gen.operationMode === 'AUTO'}
-                          onClick={() => handleControl('auto')}
-                          className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100' // Added cursor-default & opacity-100
-                            : 'text-gray-400 hover:text-white hover:bg-white/5'
-                            }`}
-                        >
-                          <RefreshCw size={14} className={gen.operationMode === 'AUTO' ? 'animate-spin-slow' : ''} /> AUTOMÁTICO
-                        </button>
-
-                        {/* MANUAL BUTTON */}
-                        <button
-                          disabled={gen.operationMode === 'MANUAL'}
-                          onClick={() => handleControl('manual')}
-                          className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
-                            ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100' // Added cursor-default & opacity-100
-                            : 'text-gray-400 hover:text-white hover:bg-white/5'
-                            }`}
-                        >
-                          <Settings size={14} className={gen.operationMode === 'MANUAL' ? 'animate-spin-slow' : ''} /> MANUAL
-                        </button>
-
-
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800 relative">
-
-                      <label className="text-[10px] text-gray-500 uppercase font-bold mb-3 block text-center">Comando Remoto</label>
-                      <div className="flex gap-3">
-                        <button
-                          disabled={gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO'}
-                          onClick={() => handleControl('start')}
-                          className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO'
-                            ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
-                            : 'bg-green-600 hover:bg-green-500 text-white border-green-500 hover:shadow-green-900/20'
-                            }`}
-                        >
-                          <Play size={18} fill="currentColor" /> PARTIDA
-                        </button>
-                        <button
-                          disabled={gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO'}
-                          onClick={() => handleControl('stop')}
-                          className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO'
-                            ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
-                            : 'bg-red-600 hover:bg-red-500 text-white border-red-500 hover:shadow-red-900/20'
-                            }`}
-                        >
-                          <Square size={18} fill="currentColor" /> PARAR
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Divider for mobile/desktop */}
-                <div className="hidden lg:block lg:col-span-1 border-l border-gray-800 mx-auto h-full w-px"></div>
-
-                {/* QTA (Right side - 6 cols) */}
-                <div className="lg:col-span-6 flex flex-col justify-center">
-                  <div className="text-center mb-6">
-                    <label className="text-[10px] text-gray-500 uppercase font-bold block">Status da Transferência (QTA)</label>
-                    <span className="text-xs font-mono text-gray-400">
-                      {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' : 'Controle Manual Habilitado'}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center relative px-2 md:px-4 py-8 bg-gray-900/30 rounded-xl border border-dashed border-gray-800">
-
-                    {/* SVG Single Line Diagram */}
-                    <div className="w-full max-w-[500px] h-[120px] relative">
-                      <svg viewBox="0 0 500 120" className="w-full h-full drop-shadow-lg">
-                        {/* DEFS for Glows */}
-                        <defs>
-                          <filter id="glow-green" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-                            <feMerge>
-                              <feMergeNode in="coloredBlur" />
-                              <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                          </filter>
-                          <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                            <feMerge>
-                              <feMergeNode in="coloredBlur" />
-                              <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                          </filter>
-                        </defs>
-
-                        {/* --- STATIC LINES --- */}
-                        {/* Main Line Left (Mains to Breaker) */}
-                        <line x1="50" y1="80" x2="130" y2="80" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"} strokeWidth="4" className="transition-colors duration-500" />
-
-                        {/* Main Line Middle (Breakers to Load) */}
-                        <line x1="170" y1="80" x2="200" y2="80" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#374151"} strokeWidth="4" className="transition-colors duration-500" />
-                        <line x1="300" y1="80" x2="330" y2="80" stroke={gen.genBreakerClosed ? "#22c55e" : "#374151"} strokeWidth="4" className="transition-colors duration-500" />
-
-                        {/* Main Line Right (Breaker to Gen) */}
-                        <line x1="370" y1="80" x2="450" y2="80" stroke={gen.genBreakerClosed ? "#22c55e" : "#ef4444"} strokeWidth="4" className="transition-colors duration-500" />
-
-
-                        {/* --- ICONS --- */}
-
-                        {/* MAINS ICON (Left) - Tower */}
-                        {/* Logic: 
-                            - Green Color (Circle/Icon): If Mains Voltage is detected (Presence).
-                            - Spinner: Only if Breaker is Closed (Active Connection).
-                        */}
-                        {(() => {
-                          const isMainsPresent = (gen.mainsVoltageL1 && gen.mainsVoltageL1 > 10) || (gen.avgVoltage && gen.avgVoltage > 10);
-                          return (
-                            <g transform="translate(10, 50)" className={isMainsPresent ? "text-green-500" : "text-gray-500"}>
-                              {/* Circle Background */}
-                              <circle cx="20" cy="20" r="22" fill="none" stroke={isMainsPresent ? "#22c55e" : "#6b7280"} strokeWidth="3" />
-
-                              {/* Icon Centered */}
-                              <UtilityPole size={24} x={8} y={8} className="text-current" strokeWidth={1.5} />
-
-                              {/* Dynamic Spinner ring - ONLY if Breaker is Closed */}
-                              {gen.mainsBreakerClosed && (
-                                <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
-                              )}
-
-                              {/* Label */}
-                              <text x="20" y="-10" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold">REDE</text>
-                            </g>
-                          );
-                        })()}
-
-                        {/* GEN ICON (Right) - Circle G */}
-                        <g transform="translate(450, 55)">
-                          <circle cx="20" cy="20" r="22" fill="none" stroke={gen.status === GeneratorStatus.RUNNING ? "#22c55e" : "#6b7280"} strokeWidth="3" />
-                          <text x="20" y="26" textAnchor="middle" fill={gen.status === GeneratorStatus.RUNNING ? "#22c55e" : "#6b7280"} fontSize="20" fontWeight="bold">G</text>
-                          {/* Dynamic Spinner ring if running */}
-                          {gen.status === GeneratorStatus.RUNNING && (
-                            <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
-                          )}
-                          <text x="20" y="-15" textAnchor="middle" fill="currentColor" className="text-gray-400" fontSize="12" fontWeight="bold">GERADOR</text>
-                        </g>
-
-                        {/* LOAD ICON (Center) - Box */}
-                        <g transform="translate(200, 55)">
-                          <rect x="0" y="0" width="100" height="50" rx="4" fill="#1f2937" stroke={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#374151"} strokeWidth="3" />
-                          <text x="50" y="30" textAnchor="middle" fill={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#6b7280"} fontSize="14" fontWeight="bold" letterSpacing="2">CARGA</text>
-                        </g>
-
-                        {/* --- ACTUATOR/BREAKERS (Switches) --- */}
-
-                        {/* MAINS BREAKER (Left Switch) */}
-                        {/* Pivot at 130,80. End at 170,80 if closed */}
-                        <g
-                          className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' ? 'cursor-not-allowed opacity-50' : ''}`}
-                          onClick={() => { if (gen.operationMode !== 'AUTO') handleControl('toggleMains'); }}
-                        >
-                          {/* Hit area for easier clicking */}
-                          <rect x="120" y="30" width="60" height="60" fill="transparent" />
-
-                          {/* Switch Arm */}
-                          {/* If Open: Rotate -35deg from pivot 130,80 */}
-                          <line
-                            x1="130" y1="80" x2="170" y2="80"
-                            stroke={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"}
-                            strokeWidth="6"
-                            strokeLinecap="round"
-                            className="transition-all duration-500 ease-in-out"
-                            transform={gen.mainsBreakerClosed ? "rotate(0 130 80)" : "rotate(-35 130 80)"}
-                          />
-                          {/* Contact points */}
-                          <circle cx="130" cy="80" r="4" fill="#fff" />
-                          <circle cx="170" cy="80" r="4" fill="#fff" />
-
-                          {/* Status Label */}
-                          <text x="150" y="110" textAnchor="middle" fontSize="10" fill={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"} fontWeight="bold">
-                            {gen.mainsBreakerClosed ? 'FECHADO' : 'ABERTO'}
-                          </text>
-                        </g>
-
-
-                        {/* GEN BREAKER (Right Switch) */}
-                        {/* Pivot at 370,80 (Mirroring: Line comes from 330,80 to 370,80) */}
-                        {/* Actually, structurally: Line from Gen (Right) comes to 370. Switch goes from 370 to 330 (Load) */}
-                        {/* Let's pivot at 370,80 (Gen Side) and swing left to 330,80 (Load Side) */}
-
-                        <g
-                          className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' ? 'cursor-not-allowed opacity-50' : ''}`}
-                          onClick={() => { if (gen.operationMode !== 'AUTO') handleControl('toggleGen'); }}
-                        >
-                          {/* Hit area */}
-                          <rect x="320" y="30" width="60" height="60" fill="transparent" />
-
-                          {/* Switch Arm */}
-                          {/* Pivot 370,80. Target 330,80 */}
-                          {/* Closed: Line 370,80 to 330,80 */}
-                          {/* Open: Rotate 35deg (Clockwise) from 370,80 so it lifts UP towards left */}
-                          <line
-                            x1="370" y1="80" x2="330" y2="80"
-                            stroke={gen.genBreakerClosed ? "#22c55e" : "#ef4444"}
-                            strokeWidth="6"
-                            strokeLinecap="round"
-                            className="transition-all duration-500 ease-in-out"
-                            transform={gen.genBreakerClosed ? "rotate(0 370 80)" : "rotate(35 370 80)"}
-                          />
-
-                          {/* Contact points */}
-                          <circle cx="370" cy="80" r="4" fill="#fff" />
-                          <circle cx="330" cy="80" r="4" fill="#fff" />
-
-                          {/* Status Label */}
-                          <text x="350" y="110" textAnchor="middle" fontSize="10" fill={gen.genBreakerClosed ? "#22c55e" : "#ef4444"} fontWeight="bold">
-                            {gen.genBreakerClosed ? 'FECHADO' : 'ABERTO'}
-                          </text>
-                        </g>
-
-                      </svg>
-
-                      {/* Interactive Tooltips/Badges */}
-                      <div className="absolute top-0 right-0">
-                        {gen.operationMode === 'AUTO' && (
-                          <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">
-                            Controle Automático (Chaves Bloqueadas)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {/* DEBUG BREAKER STATUS */}
-                  <div className="mt-2 text-center">
-                    <p className="text-[10px] text-gray-500 font-mono">
-                      DEBUG: Reg23={gen.reg23} | Reg24={gen.reg24} | Reg77=0x{gen.reg77_hex || '?'} | Reg78=0x{gen.reg78_hex || '?'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Main SCADA Dashboard Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-            {/* Left Col: Mechanical Gauges */}
-            <div className="space-y-6">
-              <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                  <Settings size={18} className="text-ciklo-orange" /> Parâmetros Mecânicos
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <CircularGauge value={gen.rpm} max={2500} label="RPM Motor" unit="rpm" color="text-blue-500" />
-                  <CircularGauge value={gen.oilPressure} max={10} label="Pressão Óleo" unit="bar" color="text-red-500" />
-                </div>
-                <div className="mt-4 space-y-3">
-                  <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <Thermometer size={18} /> Temp. Motor
-                    </div>
-                    <span className="text-xl font-bold text-white">{gen.engineTemp}°C</span>
-                  </div>
-                  <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <Droplets size={18} /> Nível Combustível
-                    </div>
-                    <span className={`text-xl font-bold ${gen.fuelLevel < 20 ? 'text-red-500' : 'text-green-500'}`}>{gen.fuelLevel}%</span>
-                  </div>
-                  <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <Battery size={18} /> Tensão Bateria
-                    </div>
-                    <span className="text-xl font-bold text-white">{gen.batteryVoltage} V</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Center Col: Electrical Table (Comparison) */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6 h-full flex flex-col">
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                  <Zap size={18} className="text-ciklo-yellow" /> Parâmetros Elétricos
-                </h3>
-
-                {/* Big Power Display */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-ciklo-orange">
-                    <p className="text-gray-400 text-xs uppercase font-bold">Potência Ativa Total</p>
-                    <p className="text-3xl font-bold text-white mt-1">{Number(gen.activePowerTotal || 0).toFixed(1)} <span className="text-base font-normal text-gray-500">kW</span></p>
-                  </div>
-                  <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-blue-500">
-                    <p className="text-gray-400 text-xs uppercase font-bold">Fator de Potência</p>
-                    <p className="text-3xl font-bold text-white mt-1">{gen.powerFactor} <span className="text-base font-normal text-gray-500">cos φ</span></p>
-                  </div>
-                </div>
-
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* GENERATOR COLUMN */}
-                  <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
-                      <div className="flex items-center gap-2 text-green-500">
-                        <Power size={18} />
-                        <span className="font-bold uppercase tracking-wider text-sm">Gerador</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {/* Toggle Phase-Neutral / Phase-Phase */}
-                        <div className="flex bg-gray-800 rounded-lg p-0.5">
-                          <button
-                            onClick={() => setVoltageViewMode('PN')}
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                          >
-                            F-N
-                          </button>
-                          <button
-                            onClick={() => setVoltageViewMode('PP')}
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                          >
-                            F-F
-                          </button>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs text-gray-400 block">Frequência</span>
-                          <span className="text-lg font-bold text-white">{Number(gen.frequency || 0).toFixed(1)} Hz</span>
-                        </div>
-                      </div>
-                    </div>
-                    <table className="w-full text-left">
-                      <thead className="text-[10px] text-gray-500 uppercase">
-                        <tr>
-                          <th className="pb-2">Fase</th>
-                          <th className="pb-2 text-right">Tensão</th>
-                          <th className="pb-2 text-right">Corrente</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800 text-sm">
-                        {voltageViewMode === 'PN' ? (
-                          <>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L1</td>
-                              <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL1 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-blue-400">{Number(gen.currentL1 || 0).toFixed(0)} A</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L2</td>
-                              <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL2 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-blue-400">{Number(gen.currentL2 || 0).toFixed(0)} A</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L3</td>
-                              <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL3 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-blue-400">{Number(gen.currentL3 || 0).toFixed(0)} A</td>
-                            </tr>
-                          </>
-                        ) : (
-                          <>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L1-L2</td>
-                              <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL12 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-blue-400">{Number(gen.currentL1 || 0).toFixed(0)} A</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L2-L3</td>
-                              <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL23 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-blue-400">{Number(gen.currentL2 || 0).toFixed(0)} A</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L3-L1</td>
-                              <td className="py-2 text-right text-ciklo-yellow">{Number(gen.voltageL31 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-blue-400">{Number(gen.currentL3 || 0).toFixed(0)} A</td>
-                            </tr>
-                          </>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* MAINS COLUMN */}
-                  <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <UtilityPole size={18} />
-                        <span className="font-bold uppercase tracking-wider text-sm">Rede</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {/* Toggle Phase-Neutral / Phase-Phase */}
-                        <div className="flex bg-gray-800 rounded-lg p-0.5">
-                          <button
-                            onClick={() => setMainsVoltageViewMode('PN')}
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                          >
-                            F-N
-                          </button>
-                          <button
-                            onClick={() => setMainsVoltageViewMode('PP')}
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                          >
-                            F-F
-                          </button>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs text-gray-400 block">Frequência</span>
-                          <span className="text-lg font-bold text-white">{Number(gen.mainsFrequency || 0).toFixed(1)} Hz</span>
-                        </div>
-                      </div>
-                    </div>
-                    <table className="w-full text-left">
-                      <thead className="text-[10px] text-gray-500 uppercase">
-                        <tr>
-                          <th className="pb-2">Fase</th>
-                          <th className="pb-2 text-right">Tensão</th>
-                          <th className="pb-2 text-right">Corrente</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800 text-sm">
-                        {mainsVoltageViewMode === 'PN' ? (
-                          <>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L1</td>
-                              <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL1 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL1 || 0).toFixed(0)} A</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L2</td>
-                              <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL2 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL2 || 0).toFixed(0)} A</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L3</td>
-                              <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL3 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-gray-500">{Number(gen.mainsCurrentL3 || 0).toFixed(0)} A</td>
-                            </tr>
-                          </>
-                        ) : (
-                          <>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L1-L2</td>
-                              <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL12 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-blue-400">{Number(gen.mainsCurrentL1 || 0).toFixed(0)} A</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L2-L3</td>
-                              <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL23 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-blue-400">{Number(gen.mainsCurrentL2 || 0).toFixed(0)} A</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 text-gray-300 font-bold">L3-L1</td>
-                              <td className="py-2 text-right text-gray-400">{Number(gen.mainsVoltageL31 || 0).toFixed(0)} V</td>
-                              <td className="py-2 text-right text-blue-400">{Number(gen.mainsCurrentL3 || 0).toFixed(0)} A</td>
-                            </tr>
-                          </>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-gray-800/50 rounded-lg border border-dashed border-gray-700 flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <Timer className="text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500">Horímetro Total</p>
-                      <p className="text-xl font-mono text-white">{Number(gen.totalHours || 0).toFixed(2)} h</p>
-                    </div>
-                  </div>
-
-                </div>
-
-              </div>
-            </div>
-          </div>
-
-          {/* Load Chart Section — Historical (DB-backed) */}
-          <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-              <h3 className="text-white font-bold flex items-center gap-2">
-                <TrendingUp size={18} className="text-ciklo-orange" /> Curva de Carga (kW)
-              </h3>
-              <div className="flex items-center gap-3">
-                {/* Time Range Filter Buttons */}
-                <div className="flex bg-gray-900 rounded-lg p-0.5 border border-gray-700">
-                  {([['24h', '24h'], ['7d', '7 dias'], ['30d', '1 mês']] as const).map(([value, label]) => (
+          {isMobile ? (
+            <>
+              {/* Mobile Sub-tab Selector */}
+              <div className="grid grid-cols-2 gap-2 bg-ciklo-dark/30 p-1.5 rounded-xl border border-gray-800/80">
+                {mobileTabs.map(tab => {
+                  const Icon = tab.icon;
+                  const isActive = mobileSubTab === tab.id;
+                  return (
                     <button
-                      key={value}
-                      onClick={() => setChartRange(value)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
-                        chartRange === value
-                          ? 'bg-ciklo-orange text-black shadow'
-                          : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                      }`}
+                      key={tab.id}
+                      onClick={() => setMobileSubTab(tab.id)}
+                      className={`
+                        flex flex-col items-center justify-center py-3.5 px-2 rounded-lg border transition-all gap-1.5 duration-200
+                        ${isActive 
+                          ? 'bg-ciklo-orange text-black border-ciklo-orange font-bold shadow-md shadow-orange-950/20 scale-[1.02]' 
+                          : 'bg-ciklo-card/60 text-gray-400 border-transparent hover:text-gray-200 hover:bg-ciklo-card'}
+                      `}
                     >
-                      {label}
+                      <Icon size={18} className={isActive ? 'text-black' : 'text-gray-400'} />
+                      <span className="text-[11px] tracking-wide uppercase font-semibold">{tab.label}</span>
                     </button>
-                  ))}
-                </div>
-                <span className="flex items-center gap-1.5 text-xs text-gray-400">
-                  <div className="w-2.5 h-2.5 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50"></div>
-                  Potência Ativa
-                </span>
-                <span className="text-gray-600 font-mono text-xs">
-                  {chartLoading ? '...' : powerHistory.length > 0 ? `${powerHistory.length} pts` : ''}
-                </span>
+                  );
+                })}
               </div>
-            </div>
 
-            <div className="h-[350px] w-full">
-              {chartLoading && powerHistory.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-gray-600">
-                  <TrendingUp size={48} className="mb-3 opacity-30 animate-pulse" />
-                  <p className="text-sm">Carregando dados históricos...</p>
+              {/* Mobile Sub-tab Contents */}
+              <div className="animate-in fade-in duration-300 space-y-6">
+                {mobileSubTab === 'remote_control' && renderRemoteControl()}
+                {mobileSubTab === 'mechanical' && renderMechanicalParameters()}
+                {mobileSubTab === 'electrical' && renderElectricalParameters()}
+                {mobileSubTab === 'load_curve' && renderLoadCurve()}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Desktop Layout */}
+              {renderRemoteControl()}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="space-y-6">
+                  {renderMechanicalParameters()}
                 </div>
-              ) : powerHistory.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-gray-600">
-                  <TrendingUp size={48} className="mb-3 opacity-30" />
-                  <p className="text-sm">Nenhum dado registrado para este período</p>
-                  <p className="text-xs text-gray-700 mt-1">Os dados serão coletados automaticamente</p>
+                <div className="lg:col-span-2 space-y-6">
+                  {renderElectricalParameters()}
                 </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={powerHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
-                        <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
-                        <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-                    <XAxis
-                      dataKey="time"
-                      stroke="#555"
-                      tick={{ fontSize: 10, fill: '#666' }}
-                      minTickGap={40}
-                      axisLine={{ stroke: '#333' }}
-                    />
-                    <YAxis
-                      stroke="#555"
-                      tick={{ fontSize: 10, fill: '#666' }}
-                      domain={[0, chartMaxPower]}
-                      unit=" kW"
-                      axisLine={{ stroke: '#333' }}
-                      width={65}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#111',
-                        borderColor: '#444',
-                        color: '#fff',
-                        borderRadius: '10px',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                        padding: '12px 16px',
-                      }}
-                      labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
-                      itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
-                      formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
-                    />
-                    <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
-                    <Area
-                      type="monotone"
-                      dataKey="power"
-                      stroke="#FACC15"
-                      strokeWidth={2.5}
-                      fillOpacity={1}
-                      fill="url(#colorPowerLive)"
-                      dot={false}
-                      activeDot={{ r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 }}
-                      animationDuration={500}
-                      isAnimationActive={powerHistory.length <= 2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
+              </div>
+              {renderLoadCurve()}
+            </>
+          )}
         </div>
       )
       }
