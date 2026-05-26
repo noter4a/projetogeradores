@@ -955,8 +955,8 @@ const GeneratorDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="border-b border-gray-800">
+      {/* Tabs Navigation - hidden on mobile */}
+      <div className="border-b border-gray-800 hidden md:block">
         <nav className="flex space-x-8" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('operational')}
@@ -994,30 +994,30 @@ const GeneratorDetail: React.FC = () => {
       {activeTab === 'operational' && (
         <div className="space-y-6 animate-in fade-in duration-300">
           {isMobile ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {/* Accordion: Controle Remoto */}
               {canControl && (
-                <div className="rounded-xl border border-gray-800 overflow-hidden bg-ciklo-card">
+                <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
                   <button
                     onClick={() => toggleSection('remote_control')}
-                    className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                    className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${expandedSections.has('remote_control') ? 'bg-ciklo-orange' : 'bg-gray-800'}`}>
-                        <Radio size={18} className={expandedSections.has('remote_control') ? 'text-black' : 'text-ciklo-orange'} />
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('remote_control') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
+                        <Radio size={22} className={expandedSections.has('remote_control') ? 'text-black' : 'text-ciklo-orange'} />
                       </div>
                       <div className="text-left">
-                        <span className="text-white font-bold text-sm block">Controle Remoto</span>
-                        <span className="text-[11px] text-gray-500 flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                        <span className="text-white font-bold text-base block">Controle Remoto</span>
+                        <span className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
+                          <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
                           {isConnected ? 'Conectado' : 'Desconectado'} • {gen.operationMode || 'AUTO'}
                         </span>
                       </div>
                     </div>
-                    {expandedSections.has('remote_control') ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                    {expandedSections.has('remote_control') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
                   </button>
                   {expandedSections.has('remote_control') && (
-                    <div className="px-4 pb-4 animate-in fade-in duration-200">
+                    <div className="px-3 pb-4 animate-in fade-in duration-200">
                       {renderRemoteControl()}
                     </div>
                   )}
@@ -1025,78 +1025,78 @@ const GeneratorDetail: React.FC = () => {
               )}
 
               {/* Accordion: Parâmetros Mecânicos */}
-              <div className="rounded-xl border border-gray-800 overflow-hidden bg-ciklo-card">
+              <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
                 <button
                   onClick={() => toggleSection('mechanical')}
-                  className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${expandedSections.has('mechanical') ? 'bg-ciklo-orange' : 'bg-gray-800'}`}>
-                      <Settings size={18} className={expandedSections.has('mechanical') ? 'text-black' : 'text-ciklo-orange'} />
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('mechanical') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
+                      <Settings size={22} className={expandedSections.has('mechanical') ? 'text-black' : 'text-ciklo-orange'} />
                     </div>
                     <div className="text-left">
-                      <span className="text-white font-bold text-sm block">Parâmetros Mecânicos</span>
-                      <span className="text-[11px] text-gray-500">
+                      <span className="text-white font-bold text-base block">Parâmetros Mecânicos</span>
+                      <span className="text-xs text-gray-400 mt-0.5 block">
                         RPM: {gen.rpm} • Temp: {gen.engineTemp}°C • Comb: {gen.fuelLevel}%
                       </span>
                     </div>
                   </div>
-                  {expandedSections.has('mechanical') ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                  {expandedSections.has('mechanical') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
                 </button>
                 {expandedSections.has('mechanical') && (
-                  <div className="px-4 pb-4 animate-in fade-in duration-200">
+                  <div className="px-3 pb-4 animate-in fade-in duration-200">
                     {renderMechanicalParameters()}
                   </div>
                 )}
               </div>
 
               {/* Accordion: Parâmetros Elétricos */}
-              <div className="rounded-xl border border-gray-800 overflow-hidden bg-ciklo-card">
+              <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
                 <button
                   onClick={() => toggleSection('electrical')}
-                  className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${expandedSections.has('electrical') ? 'bg-ciklo-orange' : 'bg-gray-800'}`}>
-                      <Zap size={18} className={expandedSections.has('electrical') ? 'text-black' : 'text-ciklo-yellow'} />
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('electrical') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
+                      <Zap size={22} className={expandedSections.has('electrical') ? 'text-black' : 'text-ciklo-yellow'} />
                     </div>
                     <div className="text-left">
-                      <span className="text-white font-bold text-sm block">Parâmetros Elétricos</span>
-                      <span className="text-[11px] text-gray-500">
+                      <span className="text-white font-bold text-base block">Parâmetros Elétricos</span>
+                      <span className="text-xs text-gray-400 mt-0.5 block">
                         Potência: {Number(gen.activePowerTotal || 0).toFixed(1)} kW • FP: {gen.powerFactor}
                       </span>
                     </div>
                   </div>
-                  {expandedSections.has('electrical') ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                  {expandedSections.has('electrical') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
                 </button>
                 {expandedSections.has('electrical') && (
-                  <div className="px-4 pb-4 animate-in fade-in duration-200">
+                  <div className="px-3 pb-4 animate-in fade-in duration-200">
                     {renderElectricalParameters()}
                   </div>
                 )}
               </div>
 
               {/* Accordion: Curva de Carga */}
-              <div className="rounded-xl border border-gray-800 overflow-hidden bg-ciklo-card">
+              <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
                 <button
                   onClick={() => toggleSection('load_curve')}
-                  className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${expandedSections.has('load_curve') ? 'bg-ciklo-orange' : 'bg-gray-800'}`}>
-                      <TrendingUp size={18} className={expandedSections.has('load_curve') ? 'text-black' : 'text-ciklo-orange'} />
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('load_curve') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
+                      <TrendingUp size={22} className={expandedSections.has('load_curve') ? 'text-black' : 'text-ciklo-orange'} />
                     </div>
                     <div className="text-left">
-                      <span className="text-white font-bold text-sm block">Curva de Carga</span>
-                      <span className="text-[11px] text-gray-500">
+                      <span className="text-white font-bold text-base block">Curva de Carga</span>
+                      <span className="text-xs text-gray-400 mt-0.5 block">
                         Período: {chartRange === '24h' ? '24 horas' : chartRange === '7d' ? '7 dias' : '1 mês'} • {powerHistory.length} pontos
                       </span>
                     </div>
                   </div>
-                  {expandedSections.has('load_curve') ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                  {expandedSections.has('load_curve') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
                 </button>
                 {expandedSections.has('load_curve') && (
-                  <div className="px-4 pb-4 animate-in fade-in duration-200">
+                  <div className="px-3 pb-4 animate-in fade-in duration-200">
                     {renderLoadCurve()}
                   </div>
                 )}
