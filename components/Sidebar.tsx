@@ -73,9 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
         {/* Header with logo and collapse toggle */}
         <div className={`p-4 flex items-center ${collapsed ? 'justify-center' : 'justify-between'} border-b border-gray-800 relative`}>
           <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-ciklo-yellow to-ciklo-orange flex items-center justify-center shadow-lg shadow-orange-500/20 flex-shrink-0">
-              <Zap className="text-black fill-black" size={24} />
-            </div>
+            <img src="/favicon.png" alt="Ciklo" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
             {!collapsed && (
               <div className="overflow-hidden">
                 <h1 className="text-xl font-bold text-white tracking-wide">CIKLO</h1>
@@ -256,9 +254,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
         {/* Mobile Header Inside Sidebar */}
         <div className="p-6 flex items-center justify-between border-b border-gray-900">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-ciklo-yellow to-ciklo-orange flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <Zap className="text-black fill-black" size={24} />
-            </div>
+            <img src="/favicon.png" alt="Ciklo" className="w-10 h-10 rounded-xl object-cover" />
             <div>
               <h1 className="text-xl font-bold text-white tracking-wide">CIKLO</h1>
               <p className="text-[10px] text-ciklo-yellow uppercase tracking-widest font-semibold">Geradores</p>
