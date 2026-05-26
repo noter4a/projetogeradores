@@ -649,16 +649,16 @@ const GeneratorDetail: React.FC = () => {
                 {/* Toggle Phase-Neutral / Phase-Phase */}
                 <div className="flex bg-gray-800 rounded-lg p-0.5">
                   <button
-                    onClick={() => setVoltageViewMode('PN')}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                  >
-                    F-N
-                  </button>
-                  <button
                     onClick={() => setVoltageViewMode('PP')}
                     className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
                   >
                     F-F
+                  </button>
+                  <button
+                    onClick={() => setVoltageViewMode('PN')}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                  >
+                    F-N
                   </button>
                 </div>
                 <div className="text-right">
@@ -728,16 +728,16 @@ const GeneratorDetail: React.FC = () => {
                 {/* Toggle Phase-Neutral / Phase-Phase */}
                 <div className="flex bg-gray-800 rounded-lg p-0.5">
                   <button
-                    onClick={() => setMainsVoltageViewMode('PN')}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                  >
-                    F-N
-                  </button>
-                  <button
                     onClick={() => setMainsVoltageViewMode('PP')}
                     className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
                   >
                     F-F
+                  </button>
+                  <button
+                    onClick={() => setMainsVoltageViewMode('PN')}
+                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                  >
+                    F-N
                   </button>
                 </div>
                 <div className="text-right">
