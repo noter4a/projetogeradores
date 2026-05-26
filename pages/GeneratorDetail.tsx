@@ -922,18 +922,8 @@ const GeneratorDetail: React.FC = () => {
       {/* NEW ALARM POPUP */}
       <AlarmPopup generatorId={gen.ip || gen.id} />
 
-      {/* Top Bar - Full on desktop, minimal on mobile */}
-      {isMobile ? (
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/')}
-            className="p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <h1 className="text-lg font-bold text-white truncate">{gen.name}</h1>
-        </div>
-      ) : (
+      {/* Top Bar - Full on desktop, hidden on mobile (sidebar handles navigation) */}
+      {!isMobile && (
         <div className="flex flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <button

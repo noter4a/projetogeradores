@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Zap, 
@@ -32,6 +32,8 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
+  const isOnGeneratorDetail = location.pathname.startsWith('/generator/');
 
   // Mobile navigation view state
   const [currentView, setCurrentView] = useState<'main' | 'generators' | 'sales' | 'admin'>(() => {
@@ -317,10 +319,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
           {currentView === 'generators' && (
             <div className="space-y-4">
               <button
-                onClick={() => changeView('main')}
+                onClick={() => {
+                  if (isOnGeneratorDetail) {
+                    navigate('/dashboard');
+                  } else {
+                    changeView('main');
+                  }
+                }}
                 className="flex items-center gap-2 text-sm text-ciklo-orange font-bold hover:underline mb-2"
               >
-                ← Voltar ao Menu Principal
+                {isOnGeneratorDetail ? '← Voltar aos Geradores' : '← Voltar ao Menu Principal'}
               </button>
               <div className="grid grid-cols-2 gap-4">
                 <NavLink
