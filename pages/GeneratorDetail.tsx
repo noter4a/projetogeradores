@@ -151,8 +151,8 @@ const GeneratorDetail: React.FC = () => {
   const [writeName, setWriteName] = useState('');
 
   // View Mode for Voltages (Phase-Neutral vs Phase-Phase)
-  const [voltageViewMode, setVoltageViewMode] = useState<'PN' | 'PP'>('PN');
-  const [mainsVoltageViewMode, setMainsVoltageViewMode] = useState<'PN' | 'PP'>('PN');
+  const [voltageViewMode, setVoltageViewMode] = useState<'PN' | 'PP'>('PP');
+  const [mainsVoltageViewMode, setMainsVoltageViewMode] = useState<'PN' | 'PP'>('PP');
 
   // Local Alarm Acknowledgment State
   const [acknowledgedAlarms, setAcknowledgedAlarms] = useState<Set<string>>(new Set());
