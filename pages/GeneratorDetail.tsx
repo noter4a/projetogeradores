@@ -87,6 +87,9 @@ const GeneratorDetail: React.FC = () => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     if (canControl) initial.add('remote_control');
+    initial.add('mechanical');
+    initial.add('electrical');
+    initial.add('load_curve');
     return initial;
   });
 
