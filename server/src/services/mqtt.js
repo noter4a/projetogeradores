@@ -6,11 +6,12 @@ import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
 import pool from '../db.js';
 import { sendAlarmEmail } from './email.js';
+import { sendAlarmWhatsApp, sendAlarmResolvedWhatsApp } from './whatsapp.js';
 
 const notifyUsersAboutAlarm = async (clientPool, generatorId, generatorName, alarmCode, alarmMessage) => {
     try {
         const res = await clientPool.query(
-            `SELECT u.email FROM users u 
+            `SELECT u.email, u.phone, u.whatsapp_alerts FROM users u 
              LEFT JOIN generators g ON g.company_id = u.company_id 
              WHERE u.role = 'ADMIN' OR g.id = $1`,
             [generatorId]
@@ -19,8 +20,29 @@ const notifyUsersAboutAlarm = async (clientPool, generatorId, generatorName, ala
         if (emails.length > 0) {
             await sendAlarmEmail(emails, generatorId, generatorName, { code: alarmCode, description: alarmMessage });
         }
+        // WhatsApp notifications
+        const whatsappUsers = res.rows.filter(row => row.phone && row.whatsapp_alerts === true);
+        for (const user of whatsappUsers) {
+            await sendAlarmWhatsApp(user.phone, generatorName, alarmMessage, 'ATIVO');
+        }
     } catch (err) {
-        console.error('[MQTT] Failed finding users for alarm email:', err.message);
+        console.error('[MQTT] Failed finding users for alarm notification:', err.message);
+    }
+};
+
+const notifyUsersAlarmResolved = async (clientPool, generatorId, generatorName) => {
+    try {
+        const res = await clientPool.query(
+            `SELECT u.phone, u.whatsapp_alerts FROM users u 
+             LEFT JOIN generators g ON g.company_id = u.company_id 
+             WHERE (u.role = 'ADMIN' OR g.id = $1) AND u.phone IS NOT NULL AND u.whatsapp_alerts = true`,
+            [generatorId]
+        );
+        for (const user of res.rows) {
+            await sendAlarmResolvedWhatsApp(user.phone, generatorName);
+        }
+    } catch (err) {
+        console.error('[MQTT] Failed sending alarm resolved WhatsApp:', err.message);
     }
 };
 
@@ -807,6 +829,7 @@ export const initMqttService = (io) => {
                                             [resolvedGenId]
                                         );
                                         console.log(`[MQTT] ✅ ALARME RESOLVIDO: ${resolvedGenId} (was ${dbOpenAlarmCode})`);
+                                        notifyUsersAlarmResolved(pool, resolvedGenId, resolvedGenName);
                                     } catch (clrErr) {
                                         console.error('[MQTT] Alarm CLEAR Error:', clrErr.message);
                                     }

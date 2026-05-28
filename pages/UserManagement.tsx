@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { UserRole, User, Company } from '../types';
-import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Eye, Wallet, ChevronLeft, ChevronRight, Building } from 'lucide-react';
+import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Eye, Wallet, ChevronLeft, ChevronRight, Building, Phone, MessageSquare } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
   const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();
@@ -45,12 +45,14 @@ const UserManagement: React.FC = () => {
     email: '',
     password: '',
     role: UserRole.TECHNICIAN,
-    companyId: undefined as number | undefined
+    companyId: undefined as number | undefined,
+    phone: '',
+    whatsappAlerts: false
   });
 
   const handleOpenAdd = () => {
     setEditingId(null);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined, phone: '', whatsappAlerts: false });
     setIsFormOpen(true);
   };
 
@@ -61,7 +63,9 @@ const UserManagement: React.FC = () => {
       email: user.email,
       password: '', // Don't show existing password
       role: user.role,
-      companyId: user.companyId
+      companyId: user.companyId,
+      phone: user.phone || '',
+      whatsappAlerts: user.whatsappAlerts || false
     });
     setIsFormOpen(true);
   };
@@ -81,7 +85,9 @@ const UserManagement: React.FC = () => {
           password: formData.password || existingUser.password || '123456',
           role: formData.role as UserRole,
           assignedGeneratorIds: [],
-          companyId: formData.companyId
+          companyId: formData.companyId,
+          phone: formData.phone ? formData.phone.replace(/\D/g, '') : undefined,
+          whatsappAlerts: formData.whatsappAlerts
         });
       }
     } else {
@@ -93,13 +99,15 @@ const UserManagement: React.FC = () => {
         password: formData.password || '123456',
         role: formData.role as UserRole,
         assignedGeneratorIds: [],
-        companyId: formData.companyId
+        companyId: formData.companyId,
+        phone: formData.phone ? formData.phone.replace(/\D/g, '') : undefined,
+        whatsappAlerts: formData.whatsappAlerts
       };
       await addUser(user);
     }
 
     setIsFormOpen(false);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined, phone: '', whatsappAlerts: false });
     setEditingId(null);
   };
 
@@ -205,6 +213,49 @@ const UserManagement: React.FC = () => {
               </div>
             </div>
 
+            {/* Phone and WhatsApp Alerts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Telefone (WhatsApp)</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-2.5 text-gray-500" size={18} />
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={e => {
+                      // Brazilian phone mask: (XX) XXXXX-XXXX
+                      let value = e.target.value.replace(/\D/g, '');
+                      if (value.length > 11) value = value.slice(0, 11);
+                      if (value.length > 7) {
+                        value = `(${value.slice(0, 2)}) ${value.slice(2, 7)}-${value.slice(7)}`;
+                      } else if (value.length > 2) {
+                        value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
+                      } else if (value.length > 0) {
+                        value = `(${value}`;
+                      }
+                      setFormData({ ...formData, phone: value });
+                    }}
+                    className="w-full bg-ciklo-black border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-white focus:border-ciklo-orange outline-none"
+                    placeholder="(54) 99688-5243"
+                  />
+                </div>
+              </div>
+              <div className="flex items-end">
+                <label className="flex items-center gap-3 cursor-pointer group p-2.5">
+                  <div className={`w-11 h-6 rounded-full relative transition-colors duration-200 ${formData.whatsappAlerts ? 'bg-green-500' : 'bg-gray-700'}`}
+                    onClick={() => setFormData({ ...formData, whatsappAlerts: !formData.whatsappAlerts })}>
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${formData.whatsappAlerts ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </div>
+                  <div className="flex items-center gap-2" onClick={() => setFormData({ ...formData, whatsappAlerts: !formData.whatsappAlerts })}>
+                    <MessageSquare size={18} className={formData.whatsappAlerts ? 'text-green-400' : 'text-gray-500'} />
+                    <span className={`text-sm font-medium ${formData.whatsappAlerts ? 'text-green-400' : 'text-gray-500'}`}>
+                      Receber Alertas via WhatsApp
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
 
 
             <div className="flex justify-end gap-3 pt-2">
@@ -255,9 +306,23 @@ const UserManagement: React.FC = () => {
                     </div>
                   </td>
                   <td className="p-4">
-                    <div className="flex items-center gap-2 text-gray-400 text-sm">
-                      <Mail size={14} className="text-gray-600" />
-                      {u.email}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <Mail size={14} className="text-gray-600" />
+                        {u.email}
+                      </div>
+                      {u.phone && (
+                        <div className="flex items-center gap-2 text-gray-400 text-sm">
+                          <Phone size={14} className="text-green-600" />
+                          {u.phone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')}
+                          {u.whatsappAlerts && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-500/10 text-green-400 border border-green-500/20">
+                              <MessageSquare size={9} />
+                              WA
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="p-4 text-sm text-gray-300">

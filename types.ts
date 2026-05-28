@@ -19,6 +19,8 @@ export interface User {
   role: UserRole;
   email: string;
   password?: string;
+  phone?: string;
+  whatsappAlerts?: boolean;
   assignedGeneratorIds?: string[];
   companyId?: number;
   companyName?: string;
