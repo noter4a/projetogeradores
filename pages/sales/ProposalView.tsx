@@ -52,6 +52,11 @@ const ProposalView: React.FC = () => {
   return (
     <div className="bg-gray-200 min-h-screen py-4 sm:py-8 print:bg-white print:py-0 text-black font-sans overflow-x-auto">
       <style>{`
+        .break-inside-avoid {
+          break-inside: avoid !important;
+          -webkit-column-break-inside: avoid;
+          page-break-inside: avoid !important;
+        }
         @page {
           size: A4;
           margin: 0;
@@ -277,7 +282,7 @@ const ProposalView: React.FC = () => {
 
         {/* Footer Conditions */}
         <div className="space-y-4 text-sm mb-6">
-          <div>
+          <div className="break-inside-avoid">
             <div className="font-bold underline mb-1 text-center">CONSIDERAÇÕES GERAIS</div>
             <p className="text-justify">
               O escopo de fornecimento da Ciklo Geradores foi elaborado conforme informações enviadas por V.Sa., se limitando inteiramente aos itens descritos nesta, não constituindo no fornecimento de energia. Na eventual indisponibilidade de funcionamento dos equipamentos, a Ciklo Geradores não retrata nenhuma forma de ressarcimento por lucros cessantes e/ou perdas e danos ao cliente e/ou terceiros.
@@ -285,21 +290,21 @@ const ProposalView: React.FC = () => {
             <p className="mt-2 font-bold" style={{ backgroundColor: '#FFFF00', display: 'inline' }}>Dimensionamento realizado pelo cliente.</p>
           </div>
 
-          <div>
+          <div className="break-inside-avoid">
             <div className="font-bold underline mb-1 text-center">GARANTIA</div>
             <p className="text-justify">
               A garantia é de 1 (um) ano, ou 1.000 (mil) horas de uso (ou) o que vencer primeiro após a emissão da nota fiscal de acordo com o Código de Defesa do consumidor.
             </p>
           </div>
 
-          <div>
+          <div className="break-inside-avoid">
             <div className="font-bold underline mb-1 text-center">DIFAL (Diferença de Alíquota do ICMS)</div>
             <p className="text-justify">
               Valor não incluso na proposta. Caso haja incidência de DIFAL, o mesmo será de responsabilidade do cliente, conforme legislação vigente.
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-y-2 text-[13px] border-t border-b border-gray-300 py-3">
+          <div className="grid grid-cols-3 gap-y-2 text-[13px] border-t border-b border-gray-300 py-3 break-inside-avoid">
              <div className="font-bold">VALIDADE DA PROPOSTA:</div>
              <div className="col-span-2">{formatDate(proposal.valido_ate)}</div>
 
