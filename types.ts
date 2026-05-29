@@ -217,6 +217,7 @@ export interface QmProposal {
   acessorio_id?: number;
   dimensao_id?: number;
   outros_acessorios?: string;
+  moeda?: string;
   // joined fields
   cliente_nome?: string;
   gerador_modelo?: string;

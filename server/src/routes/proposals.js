@@ -26,7 +26,7 @@ ensureItemsTable();
 router.get('/', async (req, res) => {
     try {
         const query = `
-            SELECT p.id, p.numero_proposta, p.status, p.data_emissao, p.valor_total,
+            SELECT p.id, p.numero_proposta, p.status, p.data_emissao, p.valor_total, p.moeda,
                    c.razao_social as cliente_nome,
                    COALESCE(
                      (SELECT string_agg(COALESCE(pi2.modelo_custom, g2.modelo), ', ') FROM qm_proposta_itens pi2 
@@ -117,7 +117,7 @@ router.post('/', async (req, res) => {
     const {
         cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id, tensao_id,
         quantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, valor_total, status,
-        itens // NEW: array of { gerador_id, quantidade, valor_unitario }
+        itens, moeda // NEW: array of { gerador_id, quantidade, valor_unitario }
     } = req.body;
 
     try {
@@ -129,6 +129,7 @@ router.post('/', async (req, res) => {
             try {
               await client.query(`ALTER TABLE qm_propostas ADD COLUMN IF NOT EXISTS icms VARCHAR(20)`);
               await client.query(`ALTER TABLE qm_propostas ADD COLUMN IF NOT EXISTS tensao_id INTEGER REFERENCES qm_catalogo_tensoes(id)`);
+              await client.query(`ALTER TABLE qm_propostas ADD COLUMN IF NOT EXISTS moeda VARCHAR(10) DEFAULT 'BRL'`);
             } catch(e) {}
 
             // Calculate proposal number
@@ -152,16 +153,16 @@ router.post('/', async (req, res) => {
                 INSERT INTO qm_propostas (
                     nprop, anoprop, numero_proposta, status, cliente_id, gerador_id, motor_id, alternador_id, 
                     modulo_id, acessorio_id, dimensao_id, tensao_id, quantidade, prazo_entrega, forma_pagamento, frete, 
-                    ipi, icms, valido_ate, outros_acessorios, valor_total
+                    ipi, icms, valido_ate, outros_acessorios, valor_total, moeda
                 ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
                 ) RETURNING *
             `;
             
             const values = [
                 nprop, currentYear, numero_proposta, status || 'RASCUNHO', cliente_id, mainGeradorId, motor_id, alternador_id,
                 modulo_id, acessorio_id, dimensao_id, tensao_id || null, mainQuantidade, prazo_entrega, forma_pagamento, frete,
-                ipi, icms, valido_ate, outros_acessorios, calculatedTotal
+                ipi, icms, valido_ate, outros_acessorios, calculatedTotal, moeda || 'BRL'
             ];
 
             const inserted = await client.query(insertQuery, values);
@@ -198,7 +199,7 @@ router.put('/:id', async (req, res) => {
     const {
         status, cliente_id, gerador_id, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id, tensao_id,
         quantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, valor_total,
-        itens
+        itens, moeda
     } = req.body;
 
     try {
@@ -219,13 +220,13 @@ router.put('/:id', async (req, res) => {
                     status = $1, cliente_id = $2, gerador_id = $3, motor_id = $4, alternador_id = $5,
                     modulo_id = $6, acessorio_id = $7, dimensao_id = $8, tensao_id = $9, quantidade = $10, prazo_entrega = $11,
                     forma_pagamento = $12, frete = $13, ipi = $14, icms = $15, valido_ate = $16, outros_acessorios = $17,
-                    valor_total = $18
-                WHERE id = $19 RETURNING *
+                    valor_total = $18, moeda = $19
+                WHERE id = $20 RETURNING *
             `;
             const values = [
                 status, cliente_id, mainGeradorId, motor_id, alternador_id, modulo_id, acessorio_id, dimensao_id, 
                 tensao_id || null, mainQuantidade, prazo_entrega, forma_pagamento, frete, ipi, icms, valido_ate, outros_acessorios, 
-                calculatedTotal, id
+                calculatedTotal, moeda || 'BRL', id
             ];
             const result = await client.query(updateQuery, values);
 

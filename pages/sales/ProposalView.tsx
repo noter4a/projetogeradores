@@ -43,8 +43,9 @@ const ProposalView: React.FC = () => {
   };
 
   const formatCurrency = (val?: number) => {
-    if (val === undefined) return 'R$ 0,00';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+    if (val === undefined) return proposal?.moeda === 'USD' ? 'US$ 0,00' : 'R$ 0,00';
+    const isUSD = proposal?.moeda === 'USD';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: isUSD ? 'USD' : 'BRL' }).format(val);
   };
 
   const cliente = proposal.cliente;

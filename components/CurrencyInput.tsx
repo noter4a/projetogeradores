@@ -5,17 +5,19 @@ interface CurrencyInputProps {
   onChange: (value: number) => void;
   className?: string;
   placeholder?: string;
+  moeda?: string;
 }
 
-const formatBRL = (cents: number): string => {
+const formatVal = (cents: number, moeda?: string): string => {
+  const isUSD = moeda === 'USD';
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
-    currency: 'BRL',
+    currency: isUSD ? 'USD' : 'BRL',
     minimumFractionDigits: 2,
   }).format(cents / 100);
 };
 
-const CurrencyInput: React.FC<CurrencyInputProps> = ({ value, onChange, className, placeholder }) => {
+const CurrencyInput: React.FC<CurrencyInputProps> = ({ value, onChange, className, placeholder, moeda }) => {
   // Work in cents internally to avoid floating point issues
   const [cents, setCents] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -50,8 +52,8 @@ const CurrencyInput: React.FC<CurrencyInputProps> = ({ value, onChange, classNam
       ref={inputRef}
       type="text"
       inputMode="numeric"
-      value={formatBRL(cents)}
-      placeholder={placeholder || 'R$ 0,00'}
+      value={formatVal(cents, moeda)}
+      placeholder={placeholder || (moeda === 'USD' ? 'US$ 0,00' : 'R$ 0,00')}
       onKeyDown={handleKeyDown}
       onChange={() => {}} // controlled via keydown
       className={className}

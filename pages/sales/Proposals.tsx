@@ -55,9 +55,10 @@ const Proposals: React.FC = () => {
     }
   };
 
-  const formatCurrency = (val: any) => {
-    if (!val) return 'R$ 0,00';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val));
+  const formatCurrency = (val: any, moeda?: string) => {
+    if (!val) return moeda === 'USD' ? 'US$ 0,00' : 'R$ 0,00';
+    const isUSD = moeda === 'USD';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: isUSD ? 'USD' : 'BRL' }).format(Number(val));
   };
 
   const formatDate = (dateStr: string) => {
@@ -139,7 +140,7 @@ const Proposals: React.FC = () => {
                       {prop.gerador_modelo || 'Nenhum'}
                     </td>
                     <td className="p-4 text-right text-ciklo-yellow font-medium">
-                      {formatCurrency(prop.valor_total)}
+                      {formatCurrency(prop.valor_total, prop.moeda)}
                     </td>
                     <td className="p-4 text-center">
                       <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${getStatusColor(prop.status)}`}>

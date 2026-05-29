@@ -46,6 +46,7 @@ const NewProposal: React.FC = () => {
   const [formaPagamento, setFormaPagamento] = useState('');
   const [prazoEntrega, setPrazoEntrega] = useState('');
   const [validadeDias, setValidadeDias] = useState(10);
+  const [moeda, setMoeda] = useState<'BRL' | 'USD'>('BRL');
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -126,7 +127,8 @@ const NewProposal: React.FC = () => {
         valido_ate: hoje.toISOString(),
         valor_total: valorTotal,
         status: status,
-        itens: validItens.map(i => ({ gerador_id: i.geradorId.startsWith('temp_') ? null : Number(i.geradorId), quantidade: i.quantidade, valor_unitario: i.valorUnit, modelo_custom: i.modeloCustom || null }))
+        itens: validItens.map(i => ({ gerador_id: i.geradorId.startsWith('temp_') ? null : Number(i.geradorId), quantidade: i.quantidade, valor_unitario: i.valorUnit, modelo_custom: i.modeloCustom || null })),
+        moeda: moeda
       };
 
       const res = await fetch('/api/proposals', {
@@ -154,7 +156,8 @@ const NewProposal: React.FC = () => {
   };
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+    const isUSD = moeda === 'USD';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: isUSD ? 'USD' : 'BRL' }).format(val);
   };
 
   if (loading) {
@@ -203,10 +206,23 @@ const NewProposal: React.FC = () => {
 
           {/* Card: Gerador */}
           <div className="bg-ciklo-card border border-gray-800 rounded-xl p-6 shadow-lg">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-gray-800 pb-2">
-              <Box className="text-ciklo-yellow" size={20} />
-              2. Composição do Produto
-            </h3>
+            <div className="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Box className="text-ciklo-yellow" size={20} />
+                2. Composição do Produto
+              </h3>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-400">Moeda:</label>
+                <select
+                  value={moeda}
+                  onChange={e => setMoeda(e.target.value as 'BRL' | 'USD')}
+                  className="bg-ciklo-black border border-gray-700 rounded-lg px-3 py-1 text-white focus:border-ciklo-orange outline-none text-sm font-semibold"
+                >
+                  <option value="BRL">R$ (Real)</option>
+                  <option value="USD">US$ (Dólar)</option>
+                </select>
+              </div>
+            </div>
             
             <div className="space-y-4">
               <div>
@@ -249,6 +265,7 @@ const NewProposal: React.FC = () => {
                         <label className="block text-xs text-gray-500 mb-0.5">Valor Unitário</label>
                         <CurrencyInput value={item.valorUnit}
                           onChange={(val) => updateItem(idx, 'valorUnit', val)}
+                          moeda={moeda}
                           className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-right outline-none text-sm" />
                       </div>
                       {itens.length > 1 && (
@@ -272,8 +289,8 @@ const NewProposal: React.FC = () => {
                         <input type="text" value={newGerador.modelo} onChange={e => setNewGerador({...newGerador, modelo: e.target.value})} placeholder="Ex: GG-100/90KVA" className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-ciklo-orange placeholder-gray-600" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1">Valor Unitário (R$)</label>
-                        <CurrencyInput value={newGerador.valor_unitario} onChange={(val) => setNewGerador({...newGerador, valor_unitario: val})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-ciklo-orange" />
+                        <label className="block text-xs text-gray-400 mb-1">Valor Unitário ({moeda === 'USD' ? 'US$' : 'R$'})</label>
+                        <CurrencyInput value={newGerador.valor_unitario} onChange={(val) => setNewGerador({...newGerador, valor_unitario: val})} moeda={moeda} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2 text-white text-sm outline-none focus:border-ciklo-orange" />
                       </div>
                       <div className="col-span-1 md:col-span-2">
                         <label className="block text-xs text-gray-400 mb-1">Descrição</label>
