@@ -1090,7 +1090,7 @@ const GeneratorDetail: React.FC = () => {
                     <div className="text-left">
                       <span className="text-white font-bold text-base block">Curva de Carga</span>
                       <span className="text-xs text-gray-400 mt-0.5 block">
-                        Período: {chartRange === '24h' ? '24 horas' : chartRange === '7d' ? '7 dias' : '1 mês'} • {powerHistory.length} pontos
+                        Período: {chartRange === '24h' ? '24 horas' : chartRange === '7d' ? '7 dias' : '1 mês'} • Potência: {Number(gen.activePowerTotal || 0).toFixed(1)} kW
                       </span>
                     </div>
                   </div>
