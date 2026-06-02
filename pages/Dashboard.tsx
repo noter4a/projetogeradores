@@ -4,7 +4,7 @@ import { MOCK_ALARMS } from '../constants';
 import { GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
-import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock } from 'lucide-react';
+import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle } from 'lucide-react';
 import AlarmPopup from '../components/AlarmPopup';
 
 const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
@@ -105,7 +105,14 @@ const Dashboard: React.FC = () => {
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-6 gap-4">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-bold text-white group-hover:text-ciklo-orange transition-colors tracking-tight truncate">{gen.name}</h3>
+                      <h3 className="text-xl font-bold text-white group-hover:text-ciklo-orange transition-colors tracking-tight truncate flex items-center gap-2">
+                        {gen.name}
+                        {gen.status === GeneratorStatus.ALARM && (
+                          <span className="inline-flex items-center flex-shrink-0" title="Alerta Ativo">
+                            <AlertTriangle size={20} className="text-red-500 animate-pulse drop-shadow-[0_0_6px_rgba(239,68,68,0.7)]" />
+                          </span>
+                        )}
+                      </h3>
                       <div className="flex items-center gap-1.5 text-gray-400 text-sm mt-1.5 truncate">
                         <MapPin size={14} className="text-gray-500 shrink-0" />
                         <span className="truncate">{gen.location}</span>
