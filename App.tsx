@@ -267,6 +267,11 @@ const AppContent: React.FC = () => {
             <Layout><NewProposal /></Layout>
           </SalesRoute>
         } />
+        <Route path="/sales/edit-proposal/:id" element={
+          <SalesRoute>
+            <Layout><NewProposal /></Layout>
+          </SalesRoute>
+        } />
         <Route path="/sales/proposals" element={
           <SalesRoute>
             <Layout><Proposals /></Layout>

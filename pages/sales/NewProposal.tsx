@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Save, X, ArrowRight, User as UserIcon, ListPlus, Box, DollarSign, PlusCircle } from 'lucide-react';
 import CurrencyInput from '../../components/CurrencyInput';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { 
   QmClient, QmCatalogGenerator, QmCatalogMotor, QmCatalogAlternator, 
   QmCatalogModule, QmCatalogAccessory, QmCatalogDimension 
@@ -9,6 +9,8 @@ import {
 
 const NewProposal: React.FC = () => {
   const navigate = useNavigate();
+  const { id: editId } = useParams<{ id: string }>();
+  const isEditMode = !!editId;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -74,6 +76,53 @@ const NewProposal: React.FC = () => {
         if (resDim.ok) setDimensions(await resDim.json());
         if (resTen.ok) setTensoes(await resTen.json());
 
+        // Load existing proposal for edit mode
+        if (editId) {
+          const resProp = await fetch(`/api/proposals/${editId}`, { headers });
+          if (resProp.ok) {
+            const prop = await resProp.json();
+            setClientId(prop.cliente_id ? String(prop.cliente_id) : '');
+            setMotorId(prop.motor_id ? String(prop.motor_id) : '');
+            setAlternadorId(prop.alternador_id ? String(prop.alternador_id) : '');
+            setModuloId(prop.modulo_id ? String(prop.modulo_id) : '');
+            setAcessorioId(prop.acessorio_id ? String(prop.acessorio_id) : '');
+            setDimensaoId(prop.dimensao_id ? String(prop.dimensao_id) : '');
+            setTensaoId(prop.tensao_id ? String(prop.tensao_id) : '');
+            setOutrosAcessorios(prop.outros_acessorios || '');
+            setFrete(prop.frete || '');
+            setIpi(prop.ipi || '');
+            setIcms(prop.icms || '');
+            setFormaPagamento(prop.forma_pagamento || '');
+            setPrazoEntrega(prop.prazo_entrega || '');
+            setMoeda(prop.moeda === 'USD' ? 'USD' : 'BRL');
+
+            // Calculate validity days from valido_ate
+            if (prop.valido_ate) {
+              const validDate = new Date(prop.valido_ate);
+              const today = new Date();
+              const diffDays = Math.max(1, Math.ceil((validDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+              setValidadeDias(diffDays);
+            }
+
+            // Load items
+            if (prop.itens && prop.itens.length > 0) {
+              setItens(prop.itens.map((item: any) => ({
+                geradorId: item.gerador_id ? String(item.gerador_id) : (item.modelo_custom ? `temp_${Date.now()}_${Math.random()}` : ''),
+                quantidade: item.quantidade || 1,
+                valorUnit: Number(item.valor_unitario) || 0,
+                modeloCustom: item.modelo_custom || undefined
+              })));
+            } else if (prop.gerador_id) {
+              // Backward compat: single generator
+              setItens([{
+                geradorId: String(prop.gerador_id),
+                quantidade: prop.quantidade || 1,
+                valorUnit: prop.valor_total ? Number(prop.valor_total) / (prop.quantidade || 1) : 0
+              }]);
+            }
+          }
+        }
+
       } catch (err) {
         console.error('Error fetching data for form:', err);
       } finally {
@@ -81,7 +130,7 @@ const NewProposal: React.FC = () => {
       }
     };
     fetchAll();
-  }, []);
+  }, [editId]);
 
   // Calculate total from all items
   const valorTotal = itens.reduce((sum, item) => sum + (item.valorUnit * item.quantidade), 0);
@@ -131,8 +180,10 @@ const NewProposal: React.FC = () => {
         moeda: moeda
       };
 
-      const res = await fetch('/api/proposals', {
-        method: 'POST',
+      const url = isEditMode ? `/api/proposals/${editId}` : '/api/proposals';
+      const method = isEditMode ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -171,9 +222,9 @@ const NewProposal: React.FC = () => {
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             <LayoutDashboard className="text-ciklo-orange" />
-            Nova Proposta Comercial
+            {isEditMode ? 'Editar Proposta' : 'Nova Proposta Comercial'}
           </h2>
-          <p className="text-gray-400 text-sm">Preencha os dados abaixo para compor o orçamento.</p>
+          <p className="text-gray-400 text-sm">{isEditMode ? 'Modifique os dados e salve as alterações.' : 'Preencha os dados abaixo para compor o orçamento.'}</p>
         </div>
         <button onClick={() => navigate('/sales/proposals')} className="text-gray-400 hover:text-white p-2">
           <X size={24} />
@@ -446,14 +497,14 @@ const NewProposal: React.FC = () => {
               className="w-full bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold py-3 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-transform transform hover:-translate-y-0.5 disabled:opacity-50"
             >
               <Save size={20} />
-              {saving ? 'Salvando...' : 'Salvar Proposta'}
+              {saving ? 'Salvando...' : (isEditMode ? 'Salvar Alterações' : 'Salvar Proposta')}
             </button>
             <button 
               onClick={() => handleSave('RASCUNHO')}
               disabled={saving}
               className="w-full mt-3 bg-transparent border border-gray-600 hover:border-gray-400 hover:text-white text-gray-400 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
             >
-              Salvar como Rascunho
+              {isEditMode ? 'Salvar Rascunho' : 'Salvar como Rascunho'}
             </button>
           </div>
         </div>
