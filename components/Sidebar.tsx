@@ -17,7 +17,8 @@ import {
   Building,
   Server,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  UserCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -92,25 +93,25 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
           )}
         </div>
 
-        {/* User info */}
+        {/* User info - clickable to profile */}
         {!collapsed ? (
-          <div className="p-4 border-b border-gray-800">
-            <div className="flex items-center gap-3 p-3 bg-ciklo-dark rounded-lg border border-gray-700">
-              <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+          <NavLink to="/profile" className="block p-4 border-b border-gray-800 group">
+            <div className="flex items-center gap-3 p-3 bg-ciklo-dark rounded-lg border border-gray-700 group-hover:border-ciklo-orange/40 transition-all duration-200">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-ciklo-orange to-ciklo-yellow flex items-center justify-center text-xs font-bold text-black flex-shrink-0">
                 {user?.name.charAt(0)}
               </div>
               <div className="overflow-hidden flex-1">
-                <p className="text-sm font-medium text-white truncate">{user?.name}</p>
+                <p className="text-sm font-medium text-white truncate group-hover:text-ciklo-orange transition-colors">{user?.name}</p>
                 <p className="text-xs text-gray-400 truncate capitalize">{user?.role.toLowerCase()}</p>
               </div>
             </div>
-          </div>
+          </NavLink>
         ) : (
-          <div className="p-3 border-b border-gray-800 flex justify-center">
-            <div className="w-9 h-9 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-white" title={`${user?.name} (${user?.role})`}>
+          <NavLink to="/profile" className="p-3 border-b border-gray-800 flex justify-center group">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-ciklo-orange to-ciklo-yellow flex items-center justify-center text-xs font-bold text-black group-hover:shadow-lg group-hover:shadow-orange-500/30 transition-all" title={`${user?.name} - Meu Perfil`}>
               {user?.name.charAt(0)}
             </div>
-          </div>
+          </NavLink>
         )}
 
         {/* Navigation */}
@@ -238,6 +239,20 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
             <MessageCircle size={20} className="flex-shrink-0" />
             {!collapsed && <span className="font-medium">Suporte WhatsApp</span>}
           </a>
+          <NavLink
+            to="/profile"
+            title={collapsed ? 'Meu Perfil' : undefined}
+            className={({ isActive }) =>
+              `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 w-full rounded-lg transition-all duration-200 ${
+                isActive
+                  ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+              }`
+            }
+          >
+            <UserCircle size={20} className="flex-shrink-0" />
+            {!collapsed && <span className="font-medium">Meu Perfil</span>}
+          </NavLink>
           <button
             onClick={logout}
             className={`flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 w-full rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200`}
@@ -308,6 +323,17 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                     <span className="text-sm font-bold text-white leading-tight">Administração</span>
                   </button>
                 )}
+
+                {/* Meu Perfil card - visible to all */}
+                <NavLink
+                  to="/profile"
+                  className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                >
+                  <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
+                    <UserCircle size={28} />
+                  </div>
+                  <span className="text-sm font-bold text-white leading-tight">Meu Perfil</span>
+                </NavLink>
               </div>
             </div>
           )}
@@ -467,6 +493,20 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
             <MessageCircle size={18} />
             Suporte WhatsApp
           </a>
+
+          <NavLink
+            to="/profile"
+            className={({ isActive }) =>
+              `flex items-center justify-center gap-2 w-full p-3 border rounded-xl text-sm font-bold active:scale-95 transition-all ${
+                isActive
+                  ? 'bg-ciklo-orange/20 border-ciklo-orange/40 text-ciklo-orange'
+                  : 'bg-ciklo-card border-gray-800 text-gray-300 hover:text-white'
+              }`
+            }
+          >
+            <UserCircle size={18} />
+            Meu Perfil
+          </NavLink>
 
           <button
             onClick={logout}

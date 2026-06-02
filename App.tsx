@@ -10,6 +10,7 @@ import AlarmCenter from './pages/AlarmCenter'; // NEW
 import FleetManagement from './pages/FleetManagement';
 import AddGenerator from './pages/AddGenerator';
 import UserManagement from './pages/UserManagement';
+import ProfileSettings from './pages/ProfileSettings';
 import CompanyManagement from './pages/CompanyManagement';
 import Reports from './pages/Reports';
 import Maintenance from './pages/Maintenance';
@@ -275,6 +276,13 @@ const AppContent: React.FC = () => {
           <SalesRoute>
             <Layout><ProposalView /></Layout>
           </SalesRoute>
+        } />
+
+        {/* Profile/Settings (Any authenticated user) */}
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Layout><ProfileSettings /></Layout>
+          </ProtectedRoute>
         } />
 
       </Routes>

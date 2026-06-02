@@ -6,6 +6,7 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateProfile: (data: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
@@ -74,8 +75,33 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     }
   };
 
+  const updateProfile = async (data: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) => {
+    try {
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Falha ao atualizar perfil');
+      }
+
+      const updatedUser = await response.json();
+      setUser(updatedUser);
+      localStorage.setItem('ciklo_auth_user', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error('Profile update failed', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

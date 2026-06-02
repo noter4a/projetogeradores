@@ -476,6 +476,77 @@ const authenticateToken = (req, res, next) => {
 };
 
 
+// PUT /api/auth/profile - PROTECTED (Any authenticated user can update own profile)
+router.put('/auth/profile', authenticateToken, async (req, res) => {
+    const { name, phone, currentPassword, newPassword } = req.body;
+
+    try {
+        const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+
+        const user = userResult.rows[0];
+        const updates = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (name !== undefined && name.trim()) {
+            updates.push(`name = $${paramIndex++}`);
+            values.push(name.trim());
+        }
+
+        if (phone !== undefined) {
+            updates.push(`phone = $${paramIndex++}`);
+            values.push(phone || null);
+        }
+
+        // Password change requires current password verification
+        if (newPassword) {
+            if (!currentPassword) {
+                return res.status(400).json({ message: 'Senha atual é obrigatória para alterar a senha.' });
+            }
+            if (newPassword.length < 6) {
+                return res.status(400).json({ message: 'A nova senha deve ter pelo menos 6 caracteres.' });
+            }
+
+            const validPassword = await bcrypt.compare(currentPassword, user.password);
+            if (!validPassword) {
+                return res.status(400).json({ message: 'Senha atual incorreta.' });
+            }
+
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            updates.push(`password = $${paramIndex++}`);
+            values.push(hashedPassword);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ message: 'Nenhum dado para atualizar.' });
+        }
+
+        values.push(req.user.id);
+        await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`, values);
+
+        // Return updated user data
+        const updatedResult = await pool.query('SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts FROM users WHERE id = $1', [req.user.id]);
+        const updatedUser = updatedResult.rows[0];
+
+        res.json({
+            id: updatedUser.id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            assignedGeneratorIds: updatedUser.assigned_generators || [],
+            companyId: updatedUser.company_id,
+            phone: updatedUser.phone,
+            whatsappAlerts: updatedUser.whatsapp_alerts
+        });
+    } catch (err) {
+        console.error('Profile update error:', err);
+        res.status(500).json({ message: 'Erro ao atualizar perfil.' });
+    }
+});
+
 // GET /api/users - PROTECTED (Admin Only)
 router.get('/users', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') {
