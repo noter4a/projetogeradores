@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, PropsWithChildren, useEffect } from 'react';
+import React, { createContext, useContext, useState, PropsWithChildren, useEffect, useRef } from 'react';
 import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  isSyncing: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) => Promise<void>;
@@ -34,6 +35,8 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem('ciklo_auth_token');
   });
+
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const login = async (email: string, password: string) => {
     try {
@@ -100,8 +103,68 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     }
   };
 
+  // Keep a ref of current user to avoid stale closures in setInterval
+  const currentUserRef = useRef<User | null>(user);
+  useEffect(() => {
+    currentUserRef.current = user;
+  }, [user]);
+
+  // Synchronize current profile in the background dynamically
+  useEffect(() => {
+    if (!token) return;
+
+    const syncProfile = async () => {
+      try {
+        const response = await fetch('/api/auth/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 401 || response.status === 403 || response.status === 404) {
+          // Token expired or invalid, or user was deleted by admin -> logout
+          logout();
+          return;
+        }
+
+        if (response.ok) {
+          const updatedUser = await response.json();
+          
+          const current = currentUserRef.current;
+          // Verify if any permission or role changed
+          const userChanged = !current ||
+            current.id !== updatedUser.id ||
+            current.name !== updatedUser.name ||
+            current.role !== updatedUser.role ||
+            current.companyId !== updatedUser.companyId ||
+            current.phone !== updatedUser.phone ||
+            current.whatsappAlerts !== updatedUser.whatsappAlerts ||
+            JSON.stringify(current.assignedGeneratorIds || []) !== JSON.stringify(updatedUser.assignedGeneratorIds || []);
+
+          if (userChanged) {
+            setIsSyncing(true);
+            setTimeout(() => {
+              setUser(updatedUser);
+              localStorage.setItem('ciklo_auth_user', JSON.stringify(updatedUser));
+              setIsSyncing(false);
+            }, 800);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to sync profile in background:', err);
+      }
+    };
+
+    // Run once on mount / token change
+    syncProfile();
+
+    // Poll every 10 seconds for real-time authorization changes
+    const interval = setInterval(syncProfile, 10000);
+    return () => clearInterval(interval);
+  }, [token]);
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, token, isSyncing, login, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

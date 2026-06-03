@@ -87,7 +87,7 @@ const MonitoringRoute = ({ children }: { children?: React.ReactNode }) => {
 
 const Layout = ({ children }: { children?: React.ReactNode }) => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isSyncing } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem('ciklo_sidebar_collapsed') === 'true';
@@ -99,10 +99,30 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const loadingOverlay = isSyncing && (
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="flex flex-col items-center gap-4 p-8 bg-ciklo-card border border-gray-800 rounded-2xl shadow-2xl shadow-orange-500/10 max-w-sm w-full text-center">
+        {/* Spinning glowing loader */}
+        <div className="relative w-16 h-16 flex items-center justify-center">
+          <div className="absolute inset-0 border-4 border-ciklo-orange/20 rounded-full" />
+          <div className="absolute inset-0 border-4 border-t-ciklo-orange rounded-full animate-spin" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-ciklo-yellow to-ciklo-orange flex items-center justify-center font-bold text-sm text-black animate-pulse">
+            C
+          </div>
+        </div>
+        <div className="space-y-2 mt-2">
+          <h3 className="text-lg font-bold text-white tracking-wide">Atualizando Conta</h3>
+          <p className="text-sm text-gray-400">Sincronizando novas permissões e configurações...</p>
+        </div>
+      </div>
+    </div>
+  );
+
   if (isMobile) {
     if (location.pathname === '/') {
       return (
         <div className="flex h-screen bg-ciklo-black overflow-hidden w-full">
+          {loadingOverlay}
           {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
           <div className="w-full h-full">
             <Sidebar />
@@ -113,6 +133,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
 
     return (
       <div className="flex h-screen bg-ciklo-black overflow-hidden flex-col w-full">
+        {loadingOverlay}
         {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
         
         {/* Mobile Header with Back Button */}
@@ -139,6 +160,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
   // Desktop Layout
   return (
     <div className="flex h-screen print:h-auto bg-ciklo-black print:bg-white overflow-hidden print:overflow-visible">
+      {loadingOverlay}
       {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
 
       {/* Desktop Sidebar */}

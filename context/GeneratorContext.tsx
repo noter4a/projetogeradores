@@ -33,25 +33,27 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
   const [generators, setGenerators] = useState<Generator[]>([]);
 
   // Load generators from Backend API
-  useEffect(() => {
+  const fetchGenerators = useCallback(async () => {
     if (!token) return;
-    const fetchGenerators = async () => {
-      try {
-        const res = await fetch('/api/generators', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setGenerators(data);
-        } else {
-          console.error("Failed to fetch generators");
-        }
-      } catch (error) {
-        console.error("Error connecting to API:", error);
+    try {
+      const res = await fetch('/api/generators', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGenerators(data);
+      } else {
+        console.error("Failed to fetch generators");
       }
-    };
-    fetchGenerators();
+    } catch (error) {
+      console.error("Error connecting to API:", error);
+    }
   }, [token]);
+
+  // Fetch initial list
+  useEffect(() => {
+    fetchGenerators();
+  }, [fetchGenerators]);
 
   // Socket.IO Real-Time Updates (with auth)
   useEffect(() => {
@@ -75,11 +77,19 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
       }));
     });
 
+    // Fetch generator list dynamically when it changes on backend
+    socket.on('generator:list_changed', () => {
+      console.log('[SOCKET] Generator list changed, reloading from server...');
+      fetchGenerators();
+    });
+
     return () => {
+      socket?.off('generator:update');
+      socket?.off('generator:list_changed');
       socket?.disconnect();
       socket = null;
     };
-  }, [token]);
+  }, [token, fetchGenerators]);
 
   const addGenerator = useCallback(async (gen: Generator) => {
     if (!token) return;

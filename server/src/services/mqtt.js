@@ -73,6 +73,8 @@ const dr164ResponseResolvers = new Map(); // deviceId -> resolve() function for 
 let dr164PollingActive = false;
 let dr164PollingStartedAt = null;
 
+export let updatePollingList = async () => {};
+
 const DR164_POLL_SEQUENCE = [
     { startAddress: 60, quantity: 5 },   // Run Hours (Reg 60-64)
     { startAddress: 1,  quantity: 9 },   // Gen Voltages (Reg 1-9)
@@ -1045,7 +1047,7 @@ export const initMqttService = (io) => {
     // Dynamic Polling List
     // Note: devicesToPoll is now module-scoped above
 
-    const updatePollingList = async () => {
+    updatePollingList = async () => {
         try {
             const res = await pool.query("SELECT connection_info FROM generators");
             const allRows = res.rows

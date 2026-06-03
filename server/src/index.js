@@ -9,7 +9,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { initMqttService } from './services/mqtt.js';
+import { initMqttService, updatePollingList } from './services/mqtt.js';
 import alarmRoutes from './routes/alarms.js';
 import crmRoutes from './routes/crm.js';
 import catalogRoutes from './routes/catalog.js';
@@ -476,6 +476,33 @@ const authenticateToken = (req, res, next) => {
 };
 
 
+// GET /api/auth/profile - PROTECTED (Fetch current logged-in user details)
+router.get('/auth/profile', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts FROM users WHERE id = $1',
+            [req.user.id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+        const user = result.rows[0];
+        res.json({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            assignedGeneratorIds: user.assigned_generators || [],
+            companyId: user.company_id,
+            phone: user.phone,
+            whatsappAlerts: user.whatsapp_alerts
+        });
+    } catch (err) {
+        console.error('Fetch profile error:', err);
+        res.status(500).json({ message: 'Erro ao buscar perfil.' });
+    }
+});
+
 // PUT /api/auth/profile - PROTECTED (Any authenticated user can update own profile)
 router.put('/auth/profile', authenticateToken, async (req, res) => {
     const { name, phone, currentPassword, newPassword } = req.body;
@@ -881,6 +908,15 @@ router.post('/generators', authenticateToken, async (req, res) => {
             "INSERT INTO generators (id, name, location, model, power_kva, status, connection_info, company_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             [gen.id, gen.name, gen.location, gen.model, gen.powerKVA, gen.status || 'STOPPED', JSON.stringify(connectionInfo), gen.companyId || null]
         );
+
+        // Instantly reload MQTT polling configurations and notify clients
+        try {
+            await updatePollingList();
+        } catch (pollErr) {
+            console.error('[MQTT-UPDATE] Failed to update polling configurations:', pollErr);
+        }
+        io.emit('generator:list_changed');
+
         res.status(201).json({ message: 'Gerador criado com sucesso' });
     } catch (err) {
         console.error('Create generator error:', err);
@@ -907,6 +943,15 @@ router.put('/generators/:id', authenticateToken, async (req, res) => {
             "UPDATE generators SET name=$1, location=$2, model=$3, power_kva=$4, status=$5, connection_info=$6, company_id=$7 WHERE id=$8",
             [gen.name, gen.location, gen.model, gen.powerKVA, gen.status, JSON.stringify(connectionInfo), gen.companyId || null, id]
         );
+
+        // Instantly reload MQTT polling configurations and notify clients
+        try {
+            await updatePollingList();
+        } catch (pollErr) {
+            console.error('[MQTT-UPDATE] Failed to update polling configurations:', pollErr);
+        }
+        io.emit('generator:list_changed');
+
         res.json({ message: 'Gerador atualizado' });
     } catch (err) {
         console.error('Update generator error:', err);
@@ -919,6 +964,15 @@ router.delete('/generators/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM generators WHERE id = $1', [id]);
+
+        // Instantly reload MQTT polling configurations and notify clients
+        try {
+            await updatePollingList();
+        } catch (pollErr) {
+            console.error('[MQTT-UPDATE] Failed to update polling configurations:', pollErr);
+        }
+        io.emit('generator:list_changed');
+
         res.json({ message: 'Gerador removido' });
     } catch (err) {
         console.error('Delete generator error:', err);
