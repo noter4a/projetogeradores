@@ -67,7 +67,16 @@ const AddGenerator: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      // Auto-select deviceType when controller changes
+      if (name === 'controller') {
+        if (value === 'kvar') {
+          updated.deviceType = 'dr164'; // KVA uses USR162 (transparent binary, same as DR164)
+        }
+      }
+      return updated;
+    });
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -255,7 +264,7 @@ const AddGenerator: React.FC = () => {
               className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
             >
               <option value="modem">Modem Telemetria (JSON/4G)</option>
-              <option value="dr164">USR-DR164 (WiFi Transparente)</option>
+              <option value="dr164">USR-DR164 / USR-162 (Transparente)</option>
             </select>
           </div>
 

@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
+import { decodeKvaPayload } from '../utils/kva-parser.js';
 import pool from '../db.js';
 import { sendAlarmEmail } from './email.js';
 import { sendAlarmWhatsApp, sendAlarmResolvedWhatsApp } from './whatsapp.js';
@@ -86,6 +87,15 @@ const DR164_POLL_SEQUENCE = [
 
 const dr164Sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// KVA Controller Poll Sequence (K30XTe / K30XL / Eclipse)
+// Uses register addresses in the 12000+ range
+const KVA_POLL_SEQUENCE = [
+    { startAddress: 12001, quantity: 7 },   // Horímetro + Falhas + Avisos + Status LEDs
+    { startAddress: 12011, quantity: 15 },  // Rede + GMG Tensões LL + Correntes + Potências + FP
+    { startAddress: 12027, quantity: 7 },   // RPM + Temp + Pressão + Combustível + Bateria
+    { startAddress: 12043, quantity: 6 },   // Tensões Fase-Neutro (Rede + GMG)
+];
+
 function waitForDR164Response(deviceId, timeoutMs) {
     return new Promise((resolve) => {
         dr164ResponseResolvers.set(deviceId, resolve);
@@ -140,11 +150,16 @@ function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
 async function pollDR164Device(device) {
     if (!client || !client.connected) return;
 
+    // Select poll sequence based on controller type
+    const isKva = device.controller === 'kva' || device.controller === 'kvar';
+    const pollSequence = isKva ? KVA_POLL_SEQUENCE : DR164_POLL_SEQUENCE;
+    const controllerLabel = isKva ? 'KVA' : 'DR164';
+
     const topic = `devices/command/${device.id}`;
-    console.log(`[DR164] Starting poll cycle for ${device.id} (Slave ${device.slaveId}) — ${DR164_POLL_SEQUENCE.length} steps`);
+    console.log(`[${controllerLabel}] Starting poll cycle for ${device.id} (Slave ${device.slaveId}) — ${pollSequence.length} steps`);
 
     let stepIndex = 0;
-    for (const req of DR164_POLL_SEQUENCE) {
+    for (const req of pollSequence) {
         stepIndex++;
         if (!client || !client.connected) {
             console.log(`[DR164] Client disconnected, aborting cycle for ${device.id}`);
@@ -152,7 +167,7 @@ async function pollDR164Device(device) {
         }
 
         try {
-            console.log(`[DR164] [${device.id}] Step ${stepIndex}/${DR164_POLL_SEQUENCE.length}: Addr ${req.startAddress}, Qty ${req.quantity}`);
+            console.log(`[${controllerLabel}] [${device.id}] Step ${stepIndex}/${pollSequence.length}: Addr ${req.startAddress}, Qty ${req.quantity}`);
             const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity);
 
             // Store pending request info for response correlation
@@ -185,7 +200,7 @@ async function pollDR164Device(device) {
         }
     }
 
-    console.log(`[DR164] Poll cycle complete for ${device.id}`);
+    console.log(`[${controllerLabel}] Poll cycle complete for ${device.id}`);
 }
 
 /**
@@ -334,11 +349,14 @@ export const initMqttService = (io) => {
             }
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
 
-            // New SGC-120 Decoding Logic
             const results = decodeSgc120Payload(payload);
 
+            // Check if this device uses a KVA controller
+            const isKvaDevice = dr164Devices.some(d => d.id === deviceId && (d.controller === 'kva' || d.controller === 'kvar'));
+            const kvaResults = isKvaDevice ? decodeKvaPayload(payload) : [];
+
             // If we have valid decoded blocks, merge them into a unified status object
-            if (results.length > 0) {
+            if (results.length > 0 || kvaResults.length > 0) {
                 // We might receive multiple blocks (Voltages + Engine), so we start with a base object
                 // and merge all decoded fields.
                 let unifiedData = {};
@@ -634,6 +652,78 @@ export const initMqttService = (io) => {
                             unifiedData.runHours = parseFloat(decimalHours.toFixed(2));
                             // FIX: Alias to 'totalHours' to match Frontend Interface
                             unifiedData.totalHours = unifiedData.runHours;
+                        }
+                    }
+                });
+
+                // ========================================
+                // KVA Controller Data Mapping
+                // ========================================
+                kvaResults.forEach(res => {
+                    if (res.ok && res.decoded) {
+                        const d = res.decoded;
+
+                        if (d.block === 'KVA_STATUS_12001') {
+                            unifiedData.totalHours = d.totalHours;
+                            unifiedData.runHours = d.totalHours;
+                            unifiedData.operationMode = d.operationMode;
+                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = d.genBreakerClosed;
+
+                            // Alarm mapping
+                            unifiedData.alarmCode = d.alarmCode;
+                            unifiedData.alarmMessage = d.alarmMessage;
+                            if (!unifiedData.alarms) unifiedData.alarms = {};
+                            unifiedData.alarms.startFailure = d.isStartFailure;
+
+                            // Motor running status from LED
+                            if (d.motorRunning) {
+                                unifiedData.status = 'RUNNING';
+                            } else if (d.hasFault) {
+                                // Keep status from RPM/voltage check below
+                            }
+                        }
+
+                        if (d.block === 'KVA_ELECTRICAL_12011') {
+                            unifiedData.voltageL12 = d.voltageL12;
+                            unifiedData.voltageL23 = d.voltageL23;
+                            unifiedData.voltageL31 = d.voltageL31;
+                            unifiedData.frequency = d.frequency;
+                            unifiedData.mainsVoltageL12 = d.mainsVoltageL12;
+                            unifiedData.mainsVoltageL23 = d.mainsVoltageL23;
+                            unifiedData.mainsVoltageL31 = d.mainsVoltageL31;
+                            unifiedData.mainsFrequency = d.mainsFrequency;
+                            unifiedData.currentL1 = d.currentL1;
+                            unifiedData.currentL2 = d.currentL2;
+                            unifiedData.currentL3 = d.currentL3;
+                            unifiedData.activePower = d.activePower;
+                            unifiedData.reactivePower = d.reactivePower;
+                            unifiedData.apparentPower = d.apparentPower;
+                            unifiedData.powerFactor = d.powerFactor;
+                            // Use same currents for mains (load current)
+                            unifiedData.mainsCurrentL1 = d.currentL1;
+                            unifiedData.mainsCurrentL2 = d.currentL2;
+                            unifiedData.mainsCurrentL3 = d.currentL3;
+                        }
+
+                        if (d.block === 'KVA_ENGINE_12027') {
+                            unifiedData.rpm = d.rpm;
+                            unifiedData.engineTemp = d.engineTemp;
+                            unifiedData.oilPressure = d.oilPressure;
+                            unifiedData.fuelLevel = d.fuelLevel;
+                            unifiedData.batteryVoltage = d.batteryVoltage;
+                        }
+
+                        if (d.block === 'KVA_PHASE_NEUTRAL_12043') {
+                            unifiedData.voltageL1 = d.voltageL1;
+                            unifiedData.voltageL2 = d.voltageL2;
+                            unifiedData.voltageL3 = d.voltageL3;
+                            unifiedData.mainsVoltageL1 = d.mainsVoltageL1;
+                            unifiedData.mainsVoltageL2 = d.mainsVoltageL2;
+                            unifiedData.mainsVoltageL3 = d.mainsVoltageL3;
+                            // Calculate average voltage
+                            const avgVal = (d.voltageL1 + d.voltageL2 + d.voltageL3) / 3;
+                            unifiedData.avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
                         }
                     }
                 });
@@ -987,7 +1077,8 @@ export const initMqttService = (io) => {
             // --- DR164 DEVICES (new logic) ---
             const newDR164List = dr164Rows.map(row => ({
                 id: row.connection_info.ip,
-                slaveId: parseInt(row.connection_info.slaveId) || 1
+                slaveId: parseInt(row.connection_info.slaveId) || 1,
+                controller: (row.connection_info.controller || '').toLowerCase()
             }));
 
             const prevDr164Ids = new Set(dr164Devices.map(d => d.id));
@@ -1278,8 +1369,38 @@ export const sendControlCommand = (deviceId, action) => {
 
         console.log(`[MQTT-CMD] Action: ${action} -> Device: ${deviceId} (Slave ${slaveId}) [${isDR164 ? 'DR164' : 'Modem'}]`);
 
-        // DR164: Send raw Modbus binary (no JSON wrapper)
+        // DR164/KVA: Send raw Modbus binary (no JSON wrapper)
         if (isDR164) {
+            // Check if this is a KVA controller
+            const isKvaController = device.controller === 'kva' || device.controller === 'kvar';
+
+            if (isKvaController) {
+                // KVA: Use register 19108 with Function 06 (Write Single Register)
+                let commandValue;
+                switch (action) {
+                    case 'auto':   commandValue = 1;  break;  // Modo Automático
+                    case 'manual': commandValue = 2;  break;  // Modo Manual
+                    case 'start':  commandValue = 5;  break;  // Partida Manual
+                    case 'stop':   commandValue = 6;  break;  // Parada Manual
+                    case 'reset': case 'ack': commandValue = 4; break; // Limpa Falha Ativa
+                    default:
+                        return { success: false, error: `Unknown action '${action}'` };
+                }
+
+                const buf = createModbusWriteRequest(slaveId, 19108, commandValue);
+                client.publish(topic, buf); // Raw binary frame
+                console.log(`[KVA-CMD] ${action.toUpperCase()}: Sent Func 06 (Reg 19108, Val ${commandValue}) to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
+
+                // Resume polling after 5s
+                setTimeout(() => {
+                    pausedDevices.delete(deviceId);
+                    console.log(`[KVA-CMD] Resumed polling for ${deviceId}`);
+                }, 5000);
+
+                return { success: true };
+            }
+
+            // DEIF DR164: existing command logic
             let commandValue;
             switch (action) {
                 case 'start':  commandValue = 2;  break;
