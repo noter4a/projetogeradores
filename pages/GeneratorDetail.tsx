@@ -403,7 +403,7 @@ const GeneratorDetail: React.FC = () => {
                     disabled={gen.operationMode === 'AUTO'}
                     onClick={() => handleControl('auto')}
                     className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
-                      ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100' // Added cursor-default & opacity-100
+                      ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
@@ -415,12 +415,26 @@ const GeneratorDetail: React.FC = () => {
                     disabled={gen.operationMode === 'MANUAL'}
                     onClick={() => handleControl('manual')}
                     className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
-                      ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100' // Added cursor-default & opacity-100
+                      ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
                     <Settings size={14} className={gen.operationMode === 'MANUAL' ? 'animate-spin-slow' : ''} /> MANUAL
                   </button>
+
+                  {/* INIBIDO BUTTON (KVA only) */}
+                  {(gen.controller?.toLowerCase() === 'kva' || gen.controller?.toLowerCase() === 'kvar') && (
+                    <button
+                      disabled={gen.operationMode === 'INHIBITED'}
+                      onClick={() => handleControl('inhibit')}
+                      className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'INHIBITED'
+                        ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/20 cursor-default opacity-100'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                      <Ban size={14} /> INIBIDO
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -428,9 +442,9 @@ const GeneratorDetail: React.FC = () => {
                 <label className="text-[10px] text-gray-500 uppercase font-bold mb-3 block text-center">Comando Remoto</label>
                 <div className="flex gap-3">
                   <button
-                    disabled={gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO'}
+                    disabled={gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
                     onClick={() => handleControl('start')}
-                    className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO'
+                    className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'
                       ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
                       : 'bg-green-600 hover:bg-green-500 text-white border-green-500 hover:shadow-green-900/20'
                       }`}
@@ -438,9 +452,9 @@ const GeneratorDetail: React.FC = () => {
                     <Play size={18} fill="currentColor" /> PARTIDA
                   </button>
                   <button
-                    disabled={gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO'}
+                    disabled={gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
                     onClick={() => handleControl('stop')}
-                    className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO'
+                    className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'
                       ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
                       : 'bg-red-600 hover:bg-red-500 text-white border-red-500 hover:shadow-red-900/20'
                       }`}
@@ -460,7 +474,7 @@ const GeneratorDetail: React.FC = () => {
             <div className="text-center mb-6">
               <label className="text-[10px] text-gray-500 uppercase font-bold block">Status da Transferência (QTA)</label>
               <span className="text-xs font-mono text-gray-400">
-                {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' : 'Controle Manual Habilitado'}
+                {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' : gen.operationMode === 'INHIBITED' ? 'Modo Inibido Ativo' : 'Controle Manual Habilitado'}
               </span>
             </div>
 
@@ -522,8 +536,8 @@ const GeneratorDetail: React.FC = () => {
                   </g>
 
                   <g
-                    className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' ? 'cursor-not-allowed opacity-50' : ''}`}
-                    onClick={() => { if (gen.operationMode !== 'AUTO') handleControl('toggleMains'); }}
+                    className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED' ? 'cursor-not-allowed opacity-50' : ''}`}
+                    onClick={() => { if (gen.operationMode !== 'AUTO' && gen.operationMode !== 'INHIBITED') handleControl('toggleMains'); }}
                   >
                     <rect x="120" y="30" width="60" height="60" fill="transparent" />
                     <line
@@ -542,8 +556,8 @@ const GeneratorDetail: React.FC = () => {
                   </g>
 
                   <g
-                    className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' ? 'cursor-not-allowed opacity-50' : ''}`}
-                    onClick={() => { if (gen.operationMode !== 'AUTO') handleControl('toggleGen'); }}
+                    className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED' ? 'cursor-not-allowed opacity-50' : ''}`}
+                    onClick={() => { if (gen.operationMode !== 'AUTO' && gen.operationMode !== 'INHIBITED') handleControl('toggleGen'); }}
                   >
                     <rect x="320" y="30" width="60" height="60" fill="transparent" />
                     <line
@@ -566,6 +580,11 @@ const GeneratorDetail: React.FC = () => {
                   {gen.operationMode === 'AUTO' && (
                     <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">
                       Controle Automático (Chaves Bloqueadas)
+                    </span>
+                  )}
+                  {gen.operationMode === 'INHIBITED' && (
+                    <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-1 rounded border border-amber-500/30">
+                      Modo Inibido (Controles Bloqueados)
                     </span>
                   )}
                 </div>

@@ -1378,15 +1378,55 @@ export const sendControlCommand = (deviceId, action) => {
 
             if (isKvaController) {
                 // KVA: Use register 19108 with Function 06 (Write Single Register)
+                // Full KVA Modbus Table (K30XL 3.00 / K30XTe 8.10 / Eclipse 2.00):
+                //   1 = Modo Automático, 2 = Modo Manual, 3 = Modo Inibido
+                //   4 = Limpa Falha Ativa, 5 = Partida Manual, 6 = Parada Manual
+                //   7 = Liga Chave de Carga do Gerador, 8 = Desliga Chave de Carga do Gerador
+                //   9 = Liga Chave de Carga da Rede, 10 = Desliga Chave de Carga da Rede
                 let commandValue;
                 switch (action) {
-                    case 'auto':   commandValue = 1;  break;  // Modo Automático
-                    case 'manual': commandValue = 2;  break;  // Modo Manual
-                    case 'start':  commandValue = 5;  break;  // Partida Manual
-                    case 'stop':   commandValue = 6;  break;  // Parada Manual
+                    case 'auto':       commandValue = 1;  break;  // Modo Automático
+                    case 'manual':     commandValue = 2;  break;  // Modo Manual
+                    case 'inhibit':    commandValue = 3;  break;  // Modo Inibido
+                    case 'start':      commandValue = 5;  break;  // Partida Manual
+                    case 'stop':       commandValue = 6;  break;  // Parada Manual
                     case 'reset': case 'ack': commandValue = 4; break; // Limpa Falha Ativa
+                    case 'toggleGen': {
+                        // Read current breaker state from state file
+                        let genClosed = false;
+                        try {
+                            const stateFile = path.join(__dirname, '../../logs/generators_state.json');
+                            if (fs.existsSync(stateFile)) {
+                                const raw = fs.readFileSync(stateFile, 'utf8');
+                                const state = JSON.parse(raw);
+                                genClosed = state[deviceId]?.data?.genBreakerClosed || false;
+                            }
+                        } catch (e) { console.warn('[KVA-CMD] Could not read breaker state:', e.message); }
+                        commandValue = genClosed ? 8 : 7; // 8=Desliga, 7=Liga Chave Carga Gerador
+                        console.log(`[KVA-CMD] toggleGen: currentState=${genClosed ? 'CLOSED' : 'OPEN'}, sending ${commandValue === 7 ? 'LIGA(7)' : 'DESLIGA(8)'}`);
+                        break;
+                    }
+                    case 'toggleMains': {
+                        // Read current breaker state from state file
+                        let mainsClosed = false;
+                        try {
+                            const stateFile = path.join(__dirname, '../../logs/generators_state.json');
+                            if (fs.existsSync(stateFile)) {
+                                const raw = fs.readFileSync(stateFile, 'utf8');
+                                const state = JSON.parse(raw);
+                                mainsClosed = state[deviceId]?.data?.mainsBreakerClosed || false;
+                            }
+                        } catch (e) { console.warn('[KVA-CMD] Could not read breaker state:', e.message); }
+                        commandValue = mainsClosed ? 10 : 9; // 10=Desliga, 9=Liga Chave Carga Rede
+                        console.log(`[KVA-CMD] toggleMains: currentState=${mainsClosed ? 'CLOSED' : 'OPEN'}, sending ${commandValue === 9 ? 'LIGA(9)' : 'DESLIGA(10)'}`);
+                        break;
+                    }
+                    case 'genBreakerOn':    commandValue = 7;  break; // Liga Chave de Carga do Gerador
+                    case 'genBreakerOff':   commandValue = 8;  break; // Desliga Chave de Carga do Gerador
+                    case 'mainsBreakerOn':  commandValue = 9;  break; // Liga Chave de Carga da Rede
+                    case 'mainsBreakerOff': commandValue = 10; break; // Desliga Chave de Carga da Rede
                     default:
-                        return { success: false, error: `Unknown action '${action}'` };
+                        return { success: false, error: `Unknown KVA action '${action}'` };
                 }
 
                 const buf = createModbusWriteRequest(slaveId, 19108, commandValue);
