@@ -499,13 +499,7 @@ const NewProposal: React.FC = () => {
               <Save size={20} />
               {saving ? 'Salvando...' : (isEditMode ? 'Salvar Alterações' : 'Salvar Proposta')}
             </button>
-            <button 
-              onClick={() => handleSave('RASCUNHO')}
-              disabled={saving}
-              className="w-full mt-3 bg-transparent border border-gray-600 hover:border-gray-400 hover:text-white text-gray-400 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-            >
-              {isEditMode ? 'Salvar Rascunho' : 'Salvar como Rascunho'}
-            </button>
+
           </div>
         </div>
       </div>
