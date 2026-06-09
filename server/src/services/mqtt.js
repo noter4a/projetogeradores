@@ -76,15 +76,15 @@ let dr164PollingStartedAt = null;
 export let updatePollingList = async () => {};
 
 const DR164_POLL_SEQUENCE = [
-    { startAddress: 60, quantity: 5 },   // Run Hours (Reg 60-64)
-    { startAddress: 1,  quantity: 9 },   // Gen Voltages (Reg 1-9)
-    { startAddress: 51, quantity: 11 },  // Engine (Reg 51-61)
-    { startAddress: 14, quantity: 9 },   // Mains Voltages (Reg 14-22)
-    { startAddress: 23, quantity: 3 },   // Current/Breaker (Reg 23-25)
-    { startAddress: 29, quantity: 3 },   // Active Power (Reg 29-31)
-    { startAddress: 77, quantity: 2 },   // Inputs + Mode (Reg 77-78)
-    { startAddress: 16, quantity: 1 },   // Status (Reg 16)
-    { startAddress: 65, quantity: 12 },  // Alarms Complete (Reg 65-76) — SINGLE SOURCE OF TRUTH for alarm state
+    { startAddress: 77, quantity: 2 },   // 1. Inputs + Mode (Reg 77-78) — PRIORITY: fastest mode feedback
+    { startAddress: 60, quantity: 5 },   // 2. Run Hours (Reg 60-64)
+    { startAddress: 1,  quantity: 9 },   // 3. Gen Voltages (Reg 1-9)
+    { startAddress: 51, quantity: 11 },  // 4. Engine (Reg 51-61)
+    { startAddress: 14, quantity: 9 },   // 5. Mains Voltages (Reg 14-22)
+    { startAddress: 23, quantity: 3 },   // 6. Current/Breaker (Reg 23-25)
+    { startAddress: 29, quantity: 3 },   // 7. Active Power (Reg 29-31)
+    { startAddress: 16, quantity: 1 },   // 8. Status (Reg 16)
+    { startAddress: 65, quantity: 12 },  // 9. Alarms Complete (Reg 65-76) — SINGLE SOURCE OF TRUTH for alarm state
 ];
 
 const dr164Sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -1292,14 +1292,14 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
 
         // DYNAMICALLY Construct the full modbusRequest list using the correct slaveId
         const requests = [
-            createModbusReadRequest(slaveId, 60, 5).toString('hex').toUpperCase(), // 1. Run Hours (Reg 60-64)
-            createModbusReadRequest(slaveId, 1, 9).toString('hex').toUpperCase(),  // 2. Gen Voltage (Reg 1-9)
-            createModbusReadRequest(slaveId, 51, 11).toString('hex').toUpperCase(), // 3. Engine (Reg 51-61) - Expanded
-            createModbusReadRequest(slaveId, 14, 9).toString('hex').toUpperCase(), // 4. Mains Voltage (Reg 14-22)
-            createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 5. Current/Breaker (Reg 23-25)
-            createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 6. Active Power (Reg 29-31)
-            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 7. Alarms 2 (Reg 66)
-            createModbusReadRequest(slaveId, 77, 2).toString('hex').toUpperCase(), // 8. Inputs + Mode (Reg 77-78)
+            createModbusReadRequest(slaveId, 77, 2).toString('hex').toUpperCase(), // 1. Inputs + Mode (Reg 77-78) — PRIORITY: fastest mode feedback
+            createModbusReadRequest(slaveId, 60, 5).toString('hex').toUpperCase(), // 2. Run Hours (Reg 60-64)
+            createModbusReadRequest(slaveId, 1, 9).toString('hex').toUpperCase(),  // 3. Gen Voltage (Reg 1-9)
+            createModbusReadRequest(slaveId, 51, 11).toString('hex').toUpperCase(), // 4. Engine (Reg 51-61) - Expanded
+            createModbusReadRequest(slaveId, 14, 9).toString('hex').toUpperCase(), // 5. Mains Voltage (Reg 14-22)
+            createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 6. Current/Breaker (Reg 23-25)
+            createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 7. Active Power (Reg 29-31)
+            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 8. Alarms 2 (Reg 66)
             createModbusReadRequest(slaveId, 16, 1).toString('hex').toUpperCase(), // 9. Status (Discovery)
             createModbusReadRequest(slaveId, 65, 12).toString('hex').toUpperCase(), // 10. Alarms Complete (Reg 65-76)
         ];
@@ -1433,11 +1433,11 @@ export const sendControlCommand = (deviceId, action) => {
                 client.publish(topic, buf); // Raw binary frame
                 console.log(`[KVA-CMD] ${action.toUpperCase()}: Sent Func 06 (Reg 19108, Val ${commandValue}) to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
 
-                // Resume polling after 5s
+                // Resume polling after 2s (enough for controller to process, faster UI feedback)
                 setTimeout(() => {
                     pausedDevices.delete(deviceId);
                     console.log(`[KVA-CMD] Resumed polling for ${deviceId}`);
-                }, 5000);
+                }, 2000);
 
                 return { success: true };
             }
@@ -1458,11 +1458,11 @@ export const sendControlCommand = (deviceId, action) => {
             client.publish(topic, buf); // Raw binary frame
             console.log(`[DR164-CMD] ${action.toUpperCase()}: Sent raw Modbus to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
 
-            // Resume polling after 5s (DR164 doesn't need restorePolling)
+            // Resume polling after 2s (enough for controller to process, faster UI feedback)
             setTimeout(() => {
                 pausedDevices.delete(deviceId);
                 console.log(`[DR164-CMD] Resumed polling for ${deviceId}`);
-            }, 5000);
+            }, 2000);
 
             return { success: true };
         }
