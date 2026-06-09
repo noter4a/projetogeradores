@@ -145,15 +145,15 @@ const Dashboard: React.FC = () => {
                         <Fuel size={10} /> Combustível
                       </p>
                       <div className="flex items-end gap-1">
-                        <span className={`text-lg font-bold ${gen.fuelLevel < 20 ? 'text-red-500' : 'text-white'}`}>
-                          {gen.fuelLevel}%
+                        <span className={`text-lg font-bold ${gen.fuelLevel === 65535 || gen.fuelLevel === null || gen.fuelLevel === undefined ? 'text-gray-500' : gen.fuelLevel < 20 ? 'text-red-500' : 'text-white'}`}>
+                          {gen.fuelLevel === 65535 || gen.fuelLevel === null || gen.fuelLevel === undefined ? '-' : `${gen.fuelLevel}%`}
                         </span>
                       </div>
                       {/* Fuel Bar */}
                       <div className="w-full bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${gen.fuelLevel < 20 ? 'bg-red-500' : 'bg-ciklo-yellow'}`}
-                          style={{ width: `${gen.fuelLevel}%` }}
+                          className={`h-full rounded-full transition-all duration-500 ${gen.fuelLevel === 65535 || gen.fuelLevel === null || gen.fuelLevel === undefined ? 'bg-gray-700' : gen.fuelLevel < 20 ? 'bg-red-500' : 'bg-ciklo-yellow'}`}
+                          style={{ width: `${gen.fuelLevel === 65535 || gen.fuelLevel === null || gen.fuelLevel === undefined ? 0 : gen.fuelLevel}%` }}
                         ></div>
                       </div>
                     </div>

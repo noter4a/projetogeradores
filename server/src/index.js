@@ -858,11 +858,11 @@ router.get('/generators', authenticateToken, async (req, res) => {
             companyName: row.company_name,
 
             // Map Persistent Real-Time Values
-            fuelLevel: row.fuel_level || 0,
-            engineTemp: row.engine_temp || 0,
-            oilPressure: parseFloat(row.oil_pressure || 0),
-            batteryVoltage: parseFloat(row.battery_voltage || 0),
-            rpm: row.rpm || 0,
+            fuelLevel: row.fuel_level === null || row.fuel_level === 65535 ? null : Number(row.fuel_level),
+            engineTemp: row.engine_temp === null || row.engine_temp === 65535 ? null : Number(row.engine_temp),
+            oilPressure: row.oil_pressure === null || parseFloat(row.oil_pressure) === 655.35 ? null : parseFloat(row.oil_pressure),
+            batteryVoltage: row.battery_voltage === null || parseFloat(row.battery_voltage) === 6553.5 ? null : parseFloat(row.battery_voltage),
+            rpm: row.rpm === null || row.rpm === 65535 ? null : Number(row.rpm),
             // Map 'totalHours' to the 'run_hours' column which we are actively updating
             totalHours: parseFloat(row.run_hours || 0),
             lastMaintenance: new Date().toISOString().split('T')[0],

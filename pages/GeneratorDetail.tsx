@@ -17,7 +17,11 @@ import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", size = 120 }: any) => {
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (value / max) * circumference;
+  
+  // Safe check for null, undefined, or KVA not-present values (65535 and its scaled variants)
+  const isInvalid = value === null || value === undefined || value === 65535 || value === 655.35 || value === 6553.5 || value < 0;
+  const numericValue = isInvalid ? 0 : Number(value);
+  const strokeDashoffset = circumference - (Math.min(numericValue, max) / max) * circumference;
 
   return (
     <div className="relative flex flex-col items-center justify-center p-4 bg-ciklo-dark rounded-xl border border-gray-700/50">
@@ -36,7 +40,7 @@ const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", s
             className={`${color} transition-all duration-1000 ease-out`}
             strokeWidth="8"
             strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
+            strokeDashoffset={isInvalid ? circumference : strokeDashoffset}
             strokeLinecap="round"
             stroke="currentColor"
             fill="transparent"
@@ -46,11 +50,11 @@ const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", s
           />
         </svg>
         <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold text-white">{value.toFixed(1)}</span>
+          <span className="text-2xl font-bold text-white">{isInvalid ? '-' : numericValue.toFixed(unit === 'rpm' ? 0 : 1)}</span>
           <span className="text-xs text-gray-400">{unit}</span>
         </div>
       </div>
-      <span className="mt-2 text-sm font-medium text-gray-400">{label}</span>
+      <span className="text-sm font-semibold text-gray-400 mt-2">{label}</span>
     </div>
   );
 };
@@ -612,19 +616,25 @@ const GeneratorDetail: React.FC = () => {
             <div className="flex items-center gap-2 text-gray-400">
               <Thermometer size={18} /> Temp. Motor
             </div>
-            <span className="text-xl font-bold text-white">{gen.engineTemp}°C</span>
+            <span className="text-xl font-bold text-white">
+              {gen.engineTemp === null || gen.engineTemp === undefined || gen.engineTemp === 65535 ? '-' : `${gen.engineTemp}°C`}
+            </span>
           </div>
           <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
             <div className="flex items-center gap-2 text-gray-400">
               <Droplets size={18} /> Nível Combustível
             </div>
-            <span className={`text-xl font-bold ${gen.fuelLevel < 20 ? 'text-red-500' : 'text-green-500'}`}>{gen.fuelLevel}%</span>
+            <span className={`text-xl font-bold ${gen.fuelLevel === null || gen.fuelLevel === undefined || gen.fuelLevel === 65535 ? 'text-gray-400' : gen.fuelLevel < 20 ? 'text-red-500' : 'text-green-500'}`}>
+              {gen.fuelLevel === null || gen.fuelLevel === undefined || gen.fuelLevel === 65535 ? '-' : `${gen.fuelLevel}%`}
+            </span>
           </div>
           <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
             <div className="flex items-center gap-2 text-gray-400">
               <Battery size={18} /> Tensão Bateria
             </div>
-            <span className="text-xl font-bold text-white">{gen.batteryVoltage} V</span>
+            <span className="text-xl font-bold text-white">
+              {gen.batteryVoltage === null || gen.batteryVoltage === undefined || gen.batteryVoltage === 6553.5 ? '-' : `${gen.batteryVoltage} V`}
+            </span>
           </div>
         </div>
       </div>
@@ -1057,7 +1067,7 @@ const GeneratorDetail: React.FC = () => {
                     <div className="text-left">
                       <span className="text-white font-bold text-base block">Parâmetros Mecânicos</span>
                       <span className="text-xs text-gray-400 mt-0.5 block">
-                        RPM: {gen.rpm} • Temp: {gen.engineTemp}°C • Comb: {gen.fuelLevel}%
+                        RPM: {gen.rpm === null || gen.rpm === undefined || gen.rpm === 65535 ? '-' : gen.rpm} • Temp: {gen.engineTemp === null || gen.engineTemp === undefined || gen.engineTemp === 65535 ? '-' : `${gen.engineTemp}°C`} • Comb: {gen.fuelLevel === null || gen.fuelLevel === undefined || gen.fuelLevel === 65535 ? '-' : `${gen.fuelLevel}%`}
                       </span>
                     </div>
                   </div>
