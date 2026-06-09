@@ -867,21 +867,26 @@ router.get('/generators', authenticateToken, async (req, res) => {
             totalHours: parseFloat(row.run_hours || 0),
             lastMaintenance: new Date().toISOString().split('T')[0],
 
-            voltageL1: row.voltage_l1 || 0,
-            voltageL2: row.voltage_l2 || 0,
-            voltageL3: row.voltage_l3 || 0,
-            currentL1: row.current_l1 || 0,
-            currentL2: row.current_l2 || 0,
-            currentL3: row.current_l3 || 0,
+            voltageL1: row.voltage_l1 === null || row.voltage_l1 === 65535 ? null : Number(row.voltage_l1),
+            voltageL2: row.voltage_l2 === null || row.voltage_l2 === 65535 ? null : Number(row.voltage_l2),
+            voltageL3: row.voltage_l3 === null || row.voltage_l3 === 65535 ? null : Number(row.voltage_l3),
+            currentL1: row.current_l1 === null || row.current_l1 === 65535 ? null : Number(row.current_l1),
+            currentL2: row.current_l2 === null || row.current_l2 === 65535 ? null : Number(row.current_l2),
+            currentL3: row.current_l3 === null || row.current_l3 === 65535 ? null : Number(row.current_l3),
 
-            mainsVoltageL1: row.mains_voltage_l1 || 0,
-            mainsVoltageL2: row.mains_voltage_l2 || 0,
-            mainsVoltageL3: row.mains_voltage_l3 || 0,
-            mainsFrequency: parseFloat(row.mains_frequency || 0),
+            mainsVoltageL1: row.mains_voltage_l1 === null || row.mains_voltage_l1 === 65535 ? null : Number(row.mains_voltage_l1),
+            mainsVoltageL2: row.mains_voltage_l2 === null || row.mains_voltage_l2 === 65535 ? null : Number(row.mains_voltage_l2),
+            mainsVoltageL3: row.mains_voltage_l3 === null || row.mains_voltage_l3 === 65535 ? null : Number(row.mains_voltage_l3),
+            mainsFrequency: row.mains_frequency === null || parseFloat(row.mains_frequency) === 6553.5 ? null : parseFloat(row.mains_frequency),
 
-            frequency: parseFloat(row.frequency || 0),
-            powerFactor: parseFloat(row.power_factor || 0),
-            activePower: parseFloat(row.active_power || 0)
+            frequency: row.frequency === null || parseFloat(row.frequency) === 6553.5 ? null : parseFloat(row.frequency),
+            powerFactor: row.power_factor === null || parseFloat(row.power_factor) === 655.35 || parseFloat(row.power_factor) === 6553.5 ? null : parseFloat(row.power_factor),
+            activePower: row.active_power === null || row.active_power === 65535 ? null : Number(row.active_power),
+            activePowerTotal: row.active_power === null || row.active_power === 65535 ? null : Number(row.active_power),
+
+            voltageL12: row.voltage_l12 === null || row.voltage_l12 === 65535 ? null : Number(row.voltage_l12),
+            voltageL23: row.voltage_l23 === null || row.voltage_l23 === 65535 ? null : Number(row.voltage_l23),
+            voltageL31: row.voltage_l31 === null || row.voltage_l31 === 65535 ? null : Number(row.voltage_l31)
         }));
         res.json(generators);
     } catch (err) {

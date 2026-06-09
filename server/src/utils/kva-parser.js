@@ -169,27 +169,39 @@ export function decodeKvaByBlock(slaveId, fn, startAddress, regs) {
 
     // ---- Block 2: Rede + GMG Tensões + Correntes + Potências (12011-12025, 15 regs) ----
     if (startAddress === 12011 && regs.length >= 15) {
+        const rawMainsV12 = u16(regs, 0);
+        const rawMainsV23 = u16(regs, 1);
+        const rawMainsV31 = u16(regs, 2);
+        const rawMainsFreq = u16(regs, 3);
+        const rawGenV12 = u16(regs, 4);
+        const rawGenV23 = u16(regs, 5);
+        const rawGenV31 = u16(regs, 6);
+        const rawGenFreq = u16(regs, 7);
+        const rawI1 = u16(regs, 8);
+        const rawI2 = u16(regs, 9);
+        const rawI3 = u16(regs, 10);
+        const rawPActive = u16(regs, 11);
+        const rawPReactive = u16(regs, 12);
+        const rawPApparent = u16(regs, 13);
+        const rawPF = u16(regs, 14);
+
         const result = {
             block: 'KVA_ELECTRICAL_12011',
-            // Rede (Mains) - Line-Line
-            mainsVoltageL12: u16(regs, 0),   // 12011 RS
-            mainsVoltageL23: u16(regs, 1),   // 12012 ST
-            mainsVoltageL31: u16(regs, 2),   // 12013 TR
-            mainsFrequency: u16(regs, 3) * 0.1, // 12014 (resolução 0.1)
-            // GMG (Generator) - Line-Line
-            voltageL12: u16(regs, 4),        // 12015 UV
-            voltageL23: u16(regs, 5),        // 12016 VW
-            voltageL31: u16(regs, 6),        // 12017 WU
-            frequency: u16(regs, 7) * 0.1,   // 12018 (resolução 0.1)
-            // Correntes de Carga
-            currentL1: u16(regs, 8),         // 12019
-            currentL2: u16(regs, 9),         // 12020
-            currentL3: u16(regs, 10),        // 12021
-            // Potências
-            activePower: u16(regs, 11),      // 12022 kW
-            reactivePower: u16(regs, 12),    // 12023 kVAr
-            apparentPower: u16(regs, 13),    // 12024 kVA
-            powerFactor: u16(regs, 14) * 0.01, // 12025 (resolução 0.01)
+            mainsVoltageL12: rawMainsV12 === 65535 ? null : rawMainsV12,
+            mainsVoltageL23: rawMainsV23 === 65535 ? null : rawMainsV23,
+            mainsVoltageL31: rawMainsV31 === 65535 ? null : rawMainsV31,
+            mainsFrequency: rawMainsFreq === 65535 ? null : Number((rawMainsFreq * 0.1).toFixed(1)),
+            voltageL12: rawGenV12 === 65535 ? null : rawGenV12,
+            voltageL23: rawGenV23 === 65535 ? null : rawGenV23,
+            voltageL31: rawGenV31 === 65535 ? null : rawGenV31,
+            frequency: rawGenFreq === 65535 ? null : Number((rawGenFreq * 0.1).toFixed(1)),
+            currentL1: rawI1 === 65535 ? null : rawI1,
+            currentL2: rawI2 === 65535 ? null : rawI2,
+            currentL3: rawI3 === 65535 ? null : rawI3,
+            activePower: rawPActive === 65535 ? null : rawPActive,
+            reactivePower: rawPReactive === 65535 ? null : rawPReactive,
+            apparentPower: rawPApparent === 65535 ? null : rawPApparent,
+            powerFactor: rawPF === 65535 ? null : Number((rawPF * 0.01).toFixed(2)),
         };
 
         console.log(`[KVA-PARSER] Electrical: GenV=${result.voltageL12}/${result.voltageL23}/${result.voltageL31}V, Freq=${result.frequency}Hz, I=${result.currentL1}/${result.currentL2}/${result.currentL3}A, P=${result.activePower}kW`);
@@ -198,15 +210,21 @@ export function decodeKvaByBlock(slaveId, fn, startAddress, regs) {
 
     // ---- Block 3: Motor (12027-12033, 7 regs) ----
     if (startAddress === 12027 && regs.length >= 7) {
+        const rawRpm = u16(regs, 0);
+        const rawTemp = u16(regs, 1);
+        const rawPress = u16(regs, 2);
+        const rawFuel = u16(regs, 3);
+        const rawCons = u16(regs, 5);
+        const rawBat = u16(regs, 6);
+
         const result = {
             block: 'KVA_ENGINE_12027',
-            rpm: u16(regs, 0),               // 12027
-            engineTemp: u16(regs, 1),        // 12028 °C
-            oilPressure: u16(regs, 2) * 0.01, // 12029 (resolução 0.01 bar)
-            fuelLevel: u16(regs, 3),         // 12030 %
-            // 12031 reservado
-            fuelConsumption: u16(regs, 5) * 0.1, // 12032 L/h (resolução 0.1)
-            batteryVoltage: u16(regs, 6) * 0.1,  // 12033 V (resolução 0.1)
+            rpm: rawRpm === 65535 ? null : rawRpm,
+            engineTemp: rawTemp === 65535 ? null : rawTemp,
+            oilPressure: rawPress === 65535 ? null : Number((rawPress * 0.01).toFixed(2)),
+            fuelLevel: rawFuel === 65535 ? null : rawFuel,
+            fuelConsumption: rawCons === 65535 ? null : Number((rawCons * 0.1).toFixed(1)),
+            batteryVoltage: rawBat === 65535 ? null : Number((rawBat * 0.1).toFixed(1)),
         };
 
         console.log(`[KVA-PARSER] Engine: RPM=${result.rpm}, Temp=${result.engineTemp}°C, Oil=${result.oilPressure}bar, Fuel=${result.fuelLevel}%, Bat=${result.batteryVoltage}V`);
@@ -215,16 +233,21 @@ export function decodeKvaByBlock(slaveId, fn, startAddress, regs) {
 
     // ---- Block 4: Tensões Fase-Neutro (12043-12048, 6 regs) ----
     if (startAddress === 12043 && regs.length >= 6) {
+        const rawMainsV1 = u16(regs, 0);
+        const rawMainsV2 = u16(regs, 1);
+        const rawMainsV3 = u16(regs, 2);
+        const rawGenV1 = u16(regs, 3);
+        const rawGenV2 = u16(regs, 4);
+        const rawGenV3 = u16(regs, 5);
+
         const result = {
             block: 'KVA_PHASE_NEUTRAL_12043',
-            // Rede Fase-Neutro
-            mainsVoltageL1: u16(regs, 0),    // 12043 RN
-            mainsVoltageL2: u16(regs, 1),    // 12044 SN
-            mainsVoltageL3: u16(regs, 2),    // 12045 TN
-            // GMG Fase-Neutro
-            voltageL1: u16(regs, 3),         // 12046 UN
-            voltageL2: u16(regs, 4),         // 12047 VN
-            voltageL3: u16(regs, 5),         // 12048 WN
+            mainsVoltageL1: rawMainsV1 === 65535 ? null : rawMainsV1,
+            mainsVoltageL2: rawMainsV2 === 65535 ? null : rawMainsV2,
+            mainsVoltageL3: rawMainsV3 === 65535 ? null : rawMainsV3,
+            voltageL1: rawGenV1 === 65535 ? null : rawGenV1,
+            voltageL2: rawGenV2 === 65535 ? null : rawGenV2,
+            voltageL3: rawGenV3 === 65535 ? null : rawGenV3,
         };
 
         console.log(`[KVA-PARSER] Phase-Neutral: Mains=${result.mainsVoltageL1}/${result.mainsVoltageL2}/${result.mainsVoltageL3}V, Gen=${result.voltageL1}/${result.voltageL2}/${result.voltageL3}V`);
