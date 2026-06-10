@@ -61,6 +61,7 @@ let client;
 let lastConnectionError = null;
 let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands
+let socketIo = null; // Module-level reference to Socket.IO for optimistic updates
 
 // ==========================================
 // USR-DR164 TRANSPARENT MODE SUPPORT
@@ -260,6 +261,7 @@ const TOPIC = 'devices/data/#';
 global.mqttDeviceCache = {};
 
 export const initMqttService = (io) => {
+    socketIo = io; // Store for optimistic updates in sendControlCommand
     console.log(`[MQTT] Connecting to ${BROKER_URL}...`);
     lastConnectionError = null;
 
@@ -1337,6 +1339,44 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
     }, 10000); // Back to 10 seconds as requested by user
 };
 
+// Helper: Optimistic UI update — immediately update state + emit Socket.IO
+// so the frontend reflects the change without waiting for the next poll cycle.
+const emitOptimisticUpdate = (deviceId, updatedFields) => {
+    try {
+        const stateFile = path.join(__dirname, '../../logs/generators_state.json');
+        let currentState = {};
+        if (fs.existsSync(stateFile)) {
+            currentState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        }
+
+        if (currentState[deviceId]) {
+            // Merge optimistic fields into existing state
+            currentState[deviceId].data = {
+                ...currentState[deviceId].data,
+                ...updatedFields
+            };
+            fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
+
+            // Broadcast to ALL connected clients instantly
+            if (socketIo) {
+                socketIo.emit('generator:update', currentState[deviceId]);
+                console.log(`[OPTIMISTIC] Emitted instant update for ${deviceId}:`, JSON.stringify(updatedFields));
+            }
+        } else {
+            console.warn(`[OPTIMISTIC] No state found for ${deviceId}, skipping optimistic emit.`);
+        }
+    } catch (err) {
+        console.error(`[OPTIMISTIC] Error emitting update for ${deviceId}:`, err.message);
+    }
+};
+
+// Map action -> expected operationMode for optimistic updates
+const ACTION_TO_MODE = {
+    'auto': 'AUTO',
+    'manual': 'MANUAL',
+    'inhibit': 'INHIBITED'
+};
+
 // Exported Command Function
 export const sendControlCommand = (deviceId, action) => {
     try {
@@ -1433,6 +1473,11 @@ export const sendControlCommand = (deviceId, action) => {
                 client.publish(topic, buf); // Raw binary frame
                 console.log(`[KVA-CMD] ${action.toUpperCase()}: Sent Func 06 (Reg 19108, Val ${commandValue}) to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
 
+                // OPTIMISTIC UPDATE: Instantly reflect mode change in UI
+                if (ACTION_TO_MODE[action]) {
+                    emitOptimisticUpdate(deviceId, { operationMode: ACTION_TO_MODE[action] });
+                }
+
                 // Resume polling after 2s (enough for controller to process, faster UI feedback)
                 setTimeout(() => {
                     pausedDevices.delete(deviceId);
@@ -1457,6 +1502,11 @@ export const sendControlCommand = (deviceId, action) => {
             const buf = createModbusWriteMultipleRequest(slaveId, 0, [commandValue]);
             client.publish(topic, buf); // Raw binary frame
             console.log(`[DR164-CMD] ${action.toUpperCase()}: Sent raw Modbus to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
+
+            // OPTIMISTIC UPDATE: Instantly reflect mode change in UI
+            if (ACTION_TO_MODE[action]) {
+                emitOptimisticUpdate(deviceId, { operationMode: ACTION_TO_MODE[action] });
+            }
 
             // Resume polling after 2s (enough for controller to process, faster UI feedback)
             setTimeout(() => {
@@ -1528,6 +1578,9 @@ export const sendControlCommand = (deviceId, action) => {
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] AUTO: Sent Func 16 (Reg 0, Val 4). Hex: ${buf.toString('hex').toUpperCase()}`);
 
+            // OPTIMISTIC UPDATE: Instantly reflect mode change in UI
+            emitOptimisticUpdate(deviceId, { operationMode: 'AUTO' });
+
             // Trigger Restore Polling logic (Send full config after 30s)
             restorePolling(client, topic, slaveId, deviceId);
 
@@ -1546,6 +1599,9 @@ export const sendControlCommand = (deviceId, action) => {
 
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] MANUAL: Sent Func 16 (Reg 0, Val 1) [STOP/MANUAL]. Hex: ${buf.toString('hex').toUpperCase()}`);
+
+            // OPTIMISTIC UPDATE: Instantly reflect mode change in UI
+            emitOptimisticUpdate(deviceId, { operationMode: 'MANUAL' });
 
             // Trigger Restore Polling logic (Send full config after 30s)
             restorePolling(client, topic, slaveId, deviceId);
