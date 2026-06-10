@@ -61,6 +61,7 @@ let client;
 let lastConnectionError = null;
 let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands
+const modemLastDataReceived = new Map(); // deviceId -> Date.now() — Watchdog tracking
 
 // ==========================================
 // USR-DR164 TRANSPARENT MODE SUPPORT
@@ -384,6 +385,7 @@ export const initMqttService = (io) => {
                 }
             }
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
+            modemLastDataReceived.set(deviceId, Date.now()); // Watchdog: mark device as alive
 
             const results = decodeSgc120Payload(payload);
 
@@ -1276,6 +1278,36 @@ export const initMqttService = (io) => {
         }
     }, 15000);
 
+    // ==========================================
+    // MODEM WATCHDOG — Auto-Recovery
+    // ==========================================
+    // If a modem device stops sending data for 2+ minutes, it likely lost its
+    // polling configuration (e.g. a command set modbusPeriodicitySeconds=0 and
+    // restorePolling failed due to network issues). The watchdog detects this
+    // and automatically re-sends the Golden List.
+    const WATCHDOG_CHECK_INTERVAL = 60000;  // Check every 60 seconds
+    const WATCHDOG_STALE_THRESHOLD = 120000; // 2 minutes without data = stale
+
+    setInterval(() => {
+        if (!client || !client.connected) return;
+        if (devicesToPoll.length === 0) return;
+
+        const now = Date.now();
+        devicesToPoll.forEach(device => {
+            const deviceId = device.id;
+            const lastReceived = modemLastDataReceived.get(deviceId);
+
+            // If never received data OR stale for more than threshold
+            if (lastReceived && (now - lastReceived) > WATCHDOG_STALE_THRESHOLD) {
+                const staleSecs = Math.round((now - lastReceived) / 1000);
+                console.log(`[WATCHDOG] ⚠️ Modem ${deviceId} sem dados há ${staleSecs}s. Reenviando configuração de polling...`);
+                const topic = `devices/command/${deviceId}`;
+                restorePolling(client, topic, device.slaveId, deviceId);
+                // restorePolling resets modemLastDataReceived, preventing re-trigger for 2 min
+            }
+        });
+    }, WATCHDOG_CHECK_INTERVAL);
+
     // DR164 PARALLEL POLLING — each device gets its own independent timer
     // Started automatically by updatePollingList when new devices are detected.
     // No global setInterval needed here.
@@ -1327,6 +1359,7 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
     // Immediately pause active Node.js loop for this device to prevent RAW buffer collisions
     // with the Gateway's JSON-based internal polling.
     pausedDevices.add(deviceId);
+    modemLastDataReceived.set(deviceId, Date.now()); // Reset watchdog timer to prevent re-trigger
     console.log(`[MQTT-RESTORE] Aguardando 10s para restaurar lista de polling... (Polling ativo Node.js pausado para ${deviceId})`);
 
     setTimeout(() => {
