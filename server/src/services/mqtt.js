@@ -680,7 +680,8 @@ export const initMqttService = (io) => {
                         }
 
                         // Recalculate Combined Decimal Run Hours if cache has data
-                        if (global.mqttDeviceCache[deviceId]) {
+                        // SKIP for KVA devices — KVA has its own totalHours from KVA_STATUS_12001
+                        if (global.mqttDeviceCache[deviceId] && !isKvaDevice) {
                             const h = global.mqttDeviceCache[deviceId].runHours;
                             const m = global.mqttDeviceCache[deviceId].runMinutes;
                             const decimalHours = h + (m / 60.0);
