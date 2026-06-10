@@ -55,7 +55,8 @@ export const sendAlarmWhatsApp = async (phone, generatorName, alarmMessage, stat
 };
 
 /**
- * Sends a WhatsApp alarm resolved notification (simple text message).
+ * Sends a WhatsApp alarm resolved notification using the same Content Template.
+ * Uses status 'RESOLVIDO' to indicate the alarm has been cleared.
  * @param {string} phone - Phone number with country code (e.g. 5554999999999)
  * @param {string} generatorName - Name of the generator
  */
@@ -66,9 +67,10 @@ export const sendAlarmResolvedWhatsApp = async (phone, generatorName) => {
     }
 
     const from = process.env.TWILIO_WHATSAPP_FROM;
+    const contentSid = process.env.TWILIO_CONTENT_SID;
 
-    if (!from) {
-        console.warn('[WHATSAPP] ⚠️ TWILIO_WHATSAPP_FROM not set. Skipping.');
+    if (!from || !contentSid) {
+        console.warn('[WHATSAPP] ⚠️ TWILIO_WHATSAPP_FROM or TWILIO_CONTENT_SID not set. Skipping.');
         return;
     }
 
@@ -81,7 +83,13 @@ export const sendAlarmResolvedWhatsApp = async (phone, generatorName) => {
         const message = await twilioClient.messages.create({
             from: `whatsapp:${from}`,
             to: `whatsapp:+${fullPhone}`,
-            body: `✅ Alarme resolvido!\n\nGerador: ${generatorName}\nData e Hora: ${dateTime}\n\nCiklo Geradores!`
+            contentSid: contentSid,
+            contentVariables: JSON.stringify({
+                1: generatorName,
+                2: dateTime,
+                3: 'Alarmes normalizados',
+                4: 'RESOLVIDO'
+            })
         });
         console.log(`[WHATSAPP] ✅ Resolved message sent to +${fullPhone} (SID: ${message.sid})`);
     } catch (err) {
