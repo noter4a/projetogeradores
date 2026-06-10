@@ -91,7 +91,9 @@ export function decodeKvaByBlock(slaveId, fn, startAddress, regs) {
     if (startAddress === 12001 && regs.length >= 7) {
         const hoursH = u16(regs, 0); // 12001
         const hoursL = u16(regs, 1); // 12002
-        const totalHours = (hoursH << 16) | hoursL;
+        const rawSeconds = (hoursH << 16) | hoursL;
+        // KVA stores horímetro in SECONDS — convert to hours
+        const totalHours = parseFloat((rawSeconds / 3600).toFixed(2));
 
         const falhasH = u16(regs, 2); // 12003
         const falhasL = u16(regs, 3); // 12004
