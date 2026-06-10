@@ -1426,9 +1426,8 @@ export const sendControlCommand = (deviceId, action) => {
             return { success: false, error: `MQTT Not Connected. Reason: ${reason}` };
         }
 
-        // PAUSE Polling for this device to prevent collisions
-        pausedDevices.add(deviceId);
-        console.log(`[MQTT-CMD] Pausing polling for ${deviceId} (10s timeout)`);
+        // PAUSE Polling for DR164 devices to prevent collisions (modem devices use Gateway internal polling, no pause needed)
+        console.log(`[MQTT-CMD] Processing command for ${deviceId}`);
 
         // Search in both modem and DR164 device lists
         let device = devicesToPoll.find(d => d.id === deviceId);
@@ -1452,6 +1451,7 @@ export const sendControlCommand = (deviceId, action) => {
 
         // DR164/KVA: Send raw Modbus binary (no JSON wrapper)
         if (isDR164) {
+            pausedDevices.add(deviceId); // DR164 needs pause to prevent polling collisions
             // Check if this is a KVA controller
             const isKvaController = device.controller === 'kva' || device.controller === 'kvar';
 
@@ -1564,15 +1564,11 @@ export const sendControlCommand = (deviceId, action) => {
             const buf = createModbusWriteMultipleRequest(slaveId, 0, [2]);
 
             const payload = JSON.stringify({
-                modbusCommand: buf.toString('hex').toUpperCase(),
-                modbusPeriodicitySeconds: 0
+                modbusCommand: buf.toString('hex').toUpperCase()
             });
 
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] START: Sent Func 16 (Reg 0, Val 2). Hex: ${buf.toString('hex').toUpperCase()}`);
-
-            // Trigger Restore Polling logic (Send full config after 30s)
-            restorePolling(client, topic, slaveId, deviceId);
 
             return { success: true };
         }
@@ -1585,15 +1581,11 @@ export const sendControlCommand = (deviceId, action) => {
             const buf = createModbusWriteMultipleRequest(slaveId, 0, [1]);
 
             const payload = JSON.stringify({
-                modbusCommand: buf.toString('hex').toUpperCase(),
-                modbusPeriodicitySeconds: 0
+                modbusCommand: buf.toString('hex').toUpperCase()
             });
 
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] STOP: Sent Func 16 (Reg 0, Val 1). Hex: ${buf.toString('hex').toUpperCase()}`);
-
-            // Trigger Restore Polling logic (Send full config after 30s)
-            restorePolling(client, topic, slaveId, deviceId);
 
             return { success: true };
         }
@@ -1604,17 +1596,11 @@ export const sendControlCommand = (deviceId, action) => {
             const buf = createModbusWriteMultipleRequest(slaveId, 0, [4]);
 
             const payload = JSON.stringify({
-                modbusCommand: buf.toString('hex').toUpperCase(),
-                modbusPeriodicitySeconds: 0
+                modbusCommand: buf.toString('hex').toUpperCase()
             });
 
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] AUTO: Sent Func 16 (Reg 0, Val 4). Hex: ${buf.toString('hex').toUpperCase()}`);
-
-            // Mode will update naturally when the next poll cycle reads the register
-
-            // Trigger Restore Polling logic (Send full config after 30s)
-            restorePolling(client, topic, slaveId, deviceId);
 
             return { success: true };
         }
@@ -1625,17 +1611,11 @@ export const sendControlCommand = (deviceId, action) => {
             const buf = createModbusWriteMultipleRequest(slaveId, 0, [1]);
 
             const payload = JSON.stringify({
-                modbusCommand: buf.toString('hex').toUpperCase(),
-                modbusPeriodicitySeconds: 0
+                modbusCommand: buf.toString('hex').toUpperCase()
             });
 
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] MANUAL: Sent Func 16 (Reg 0, Val 1) [STOP/MANUAL]. Hex: ${buf.toString('hex').toUpperCase()}`);
-
-            // Mode will update naturally when the next poll cycle reads the register
-
-            // Trigger Restore Polling logic (Send full config after 30s)
-            restorePolling(client, topic, slaveId, deviceId);
 
             return { success: true };
         }
@@ -1646,15 +1626,11 @@ export const sendControlCommand = (deviceId, action) => {
             const buf = createModbusWriteMultipleRequest(slaveId, 0, [64]);
 
             const payload = JSON.stringify({
-                modbusCommand: buf.toString('hex').toUpperCase(),
-                modbusPeriodicitySeconds: 0
+                modbusCommand: buf.toString('hex').toUpperCase()
             });
 
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] RESET/ACK: Sent Func 16 (Reg 0, Val 64). Hex: ${buf.toString('hex').toUpperCase()}`);
-
-            // Trigger Restore Polling logic (Send full config after 10s)
-            restorePolling(client, topic, slaveId, deviceId);
 
             return { success: true };
         }
