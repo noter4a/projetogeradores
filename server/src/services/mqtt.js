@@ -61,18 +61,16 @@ let client;
 let lastConnectionError = null;
 let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands
-let socketIo = null; // Module-level reference to Socket.IO for optimistic updates
 
 // ==========================================
 // USR-DR164 TRANSPARENT MODE SUPPORT
 // ==========================================
 // DR164 sends/receives raw Modbus RTU bytes over MQTT (no JSON wrapper).
-// We track pending requests to correlate responses, and poll sequentially.
+// Each device gets its own independent polling timer for true parallel operation.
 let dr164Devices = [];
 const dr164PendingRequests = new Map();   // deviceId -> { requestHex, slaveId, fn, startAddress, quantity, sentAt }
 const dr164ResponseResolvers = new Map(); // deviceId -> resolve() function for async polling
-let dr164PollingActive = false;
-let dr164PollingStartedAt = null;
+const dr164DeviceTimers = new Map();      // deviceId -> setInterval ID (per-device independent polling)
 
 export let updatePollingList = async () => {};
 
@@ -210,30 +208,64 @@ async function pollDR164Device(device) {
  * DR164 polling loop — runs sequentially through all DR164 devices.
  * Uses a finally block to GUARANTEE the active flag is always reset.
  */
-async function dr164PollingLoop() {
-    if (dr164PollingActive) {
-        // Safety: if polling has been active for more than 3 minutes, force reset
-        if (dr164PollingStartedAt && (Date.now() - dr164PollingStartedAt > 180000)) {
-            console.warn('[DR164] ⚠️ Polling was stuck for >3min, forcing reset.');
-            dr164PollingActive = false;
-        } else {
-            return;
-        }
-    }
-    dr164PollingActive = true;
-    dr164PollingStartedAt = Date.now();
+// Per-device active flags to prevent overlapping polls on the same device
+const dr164DevicePollingActive = new Map(); // deviceId -> boolean
 
-    try {
-        for (const device of dr164Devices) {
-            if (!client || !client.connected) break;
-            await pollDR164Device(device);
-            await dr164Sleep(1000); // Gap between devices
+/**
+ * Start independent polling for a single DR164 device.
+ * Each device gets its own setInterval, so all devices poll in parallel.
+ */
+function startDR164DevicePolling(device) {
+    if (dr164DeviceTimers.has(device.id)) {
+        return; // Already polling this device
+    }
+
+    const isKva = device.controller === 'kva' || device.controller === 'kvar';
+    const label = isKva ? 'KVA' : 'DR164';
+    console.log(`[${label}] Starting independent polling timer for ${device.id}`);
+
+    // Run immediately on first start
+    pollSingleDR164Device(device);
+
+    // Then schedule recurring polls every 15 seconds
+    const timerId = setInterval(() => {
+        if (client && client.connected) {
+            pollSingleDR164Device(device);
         }
+    }, 15000);
+
+    dr164DeviceTimers.set(device.id, timerId);
+}
+
+/**
+ * Stop polling for a single DR164 device.
+ */
+function stopDR164DevicePolling(deviceId) {
+    const timerId = dr164DeviceTimers.get(deviceId);
+    if (timerId) {
+        clearInterval(timerId);
+        dr164DeviceTimers.delete(deviceId);
+        dr164DevicePollingActive.delete(deviceId);
+        console.log(`[DR164] Stopped polling timer for ${deviceId}`);
+    }
+}
+
+/**
+ * Poll a single device (called by its own independent timer).
+ * Has a per-device guard to prevent overlapping if previous cycle is still running.
+ */
+async function pollSingleDR164Device(device) {
+    if (dr164DevicePollingActive.get(device.id)) {
+        return; // Previous poll cycle for THIS device is still running
+    }
+    dr164DevicePollingActive.set(device.id, true);
+    try {
+        await pollDR164Device(device);
     } catch (err) {
-        console.error('[DR164] Polling loop error:', err.message);
+        const isKva = device.controller === 'kva' || device.controller === 'kvar';
+        console.error(`[${isKva ? 'KVA' : 'DR164'}] Polling error for ${device.id}:`, err.message);
     } finally {
-        dr164PollingActive = false;
-        dr164PollingStartedAt = null;
+        dr164DevicePollingActive.set(device.id, false);
     }
 }
 // ==========================================
@@ -261,7 +293,7 @@ const TOPIC = 'devices/data/#';
 global.mqttDeviceCache = {};
 
 export const initMqttService = (io) => {
-    socketIo = io; // Store for optimistic updates in sendControlCommand
+    // io is used for real-time updates via the message handler below
     console.log(`[MQTT] Connecting to ${BROKER_URL}...`);
     lastConnectionError = null;
 
@@ -1086,11 +1118,25 @@ export const initMqttService = (io) => {
             }));
 
             const prevDr164Ids = new Set(dr164Devices.map(d => d.id));
+            const newDr164Ids = new Set(newDR164List.map(d => d.id));
             const newDr164Added = newDR164List.filter(d => !prevDr164Ids.has(d.id));
+            const removedDr164 = dr164Devices.filter(d => !newDr164Ids.has(d.id));
+
             dr164Devices = newDR164List;
 
+            // Stop timers for removed devices
+            for (const device of removedDr164) {
+                stopDR164DevicePolling(device.id);
+            }
+
+            // Start independent timers for newly added devices
             if (newDr164Added.length > 0) {
                 console.log(`[DR164] Detected ${newDr164Added.length} new DR164 generator(s): ${newDr164Added.map(d => d.id).join(', ')}`);
+                for (const device of newDr164Added) {
+                    if (client && client.connected) {
+                        startDR164DevicePolling(device);
+                    }
+                }
             }
 
             // console.log('[MQTT] Updated Polling List:', devicesToPoll, 'DR164:', dr164Devices);
@@ -1229,14 +1275,9 @@ export const initMqttService = (io) => {
         }
     }, 15000);
 
-    // DR164 SEQUENTIAL POLLING LOOP
-    // Runs every 15 seconds. Each DR164 device is polled sequentially
-    // (one Modbus request at a time, wait for response, then next).
-    setInterval(() => {
-        if (dr164Devices.length > 0 && client && client.connected) {
-            dr164PollingLoop();
-        }
-    }, 15000);
+    // DR164 PARALLEL POLLING — each device gets its own independent timer
+    // Started automatically by updatePollingList when new devices are detected.
+    // No global setInterval needed here.
 };
 
 // ==========================================
@@ -1339,43 +1380,7 @@ const restorePolling = (client, topic, slaveId, deviceId) => {
     }, 10000); // Back to 10 seconds as requested by user
 };
 
-// Helper: Optimistic UI update — immediately update state + emit Socket.IO
-// so the frontend reflects the change without waiting for the next poll cycle.
-const emitOptimisticUpdate = (deviceId, updatedFields) => {
-    try {
-        const stateFile = path.join(__dirname, '../../logs/generators_state.json');
-        let currentState = {};
-        if (fs.existsSync(stateFile)) {
-            currentState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-        }
 
-        if (currentState[deviceId]) {
-            // Merge optimistic fields into existing state
-            currentState[deviceId].data = {
-                ...currentState[deviceId].data,
-                ...updatedFields
-            };
-            fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
-
-            // Broadcast to ALL connected clients instantly
-            if (socketIo) {
-                socketIo.emit('generator:update', currentState[deviceId]);
-                console.log(`[OPTIMISTIC] Emitted instant update for ${deviceId}:`, JSON.stringify(updatedFields));
-            }
-        } else {
-            console.warn(`[OPTIMISTIC] No state found for ${deviceId}, skipping optimistic emit.`);
-        }
-    } catch (err) {
-        console.error(`[OPTIMISTIC] Error emitting update for ${deviceId}:`, err.message);
-    }
-};
-
-// Map action -> expected operationMode for optimistic updates
-const ACTION_TO_MODE = {
-    'auto': 'AUTO',
-    'manual': 'MANUAL',
-    'inhibit': 'INHIBITED'
-};
 
 // Exported Command Function
 export const sendControlCommand = (deviceId, action) => {
@@ -1473,10 +1478,7 @@ export const sendControlCommand = (deviceId, action) => {
                 client.publish(topic, buf); // Raw binary frame
                 console.log(`[KVA-CMD] ${action.toUpperCase()}: Sent Func 06 (Reg 19108, Val ${commandValue}) to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
 
-                // OPTIMISTIC UPDATE: Instantly reflect mode change in UI
-                if (ACTION_TO_MODE[action]) {
-                    emitOptimisticUpdate(deviceId, { operationMode: ACTION_TO_MODE[action] });
-                }
+                // Mode will update naturally when the next poll cycle reads the register
 
                 // Resume polling after 2s (enough for controller to process, faster UI feedback)
                 setTimeout(() => {
@@ -1503,10 +1505,7 @@ export const sendControlCommand = (deviceId, action) => {
             client.publish(topic, buf); // Raw binary frame
             console.log(`[DR164-CMD] ${action.toUpperCase()}: Sent raw Modbus to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
 
-            // OPTIMISTIC UPDATE: Instantly reflect mode change in UI
-            if (ACTION_TO_MODE[action]) {
-                emitOptimisticUpdate(deviceId, { operationMode: ACTION_TO_MODE[action] });
-            }
+            // Mode will update naturally when the next poll cycle reads the register
 
             // Resume polling after 2s (enough for controller to process, faster UI feedback)
             setTimeout(() => {
@@ -1578,8 +1577,7 @@ export const sendControlCommand = (deviceId, action) => {
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] AUTO: Sent Func 16 (Reg 0, Val 4). Hex: ${buf.toString('hex').toUpperCase()}`);
 
-            // OPTIMISTIC UPDATE: Instantly reflect mode change in UI
-            emitOptimisticUpdate(deviceId, { operationMode: 'AUTO' });
+            // Mode will update naturally when the next poll cycle reads the register
 
             // Trigger Restore Polling logic (Send full config after 30s)
             restorePolling(client, topic, slaveId, deviceId);
@@ -1600,8 +1598,7 @@ export const sendControlCommand = (deviceId, action) => {
             client.publish(topic, payload);
             console.log(`[MQTT-CMD] MANUAL: Sent Func 16 (Reg 0, Val 1) [STOP/MANUAL]. Hex: ${buf.toString('hex').toUpperCase()}`);
 
-            // OPTIMISTIC UPDATE: Instantly reflect mode change in UI
-            emitOptimisticUpdate(deviceId, { operationMode: 'MANUAL' });
+            // Mode will update naturally when the next poll cycle reads the register
 
             // Trigger Restore Polling logic (Send full config after 30s)
             restorePolling(client, topic, slaveId, deviceId);
