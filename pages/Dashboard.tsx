@@ -107,8 +107,8 @@ const Dashboard: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <h3 className="text-xl font-bold text-white group-hover:text-ciklo-orange transition-colors tracking-tight truncate flex items-center gap-2">
                         {gen.name}
-                        {gen.status === GeneratorStatus.ALARM && (
-                          <span className="inline-flex items-center flex-shrink-0" title="Alerta Ativo">
+                        {gen.alarmCode && gen.alarmCode > 0 && (
+                          <span className="inline-flex items-center flex-shrink-0" title={`Alarme Ativo (Código ${gen.alarmCode})`}>
                             <AlertTriangle size={20} className="text-red-500 animate-pulse drop-shadow-[0_0_6px_rgba(239,68,68,0.7)]" />
                           </span>
                         )}
