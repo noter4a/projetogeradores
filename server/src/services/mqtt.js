@@ -17,7 +17,7 @@ const notifyUsersAboutAlarm = async (clientPool, generatorId, generatorName, ala
              WHERE u.role = 'ADMIN' OR g.id = $1`,
             [generatorId]
         );
-        const emails = res.rows.map(row => row.email);
+        const emails = [...new Set(res.rows.map(row => row.email).filter(Boolean))];
         if (emails.length > 0) {
             await sendAlarmEmail(emails, generatorId, generatorName, { code: alarmCode, description: alarmMessage });
         }
