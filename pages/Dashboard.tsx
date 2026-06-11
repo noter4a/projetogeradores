@@ -23,9 +23,12 @@ const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
   };
 
   return (
-    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${styles[status]} flex items-center gap-1.5 shadow-sm whitespace-nowrap`}>
+    <span 
+      title={labels[status]}
+      className={`px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs font-bold border ${styles[status]} flex items-center gap-1.5 shadow-sm whitespace-nowrap`}
+    >
       <span className={`w-2 h-2 rounded-full ${status === GeneratorStatus.RUNNING ? 'animate-pulse bg-current' : 'bg-current'}`}></span>
-      {labels[status]}
+      <span className="hidden sm:inline">{labels[status]}</span>
     </span>
   );
 };
@@ -105,14 +108,16 @@ const Dashboard: React.FC = () => {
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-6 gap-4">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-bold text-white group-hover:text-ciklo-orange transition-colors tracking-tight truncate flex items-center gap-2">
-                        {gen.name}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3 className="text-xl font-bold text-white group-hover:text-ciklo-orange transition-colors tracking-tight truncate">
+                          {gen.name}
+                        </h3>
                         {gen.alarmCode && gen.alarmCode > 0 && (
                           <span className="inline-flex items-center flex-shrink-0" title={`Alarme Ativo (Código ${gen.alarmCode})`}>
                             <AlertTriangle size={20} className="text-red-500 animate-pulse drop-shadow-[0_0_6px_rgba(239,68,68,0.7)]" />
                           </span>
                         )}
-                      </h3>
+                      </div>
                       <div className="flex items-center gap-1.5 text-gray-400 text-sm mt-1.5 truncate">
                         <MapPin size={14} className="text-gray-500 shrink-0" />
                         <span className="truncate">{gen.location}</span>
@@ -124,14 +129,18 @@ const Dashboard: React.FC = () => {
                         <StatusBadge status={gen.status} />
                         {(() => {
                           const isConnected = gen.lastDataReceived && (Date.now() - gen.lastDataReceived) < 60_000;
+                          const label = isConnected ? 'CONECTADO' : 'DESCONECTADO';
                           return (
-                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 whitespace-nowrap ${
-                              isConnected
-                                ? 'bg-green-500/10 text-green-400 border-green-500/30'
-                                : 'bg-red-500/10 text-red-400 border-red-500/30'
-                            }`}>
+                            <span 
+                              title={label}
+                              className={`px-2 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 whitespace-nowrap ${
+                                isConnected
+                                  ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                                  : 'bg-red-500/10 text-red-400 border-red-500/30'
+                              }`}
+                            >
                               <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
-                              {isConnected ? 'CONECTADO' : 'DESCONECTADO'}
+                              <span className="hidden sm:inline">{label}</span>
                             </span>
                           );
                         })()}
