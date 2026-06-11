@@ -12,12 +12,13 @@ import { sendAlarmWhatsApp, sendAlarmResolvedWhatsApp } from './whatsapp.js';
 const notifyUsersAboutAlarm = async (clientPool, generatorId, generatorName, alarmCode, alarmMessage) => {
     try {
         const res = await clientPool.query(
-            `SELECT u.email, u.phone, u.whatsapp_alerts FROM users u 
+            `SELECT u.email, u.email_alerts, u.phone, u.whatsapp_alerts FROM users u 
              LEFT JOIN generators g ON g.company_id = u.company_id 
              WHERE u.role = 'ADMIN' OR g.id = $1`,
             [generatorId]
         );
-        const emails = [...new Set(res.rows.map(row => row.email).filter(Boolean))];
+        const emailUsers = res.rows.filter(row => row.email && row.email_alerts !== false);
+        const emails = [...new Set(emailUsers.map(row => row.email))];
         if (emails.length > 0) {
             await sendAlarmEmail(emails, generatorId, generatorName, { code: alarmCode, description: alarmMessage });
         }

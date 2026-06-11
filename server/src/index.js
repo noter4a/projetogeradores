@@ -122,12 +122,13 @@ const initDb = async (retries = 15, delay = 5000) => {
                 console.log("Migration users.company_id already applied or failed:", e.message);
             }
 
-            // Migration: Add phone and whatsapp_alerts to users
+            // Migration: Add phone, whatsapp_alerts and email_alerts to users
             try {
                 await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)");
                 await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_alerts BOOLEAN DEFAULT false");
+                await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts BOOLEAN DEFAULT true");
             } catch (e) {
-                console.log("Migration users.phone/whatsapp_alerts already applied or failed:", e.message);
+                console.log("Migration users.phone/whatsapp_alerts/email_alerts already applied or failed:", e.message);
             }
 
             // Seed default company if none exists
@@ -450,7 +451,8 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
                 assignedGeneratorIds: user.assigned_generators || [],
                 companyId: user.company_id,
                 phone: user.phone,
-                whatsappAlerts: user.whatsapp_alerts
+                whatsappAlerts: user.whatsapp_alerts,
+                emailAlerts: user.email_alerts
             }
         });
 
@@ -480,7 +482,7 @@ const authenticateToken = (req, res, next) => {
 router.get('/auth/profile', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts FROM users WHERE id = $1',
+            'SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts, email_alerts FROM users WHERE id = $1',
             [req.user.id]
         );
         if (result.rows.length === 0) {
@@ -495,7 +497,8 @@ router.get('/auth/profile', authenticateToken, async (req, res) => {
             assignedGeneratorIds: user.assigned_generators || [],
             companyId: user.company_id,
             phone: user.phone,
-            whatsappAlerts: user.whatsapp_alerts
+            whatsappAlerts: user.whatsapp_alerts,
+            emailAlerts: user.email_alerts
         });
     } catch (err) {
         console.error('Fetch profile error:', err);
@@ -555,7 +558,7 @@ router.put('/auth/profile', authenticateToken, async (req, res) => {
         await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`, values);
 
         // Return updated user data
-        const updatedResult = await pool.query('SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts FROM users WHERE id = $1', [req.user.id]);
+        const updatedResult = await pool.query('SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts, email_alerts FROM users WHERE id = $1', [req.user.id]);
         const updatedUser = updatedResult.rows[0];
 
         res.json({
@@ -566,7 +569,8 @@ router.put('/auth/profile', authenticateToken, async (req, res) => {
             assignedGeneratorIds: updatedUser.assigned_generators || [],
             companyId: updatedUser.company_id,
             phone: updatedUser.phone,
-            whatsappAlerts: updatedUser.whatsapp_alerts
+            whatsappAlerts: updatedUser.whatsapp_alerts,
+            emailAlerts: updatedUser.email_alerts
         });
     } catch (err) {
         console.error('Profile update error:', err);
@@ -581,7 +585,7 @@ router.get('/users', authenticateToken, async (req, res) => {
     }
     try {
         const result = await pool.query(`
-            SELECT u.id, u.name, u.email, u.role, u.assigned_generators, u.company_id, u.phone, u.whatsapp_alerts, c.name as company_name, u.created_at 
+            SELECT u.id, u.name, u.email, u.role, u.assigned_generators, u.company_id, u.phone, u.whatsapp_alerts, u.email_alerts, c.name as company_name, u.created_at 
             FROM users u
             LEFT JOIN companies c ON u.company_id = c.id
             ORDER BY u.created_at DESC
@@ -592,7 +596,8 @@ router.get('/users', authenticateToken, async (req, res) => {
             companyName: user.company_name,
             assignedGeneratorIds: user.assigned_generators || [], // Map DB field to frontend expected prop
             phone: user.phone,
-            whatsappAlerts: user.whatsapp_alerts
+            whatsappAlerts: user.whatsapp_alerts,
+            emailAlerts: user.email_alerts
         })));
     } catch (err) {
         console.error('Get users error:', err);
@@ -606,13 +611,13 @@ router.put('/users/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado.' });
     }
     const { id } = req.params;
-    const { name, email, role, assignedGeneratorIds, credentials_password, companyId, phone, whatsappAlerts } = req.body;
+    const { name, email, role, assignedGeneratorIds, credentials_password, companyId, phone, whatsappAlerts, emailAlerts } = req.body;
 
     try {
         // Update basic info
         await pool.query(
-            "UPDATE users SET name=$1, email=$2, role=$3, assigned_generators=$4, company_id=$5, phone=$6, whatsapp_alerts=$7 WHERE id=$8",
-            [name, email, role, assignedGeneratorIds || [], companyId || null, phone || null, whatsappAlerts || false, id]
+            "UPDATE users SET name=$1, email=$2, role=$3, assigned_generators=$4, company_id=$5, phone=$6, whatsapp_alerts=$7, email_alerts=$8 WHERE id=$9",
+            [name, email, role, assignedGeneratorIds || [], companyId || null, phone || null, whatsappAlerts || false, emailAlerts !== undefined ? emailAlerts : true, id]
         );
 
         // Update password if provided
@@ -656,7 +661,7 @@ router.post('/auth/register', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem criar usuários.' });
     }
 
-    const { name, email, password, role, assigned_generators, companyId, phone, whatsappAlerts } = req.body;
+    const { name, email, password, role, assigned_generators, companyId, phone, whatsappAlerts, emailAlerts } = req.body;
 
     if (!name || !email || !password || !role) {
         return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
@@ -675,8 +680,8 @@ router.post('/auth/register', authenticateToken, async (req, res) => {
 
         // Insert User
         await pool.query(
-            "INSERT INTO users (name, email, password, role, assigned_generators, company_id, phone, whatsapp_alerts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-            [name, email, hashedPassword, role, assigned_generators || [], companyId || null, phone || null, whatsappAlerts || false]
+            "INSERT INTO users (name, email, password, role, assigned_generators, company_id, phone, whatsapp_alerts, email_alerts) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            [name, email, hashedPassword, role, assigned_generators || [], companyId || null, phone || null, whatsappAlerts || false, emailAlerts !== undefined ? emailAlerts : true]
         );
 
         res.status(201).json({ message: 'Usuário criado com sucesso.' });

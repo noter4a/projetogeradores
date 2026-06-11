@@ -139,6 +139,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             current.companyId !== updatedUser.companyId ||
             current.phone !== updatedUser.phone ||
             current.whatsappAlerts !== updatedUser.whatsappAlerts ||
+            current.emailAlerts !== updatedUser.emailAlerts ||
             JSON.stringify(current.assignedGeneratorIds || []) !== JSON.stringify(updatedUser.assignedGeneratorIds || []);
 
           if (userChanged) {

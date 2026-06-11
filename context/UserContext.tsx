@@ -79,7 +79,8 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
           assigned_generators: user.assignedGeneratorIds,
           companyId: user.companyId,
           phone: user.phone || null,
-          whatsappAlerts: user.whatsappAlerts || false
+          whatsappAlerts: user.whatsappAlerts || false,
+          emailAlerts: user.emailAlerts !== undefined ? user.emailAlerts : true
         })
       });
       await fetchUsers();
@@ -118,6 +119,7 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
           companyId: updatedUser.companyId,
           phone: updatedUser.phone || null,
           whatsappAlerts: updatedUser.whatsappAlerts || false,
+          emailAlerts: updatedUser.emailAlerts !== undefined ? updatedUser.emailAlerts : true,
           // Only send password if it's meant to be changed (handled by backend check)
           credentials_password: updatedUser.password === '123456' ? undefined : updatedUser.password
         })

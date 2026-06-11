@@ -47,12 +47,13 @@ const UserManagement: React.FC = () => {
     role: UserRole.TECHNICIAN,
     companyId: undefined as number | undefined,
     phone: '',
-    whatsappAlerts: false
+    whatsappAlerts: false,
+    emailAlerts: true
   });
 
   const handleOpenAdd = () => {
     setEditingId(null);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined, phone: '', whatsappAlerts: false });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined, phone: '', whatsappAlerts: false, emailAlerts: true });
     setIsFormOpen(true);
   };
 
@@ -65,7 +66,8 @@ const UserManagement: React.FC = () => {
       role: user.role,
       companyId: user.companyId,
       phone: user.phone || '',
-      whatsappAlerts: user.whatsappAlerts || false
+      whatsappAlerts: user.whatsappAlerts || false,
+      emailAlerts: user.emailAlerts !== undefined ? user.emailAlerts : true
     });
     setIsFormOpen(true);
   };
@@ -87,7 +89,8 @@ const UserManagement: React.FC = () => {
           assignedGeneratorIds: [],
           companyId: formData.companyId,
           phone: formData.phone ? formData.phone.replace(/\D/g, '') : undefined,
-          whatsappAlerts: formData.whatsappAlerts
+          whatsappAlerts: formData.whatsappAlerts,
+          emailAlerts: formData.emailAlerts
         });
       }
     } else {
@@ -101,13 +104,14 @@ const UserManagement: React.FC = () => {
         assignedGeneratorIds: [],
         companyId: formData.companyId,
         phone: formData.phone ? formData.phone.replace(/\D/g, '') : undefined,
-        whatsappAlerts: formData.whatsappAlerts
+        whatsappAlerts: formData.whatsappAlerts,
+        emailAlerts: formData.emailAlerts
       };
       await addUser(user);
     }
 
     setIsFormOpen(false);
-    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined, phone: '', whatsappAlerts: false });
+    setFormData({ name: '', email: '', password: '', role: UserRole.TECHNICIAN, companyId: undefined, phone: '', whatsappAlerts: false, emailAlerts: true });
     setEditingId(null);
   };
 
@@ -240,8 +244,9 @@ const UserManagement: React.FC = () => {
                   />
                 </div>
               </div>
-              <div className="flex items-end">
-                <label className="flex items-center gap-3 cursor-pointer group p-2.5">
+              <div className="flex flex-col justify-end gap-2.5 p-2.5">
+                {/* WhatsApp Alerts Toggle */}
+                <label className="flex items-center gap-3 cursor-pointer group">
                   <div className={`w-11 h-6 rounded-full relative transition-colors duration-200 ${formData.whatsappAlerts ? 'bg-green-500' : 'bg-gray-700'}`}
                     onClick={() => setFormData({ ...formData, whatsappAlerts: !formData.whatsappAlerts })}>
                     <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${formData.whatsappAlerts ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
@@ -250,6 +255,20 @@ const UserManagement: React.FC = () => {
                     <MessageSquare size={18} className={formData.whatsappAlerts ? 'text-green-400' : 'text-gray-500'} />
                     <span className={`text-sm font-medium ${formData.whatsappAlerts ? 'text-green-400' : 'text-gray-500'}`}>
                       Receber Alertas via WhatsApp
+                    </span>
+                  </div>
+                </label>
+
+                {/* Email Alerts Toggle */}
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-11 h-6 rounded-full relative transition-colors duration-200 ${formData.emailAlerts ? 'bg-blue-500' : 'bg-gray-700'}`}
+                    onClick={() => setFormData({ ...formData, emailAlerts: !formData.emailAlerts })}>
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${formData.emailAlerts ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </div>
+                  <div className="flex items-center gap-2" onClick={() => setFormData({ ...formData, emailAlerts: !formData.emailAlerts })}>
+                    <Mail size={18} className={formData.emailAlerts ? 'text-blue-400' : 'text-gray-500'} />
+                    <span className={`text-sm font-medium ${formData.emailAlerts ? 'text-blue-400' : 'text-gray-500'}`}>
+                      Receber Alertas via E-mail
                     </span>
                   </div>
                 </label>
@@ -310,6 +329,12 @@ const UserManagement: React.FC = () => {
                       <div className="flex items-center gap-2 text-gray-400 text-sm">
                         <Mail size={14} className="text-gray-600" />
                         {u.email}
+                        {u.emailAlerts && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            <Mail size={9} />
+                            EMAIL
+                          </span>
+                        )}
                       </div>
                       {u.phone && (
                         <div className="flex items-center gap-2 text-gray-400 text-sm">
