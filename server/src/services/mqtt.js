@@ -321,14 +321,9 @@ export const initMqttService = (io) => {
         client.subscribe('devices/data/+');
         console.log('[MQTT] Subscribed to devices/data/+');
 
-        // FORCE CONFIG UPDATE ON CONNECT
-        // Validates that the Modem has the latest "Golden List" immediately upon server start.
         setTimeout(async () => {
-            if (devicesToPoll.length === 0) {
-                console.log('[MQTT] No devices to configure on startup.');
-                // If list is empty, try to fetch it first
-                await updatePollingList();
-            }
+            console.log('[MQTT] Fetching fresh polling lists on connection...');
+            await updatePollingList();
 
             console.log(`[MQTT] Sending Initial Configuration to ${devicesToPoll.length} devices...`);
 
@@ -1133,11 +1128,12 @@ export const initMqttService = (io) => {
                 stopDR164DevicePolling(device.id);
             }
 
-            // Start independent timers for newly added devices
-            if (newDr164Added.length > 0) {
-                console.log(`[DR164] Detected ${newDr164Added.length} new DR164 generator(s): ${newDr164Added.map(d => d.id).join(', ')}`);
-                for (const device of newDr164Added) {
-                    if (client && client.connected) {
+            // Start independent timers for any DR164 device not currently being polled
+            if (client && client.connected) {
+                const missingTimers = dr164Devices.filter(d => !dr164DeviceTimers.has(d.id));
+                if (missingTimers.length > 0) {
+                    console.log(`[DR164] Starting polling timers for ${missingTimers.length} generator(s): ${missingTimers.map(d => d.id).join(', ')}`);
+                    for (const device of missingTimers) {
                         startDR164DevicePolling(device);
                     }
                 }
