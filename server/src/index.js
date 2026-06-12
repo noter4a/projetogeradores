@@ -176,7 +176,9 @@ const initDb = async (retries = 15, delay = 5000) => {
                 CREATE TABLE IF NOT EXISTS generators (
                     id VARCHAR(50) PRIMARY KEY,
                     name VARCHAR(255),
+                    location TEXT,
                     model VARCHAR(255),
+                    power_kva NUMERIC,
                     status VARCHAR(50),
                     connection_info JSONB,
                     last_seen TIMESTAMP,
@@ -335,6 +337,8 @@ const initDb = async (retries = 15, delay = 5000) => {
 
             // Add Real-Time Columns if they don't exist (Migration)
             const columnsToAdd = [
+                "location TEXT",
+                "power_kva NUMERIC",
                 "avg_voltage INTEGER DEFAULT 0",
                 "voltage_l1 INTEGER DEFAULT 0",
                 "voltage_l2 INTEGER DEFAULT 0",
@@ -852,13 +856,13 @@ router.get('/generators', authenticateToken, async (req, res) => {
             model: row.model,
             powerKVA: row.power_kva,
             status: row.status,
-            connectionName: row.connection_info.connectionName,
-            controller: row.connection_info.controller,
-            protocol: row.connection_info.protocol,
-            ip: row.connection_info.ip,
-            port: row.connection_info.port,
-            slaveId: row.connection_info.slaveId,
-            deviceType: row.connection_info.deviceType || 'modem',
+            connectionName: row.connection_info?.connectionName || null,
+            controller: row.connection_info?.controller || null,
+            protocol: row.connection_info?.protocol || null,
+            ip: row.connection_info?.ip || null,
+            port: row.connection_info?.port || null,
+            slaveId: row.connection_info?.slaveId || null,
+            deviceType: row.connection_info?.deviceType || 'modem',
             companyId: row.company_id,
             companyName: row.company_name,
 

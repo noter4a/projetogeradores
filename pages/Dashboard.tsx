@@ -1,11 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MOCK_ALARMS } from '../constants';
 import { GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle } from 'lucide-react';
-import AlarmPopup from '../components/AlarmPopup';
+
 
 const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
   const styles = {
@@ -215,9 +214,6 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Global Alarm Popup (Monitors All Generators) */}
-      <AlarmPopup />
     </div>
   );
 };
