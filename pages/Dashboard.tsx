@@ -113,9 +113,16 @@ const Dashboard: React.FC = () => {
                           {gen.name}
                         </h3>
                         {gen.alarmCode && gen.alarmCode > 0 && (
-                          <span className="inline-flex items-center flex-shrink-0" title={`Alarme Ativo (Código ${gen.alarmCode})`}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/alarm-center?generatorId=${encodeURIComponent(gen.id)}`);
+                            }}
+                            className="inline-flex items-center flex-shrink-0 hover:scale-125 transition-transform cursor-pointer"
+                            title={`Alarme Ativo (Código ${gen.alarmCode}) — Clique para ver alarmes`}
+                          >
                             <AlertTriangle size={20} className="text-red-500 animate-pulse drop-shadow-[0_0_6px_rgba(239,68,68,0.7)]" />
-                          </span>
+                          </button>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-400 text-sm mt-1.5 truncate">

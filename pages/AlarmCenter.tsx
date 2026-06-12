@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, CheckCircle, Trash2, Search, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useGenerators } from '../context/GeneratorContext';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 interface Alarm {
     id: number;
@@ -18,7 +19,13 @@ interface Alarm {
 
 const AlarmCenter: React.FC = () => {
     const { user, token } = useAuth();
+    const { generators } = useGenerators();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const generatorIdFilter = searchParams.get('generatorId');
+    const filteredGeneratorName = generatorIdFilter
+        ? generators.find(g => g.id === generatorIdFilter)?.name || generatorIdFilter
+        : null;
     const [alarms, setAlarms] = useState<Alarm[]>([]);
     const [filter, setFilter] = useState<'all' | 'active' | 'history'>('all');
     const [loading, setLoading] = useState(false);
@@ -27,7 +34,10 @@ const AlarmCenter: React.FC = () => {
     const fetchHistory = () => {
         setLoading(true);
         let url = '/api/alarms';
-        if (filter === 'active') url += '?activeOnly=true';
+        const params = new URLSearchParams();
+        if (filter === 'active') params.set('activeOnly', 'true');
+        if (generatorIdFilter) params.set('generatorId', generatorIdFilter);
+        if (params.toString()) url += '?' + params.toString();
 
         fetch(url, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -45,7 +55,7 @@ const AlarmCenter: React.FC = () => {
         fetchHistory();
         const interval = setInterval(fetchHistory, 10000);
         return () => clearInterval(interval);
-    }, [filter]);
+    }, [filter, generatorIdFilter]);
 
     const handleClearResolved = async () => {
         if (!confirm("Limpar todos os alarmes RESOLVIDOS do histórico?")) return;
@@ -131,6 +141,22 @@ const AlarmCenter: React.FC = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Generator Filter Banner */}
+            {generatorIdFilter && (
+                <div className="flex items-center gap-3 bg-orange-900/20 border border-orange-900/40 rounded-xl px-4 py-3">
+                    <AlertTriangle className="text-orange-400 shrink-0" size={20} />
+                    <span className="text-orange-300 text-sm font-medium flex-1">
+                        Filtro ativo: exibindo apenas alarmes do gerador <strong className="text-white">{filteredGeneratorName}</strong>
+                    </span>
+                    <button
+                        onClick={() => { setSearchParams({}); }}
+                        className="px-3 py-1.5 bg-gray-800 text-gray-300 border border-gray-700 rounded-lg hover:bg-gray-700 text-xs font-medium whitespace-nowrap"
+                    >
+                        Limpar Filtro
+                    </button>
+                </div>
+            )}
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
