@@ -10,7 +10,7 @@ import {
   Power, AlertOctagon, RotateCcw, Settings, Gauge,
   Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, ChevronDown, ChevronUp, Lock,
   RefreshCw, UtilityPole, Cable, TrendingUp, BarChart3, Play, Square,
-  Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban
+  Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban, AlertTriangle
 } from 'lucide-react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
@@ -1041,6 +1041,21 @@ const GeneratorDetail: React.FC = () => {
         <div className="space-y-6 animate-in fade-in duration-300">
           {isMobile ? (
             <div className="space-y-3">
+              {/* Alarm Alert Banner (Mobile) */}
+              {gen.alarmCode && gen.alarmCode > 0 && (
+                <button
+                  onClick={() => navigate(`/alarm-center?generatorId=${encodeURIComponent(gen.id)}`)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-red-600/60 bg-red-900/30 hover:bg-red-900/50 active:bg-red-900/60 transition-colors shadow-lg shadow-red-900/20 animate-pulse"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shrink-0 shadow-md shadow-red-900/40">
+                    <AlertTriangle size={22} className="text-white" />
+                  </div>
+                  <div className="text-left flex-1 min-w-0">
+                    <span className="text-red-300 font-bold text-sm block">⚠ Alarme Ativo (Código {gen.alarmCode})</span>
+                    <span className="text-red-400/70 text-xs">Toque para ver na Central de Alarmes →</span>
+                  </div>
+                </button>
+              )}
               {/* Accordion: Controle Remoto */}
               {canControl && (
                 <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
