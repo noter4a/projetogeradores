@@ -1,21 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, CheckCircle, Trash2, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Bell, CheckCircle, Trash2, ShieldAlert, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { useSearchParams } from 'react-router-dom';
-
-interface Alarm {
-    id: number;
-    generator_id: string;
-    generator_name?: string;
-    alarm_code: number;
-    alarm_message: string;
-    start_time: string;
-    end_time: string | null;
-    acknowledged: boolean;
-    acknowledged_at: string | null;
-    acknowledged_by: string | null;
-}
+import { AlarmRecord } from '../types';
+import { formatDuration } from '../utils/formatters';
 
 const AlarmCenter: React.FC = () => {
     const { user, token } = useAuth();
@@ -25,10 +14,12 @@ const AlarmCenter: React.FC = () => {
     const filteredGeneratorName = generatorIdFilter
         ? generators.find(g => g.id === generatorIdFilter)?.name || generatorIdFilter
         : null;
-    const [alarms, setAlarms] = useState<Alarm[]>([]);
+    const [alarms, setAlarms] = useState<AlarmRecord[]>([]);
     const [filter, setFilter] = useState<'all' | 'active' | 'history'>('all');
     const [loading, setLoading] = useState(false);
     const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 15;
 
     const fetchHistory = () => {
         setLoading(true);
@@ -96,15 +87,10 @@ const AlarmCenter: React.FC = () => {
     const activeCount = alarms.filter(a => !a.end_time).length;
     const resolvedCount = alarms.filter(a => !!a.end_time).length;
 
-    const formatDuration = (alarm: Alarm) => {
-        if (!alarm.end_time) return null;
-        const ms = new Date(alarm.end_time).getTime() - new Date(alarm.start_time).getTime();
-        const secs = Math.floor(ms / 1000);
-        if (secs < 60) return `${secs}s`;
-        const mins = Math.floor(secs / 60);
-        if (mins < 60) return `${mins}m ${secs % 60}s`;
-        return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-    };
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(alarms.length / ITEMS_PER_PAGE));
+    const safePage = Math.min(currentPage, totalPages);
+    const pagedAlarms = alarms.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
     return (
         <div className="space-y-6">
@@ -231,9 +217,9 @@ const AlarmCenter: React.FC = () => {
                                     </td>
                                 </tr>
                             )}
-                            {alarms.map(alarm => {
+                            {pagedAlarms.map(alarm => {
                                 const isActive = !alarm.end_time;
-                                const duration = formatDuration(alarm);
+                                const duration = formatDuration(alarm.start_time, alarm.end_time);
                                 return (
                                     <tr
                                         key={alarm.id}
@@ -296,6 +282,31 @@ const AlarmCenter: React.FC = () => {
                     </table>
                 </div>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between bg-ciklo-card rounded-xl border border-gray-800 px-4 py-3">
+                    <span className="text-sm text-gray-400">
+                        Página {safePage} de {totalPages} ({alarms.length} registros)
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={safePage <= 1}
+                            className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300"
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={safePage >= totalPages}
+                            className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300"
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

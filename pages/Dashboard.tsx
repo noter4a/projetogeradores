@@ -115,7 +115,7 @@ const Dashboard: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/alarm-center?generatorId=${encodeURIComponent(gen.id)}`);
+                              navigate(`/alarms?generatorId=${encodeURIComponent(gen.id)}`);
                             }}
                             className="inline-flex items-center flex-shrink-0 hover:scale-125 transition-transform cursor-pointer"
                             title={`Alarme Ativo (Código ${gen.alarmCode}) — Clique para ver alarmes`}

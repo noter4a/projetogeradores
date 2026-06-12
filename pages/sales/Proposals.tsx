@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Plus, Eye, Trash2, Search, ArrowRight, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { QmProposal } from '../../types';
+import { formatCurrency, formatDate } from '../../utils/formatters';
 
 const Proposals: React.FC = () => {
   const [proposals, setProposals] = useState<QmProposal[]>([]);
@@ -55,16 +56,6 @@ const Proposals: React.FC = () => {
     }
   };
 
-  const formatCurrency = (val: any, moeda?: string) => {
-    if (!val) return moeda === 'USD' ? 'US$ 0,00' : 'R$ 0,00';
-    const isUSD = moeda === 'USD';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: isUSD ? 'USD' : 'BRL' }).format(Number(val));
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('pt-BR');
-  };
 
   const filteredProposals = proposals.filter(p => 
     p.numero_proposta?.toLowerCase().includes(search.toLowerCase()) || 

@@ -9,6 +9,7 @@ import {
   QmCatalogAccessory,
   QmCatalogDimension
 } from '../../types';
+import { formatCurrency } from '../../utils/formatters';
 
 type TabType = 'geradores' | 'tensoes_cat' | 'motores' | 'alternadores' | 'modulos' | 'acessorios' | 'dimensoes';
 
@@ -35,10 +36,6 @@ const Catalog: React.FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const formatCurrency = (val: any) => {
-    if (!val) return 'R$ 0,00';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val));
-  };
 
   const tabs = [
     { id: 'geradores', label: 'Geradores', icon: Zap },

@@ -6,6 +6,7 @@ import {
   QmClient, QmCatalogGenerator, QmCatalogMotor, QmCatalogAlternator, 
   QmCatalogModule, QmCatalogAccessory, QmCatalogDimension 
 } from '../../types';
+import { formatCurrency as formatCurrencyBase } from '../../utils/formatters';
 
 const NewProposal: React.FC = () => {
   const navigate = useNavigate();
@@ -206,10 +207,7 @@ const NewProposal: React.FC = () => {
     }
   };
 
-  const formatCurrency = (val: number) => {
-    const isUSD = moeda === 'USD';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: isUSD ? 'USD' : 'BRL' }).format(val);
-  };
+  const formatCurrency = (val: number) => formatCurrencyBase(val, moeda);
 
   if (loading) {
     return <div className="text-white text-center py-10">Carregando módulos...</div>;

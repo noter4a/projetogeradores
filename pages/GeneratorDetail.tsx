@@ -4,8 +4,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Generator, GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators, getSocket } from '../context/GeneratorContext';
-import { useAlarms } from '../context/AlarmContext';
+
 import AlarmPopup from '../components/AlarmPopup'; // NEW
+import { useIsMobile } from '../hooks/useIsMobile';
 import {
   Power, AlertOctagon, RotateCcw, Settings, Gauge,
   Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, ChevronDown, ChevronUp, Lock,
@@ -79,19 +80,14 @@ const GeneratorDetail: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { generators, updateGenerator } = useGenerators();
-  const { alarms } = useAlarms();
+
 
   // Permissions checks
   const canControl = user?.role === UserRole.ADMIN || user?.role === UserRole.TECHNICIAN || user?.role === UserRole.CLIENT;
   const canAccessAdvanced = user?.role === UserRole.ADMIN || user?.role === UserRole.TECHNICIAN;
 
   // Mobile responsive state
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const isMobile = useIsMobile();
 
   // Mobile accordion state - which sections are expanded
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
@@ -375,7 +371,7 @@ const GeneratorDetail: React.FC = () => {
     console.log(`[Real Write] Register ${id} -> ${newValue}`);
   };
 
-  const activeAlarms = alarms.filter(a => a.generatorId === gen.id && a.active);
+
 
   const renderRemoteControl = () => {
     if (!canControl) return null;
@@ -1044,7 +1040,7 @@ const GeneratorDetail: React.FC = () => {
               {/* Alarm Alert Banner (Mobile) */}
               {gen.alarmCode && gen.alarmCode > 0 && (
                 <button
-                  onClick={() => navigate(`/alarm-center?generatorId=${encodeURIComponent(gen.id)}`)}
+                  onClick={() => navigate(`/alarms?generatorId=${encodeURIComponent(gen.id)}`)}
                   className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-red-600/60 bg-red-900/30 hover:bg-red-900/50 active:bg-red-900/60 transition-colors shadow-lg shadow-red-900/20 animate-pulse"
                 >
                   <div className="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center shrink-0 shadow-md shadow-red-900/40">

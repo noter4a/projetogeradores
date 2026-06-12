@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Printer, ArrowLeft } from 'lucide-react';
 import { QmProposal } from '../../types';
+import { formatCurrency as formatCurrencyBase, formatDate } from '../../utils/formatters';
 
 const ProposalView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -37,16 +38,7 @@ const ProposalView: React.FC = () => {
 
   if (!proposal) return null;
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString('pt-BR');
-  };
-
-  const formatCurrency = (val?: number) => {
-    if (val === undefined) return proposal?.moeda === 'USD' ? 'US$ 0,00' : 'R$ 0,00';
-    const isUSD = proposal?.moeda === 'USD';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: isUSD ? 'USD' : 'BRL' }).format(val);
-  };
+  const formatCurrency = (val?: number) => formatCurrencyBase(val, proposal?.moeda);
 
   const cliente = proposal.cliente;
   const gerador = proposal.gerador;

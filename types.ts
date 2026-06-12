@@ -126,13 +126,17 @@ export interface MaintenanceLog {
   completed: boolean;
 }
 
-export interface Alarm {
-  id: string;
-  generatorId: string;
-  message: string;
-  severity: 'WARNING' | 'CRITICAL';
-  timestamp: string;
-  active: boolean;
+export interface AlarmRecord {
+  id: number;
+  generator_id: string;
+  generator_name?: string;
+  alarm_code: number;
+  alarm_message: string;
+  start_time: string;
+  end_time: string | null;
+  acknowledged: boolean;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
 }
 
 // --- QUOTATION MODULE (QM) TYPES ---

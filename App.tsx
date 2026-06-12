@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { UserRole } from './types';
@@ -14,7 +14,7 @@ import ProfileSettings from './pages/ProfileSettings';
 import CompanyManagement from './pages/CompanyManagement';
 import Reports from './pages/Reports';
 import Maintenance from './pages/Maintenance';
-import Alarms from './pages/Alarms';
+
 
 // Quotation Module Pages
 import Clients from './pages/sales/Clients';
@@ -28,8 +28,9 @@ import AlarmPopup from './components/AlarmPopup';
 import { GeneratorProvider } from './context/GeneratorContext';
 import { UserProvider } from './context/UserContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { AlarmProvider } from './context/AlarmContext';
+
 import { ThemeProvider } from './context/ThemeContext';
+import { useIsMobile } from './hooks/useIsMobile';
 
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const { user } = useAuth();
@@ -87,16 +88,11 @@ const MonitoringRoute = ({ children }: { children?: React.ReactNode }) => {
 const Layout = ({ children }: { children?: React.ReactNode }) => {
   const location = useLocation();
   const { user, isSyncing } = useAuth();
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const isMobile = useIsMobile();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem('ciklo_sidebar_collapsed') === 'true';
   });
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const loadingOverlay = isSyncing && (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
@@ -217,11 +213,7 @@ const AppContent: React.FC = () => {
           </MonitoringRoute>
         } />
 
-        <Route path="/alarm-center" element={
-          <MonitoringRoute>
-            <Layout><AlarmCenter /></Layout>
-          </MonitoringRoute>
-        } />
+
 
         <Route path="/maintenance" element={
           <MonitoringRoute>
@@ -237,7 +229,7 @@ const AppContent: React.FC = () => {
 
         <Route path="/alarms" element={
           <MonitoringRoute>
-            <Layout><Alarms /></Layout>
+            <Layout><AlarmCenter /></Layout>
           </MonitoringRoute>
         } />
 
@@ -322,9 +314,7 @@ const App: React.FC = () => {
       <AuthProvider>
         <UserProvider>
           <GeneratorProvider>
-            <AlarmProvider>
               <AppContent />
-            </AlarmProvider>
           </GeneratorProvider>
         </UserProvider>
       </AuthProvider>
