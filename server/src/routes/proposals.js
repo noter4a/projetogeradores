@@ -43,7 +43,7 @@ router.get('/', async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         console.error('Error fetching proposals:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
 
@@ -108,7 +108,7 @@ router.get('/:id', async (req, res) => {
         res.json(proposal);
     } catch (err) {
         console.error('Error fetching proposal:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
 
@@ -189,7 +189,7 @@ router.post('/', async (req, res) => {
         }
     } catch (err) {
         console.error('Error creating proposal:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
 
@@ -257,7 +257,7 @@ router.put('/:id', async (req, res) => {
         }
     } catch (err) {
         console.error('Error updating proposal:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
 
@@ -268,7 +268,7 @@ router.delete('/:id', async (req, res) => {
         res.status(204).send();
     } catch (err) {
         console.error('Error deleting proposal:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
 

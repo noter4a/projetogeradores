@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { UserRole, User, Company } from '../types';
-import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Server, Lock, Eye, Wallet, ChevronLeft, ChevronRight, Building, Phone, MessageSquare } from 'lucide-react';
+import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Lock, Eye, Wallet, ChevronLeft, ChevronRight, Building, Phone, MessageSquare } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
   const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();

@@ -481,6 +481,14 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+// Role-based authorization middleware
+const requireRole = (...roles) => (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+        return res.status(403).json({ message: 'Acesso negado. Permissão insuficiente.' });
+    }
+    next();
+};
+
 
 // GET /api/auth/profile - PROTECTED (Fetch current logged-in user details)
 router.get('/auth/profile', authenticateToken, async (req, res) => {
@@ -1044,10 +1052,10 @@ router.get('/generators/:id/readings', authenticateToken, async (req, res) => {
 // FIX #8: Alarm Routes protegidas com autenticação
 app.use('/api/alarms', authenticateToken, alarmRoutes);
 
-// Quotation Module Routes
-app.use('/api/crm', authenticateToken, crmRoutes);
-app.use('/api/catalog', authenticateToken, catalogRoutes);
-app.use('/api/proposals', authenticateToken, proposalRoutes);
+// Quotation Module Routes (ADMIN and TECHNICIAN only)
+app.use('/api/crm', authenticateToken, requireRole('ADMIN', 'TECHNICIAN'), crmRoutes);
+app.use('/api/catalog', authenticateToken, requireRole('ADMIN', 'TECHNICIAN'), catalogRoutes);
+app.use('/api/proposals', authenticateToken, requireRole('ADMIN', 'TECHNICIAN'), proposalRoutes);
 
 // Mount Main Router (handling Auth, Generators, Control which are defined inline above)
 app.use('/api', router);

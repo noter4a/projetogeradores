@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, CheckCircle, Trash2, Search, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Bell, CheckCircle, Trash2, ShieldAlert, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 interface Alarm {
     id: number;
@@ -20,7 +20,6 @@ interface Alarm {
 const AlarmCenter: React.FC = () => {
     const { user, token } = useAuth();
     const { generators } = useGenerators();
-    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const generatorIdFilter = searchParams.get('generatorId');
     const filteredGeneratorName = generatorIdFilter

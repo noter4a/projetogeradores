@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
         const result = await pool.query('SELECT * FROM qm_clientes ORDER BY id DESC');
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
 
@@ -25,7 +25,7 @@ router.post('/', async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
 
@@ -44,7 +44,7 @@ router.put('/:id', async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ error: 'Cliente não encontrado' });
         res.json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
 
@@ -59,7 +59,7 @@ router.delete('/:id', async (req, res) => {
         if (err.code === '23503') { // foreign_key_violation
              return res.status(400).json({ error: 'Não é possível excluir o cliente pois existem propostas vinculadas a ele.' });
         }
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 });
 

@@ -67,8 +67,11 @@ router.post('/:id/ack', async (req, res) => {
     }
 });
 
-// DELETE /api/alarms/:id - Remove single alarm record
+// DELETE /api/alarms/:id - Remove single alarm record (ADMIN only)
 router.delete('/:id', async (req, res) => {
+    if (!req.user || req.user.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Acesso negado. Somente administradores podem deletar alarmes.' });
+    }
     try {
         const { id } = req.params;
         await pool.query('DELETE FROM alarm_history WHERE id = $1', [id]);
@@ -79,8 +82,11 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// DELETE /api/alarms/clear - Clear History (Soft or Hard)
+// DELETE /api/alarms/clear - Clear History (ADMIN only)
 router.post('/clear', async (req, res) => {
+    if (!req.user || req.user.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'Acesso negado. Somente administradores podem limpar o histórico.' });
+    }
     try {
         const { generatorId, clearAll } = req.body;
         if (generatorId) {

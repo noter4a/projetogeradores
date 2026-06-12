@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertOctagon, X, CheckCircle, Bell } from 'lucide-react';
+import { AlertOctagon, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface Alarm {

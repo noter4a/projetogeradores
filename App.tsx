@@ -30,7 +30,6 @@ import { UserProvider } from './context/UserContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AlarmProvider } from './context/AlarmContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { Menu, X } from 'lucide-react';
 
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const { user } = useAuth();

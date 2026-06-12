@@ -23,7 +23,7 @@ const getAll = async (table, res, order = 'DESC') => {
         const result = await pool.query(`SELECT * FROM ${table} ORDER BY id ${order}`);
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 };
 
@@ -35,7 +35,7 @@ const deleteById = async (table, id, res) => {
         if (err.code === '23503') { // foregin key violation
             return res.status(400).json({ error: 'Não é possível excluir o item pois existem propostas vinculadas a ele.' });
         }
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Erro interno do servidor' });
     }
 };
 
@@ -53,7 +53,7 @@ router.post('/geradores', async (req, res) => {
             [modelo, descricao, unidade, valor_unitario, protecao, tensoes, finame, mda]
         );
         res.status(201).json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 router.put('/geradores/:id', async (req, res) => {
@@ -65,7 +65,7 @@ router.put('/geradores/:id', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 // ---------------------------------------------
@@ -82,7 +82,7 @@ router.post('/motores', async (req, res) => {
             [modelo, descricao, protecao]
         );
         res.status(201).json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 router.put('/motores/:id', async (req, res) => {
@@ -94,7 +94,7 @@ router.put('/motores/:id', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 // ---------------------------------------------
@@ -111,7 +111,7 @@ router.post('/alternadores', async (req, res) => {
             [modelo, descricao]
         );
         res.status(201).json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 router.put('/alternadores/:id', async (req, res) => {
@@ -123,7 +123,7 @@ router.put('/alternadores/:id', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 // ---------------------------------------------
@@ -140,7 +140,7 @@ router.post('/modulos', async (req, res) => {
             [modelo, descricao, imagem_base64 || null]
         );
         res.status(201).json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 router.put('/modulos/:id', async (req, res) => {
@@ -152,7 +152,7 @@ router.put('/modulos/:id', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 // ---------------------------------------------
@@ -169,7 +169,7 @@ router.post('/acessorios', async (req, res) => {
             [grupo, itens_incluidos]
         );
         res.status(201).json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 router.put('/acessorios/:id', async (req, res) => {
@@ -181,7 +181,7 @@ router.put('/acessorios/:id', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 
@@ -199,7 +199,7 @@ router.post('/dimensoes', async (req, res) => {
             [id_dimensionamento, dimensoes, imagem_base64 || null]
         );
         res.status(201).json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 router.put('/dimensoes/:id', async (req, res) => {
@@ -211,7 +211,7 @@ router.put('/dimensoes/:id', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 // ---------------------------------------------
@@ -228,7 +228,7 @@ router.post('/tensoes', async (req, res) => {
             [descricao]
         );
         res.status(201).json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 router.put('/tensoes/:id', async (req, res) => {
@@ -240,7 +240,7 @@ router.put('/tensoes/:id', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Não encontrado' });
         res.json(result.rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { res.status(500).json({ error: 'Erro interno do servidor' }); }
 });
 
 export default router;
