@@ -195,8 +195,10 @@ async function pollDR164Device(device) {
             console.error(`[DR164] Error polling ${device.id} addr ${req.startAddress}: ${stepErr.message}`);
             // Clean up any dangling state for this device
             dr164PendingRequests.delete(device.id);
-            if (dr164ResponseResolvers.has(device.id)) {
+            const resolver = dr164ResponseResolvers.get(device.id);
+            if (resolver) {
                 dr164ResponseResolvers.delete(device.id);
+                resolver('error');
             }
             // Longer recovery after error — give the gateway time to flush
             await dr164Sleep(3000);
@@ -248,6 +250,11 @@ function stopDR164DevicePolling(deviceId) {
         clearInterval(timerId);
         dr164DeviceTimers.delete(deviceId);
         dr164DevicePollingActive.delete(deviceId);
+        const resolver = dr164ResponseResolvers.get(deviceId);
+        if (resolver) {
+            dr164ResponseResolvers.delete(deviceId);
+            resolver('stopped');
+        }
         console.log(`[DR164] Stopped polling timer for ${deviceId}`);
     }
 }
