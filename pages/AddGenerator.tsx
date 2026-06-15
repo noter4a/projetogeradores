@@ -71,8 +71,8 @@ const AddGenerator: React.FC = () => {
       const updated = { ...prev, [name]: value };
       // Auto-select deviceType when controller changes
       if (name === 'controller') {
-        if (value === 'kvar') {
-          updated.deviceType = 'dr164'; // KVA uses USR162 (transparent binary, same as DR164)
+        if (value === 'kvar' || value === 'dse') {
+          updated.deviceType = 'dr164'; // KVA and DSE use transparent binary mode (DR164/USR162)
         }
       }
       return updated;

@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
 import { decodeKvaPayload } from '../utils/kva-parser.js';
+import { decodeDsePayload } from '../utils/dse-parser.js';
 import pool from '../db.js';
 import { sendAlarmEmail } from './email.js';
 import { sendAlarmWhatsApp, sendAlarmResolvedWhatsApp } from './whatsapp.js';
@@ -99,6 +100,14 @@ const KVA_POLL_SEQUENCE = [
     { startAddress: 12043, quantity: 6 },   // Tensões Fase-Neutro (Rede + GMG)
 ];
 
+const DSE_POLL_SEQUENCE = [
+    { startAddress: 1024, quantity: 28 }, // 1. Engine + Gen Voltages & Currents (Reg 1024-1051)
+    { startAddress: 1058, quantity: 15 }, // 2. Mains Voltages & Freq (Reg 1058-1072)
+    { startAddress: 1536, quantity: 2 },  // 3. Active Power (Reg 1536-1537)
+    { startAddress: 1798, quantity: 2 },  // 4. Run Hours in Seconds (Reg 1798-1799)
+    { startAddress: 1408, quantity: 1 },  // 5. StatusCode (Reg 1408)
+];
+
 function waitForDR164Response(deviceId, timeoutMs) {
     return new Promise((resolve) => {
         dr164ResponseResolvers.set(deviceId, resolve);
@@ -155,8 +164,9 @@ async function pollDR164Device(device) {
 
     // Select poll sequence based on controller type
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
-    const pollSequence = isKva ? KVA_POLL_SEQUENCE : DR164_POLL_SEQUENCE;
-    const controllerLabel = isKva ? 'KVA' : 'DR164';
+    const isDse = device.controller === 'dse';
+    const pollSequence = isKva ? KVA_POLL_SEQUENCE : (isDse ? DSE_POLL_SEQUENCE : DR164_POLL_SEQUENCE);
+    const controllerLabel = isKva ? 'KVA' : (isDse ? 'DSE' : 'DR164');
 
     const topic = `devices/command/${device.id}`;
     console.log(`[${controllerLabel}] Starting poll cycle for ${device.id} (Slave ${device.slaveId}) — ${pollSequence.length} steps`);
@@ -225,7 +235,8 @@ function startDR164DevicePolling(device) {
     }
 
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
-    const label = isKva ? 'KVA' : 'DR164';
+    const isDse = device.controller === 'dse';
+    const label = isKva ? 'KVA' : (isDse ? 'DSE' : 'DR164');
     console.log(`[${label}] Starting independent polling timer for ${device.id}`);
 
     // Run immediately on first start
@@ -272,7 +283,9 @@ async function pollSingleDR164Device(device) {
         await pollDR164Device(device);
     } catch (err) {
         const isKva = device.controller === 'kva' || device.controller === 'kvar';
-        console.error(`[${isKva ? 'KVA' : 'DR164'}] Polling error for ${device.id}:`, err.message);
+        const isDse = device.controller === 'dse';
+        const label = isKva ? 'KVA' : (isDse ? 'DSE' : 'DR164');
+        console.error(`[${label}] Polling error for ${device.id}:`, err.message);
     } finally {
         dr164DevicePollingActive.set(device.id, false);
     }
@@ -392,12 +405,14 @@ export const initMqttService = (io) => {
 
             const results = decodeSgc120Payload(payload);
 
-            // Check if this device uses a KVA controller
+            // Check if this device uses a KVA or DSE controller
             const isKvaDevice = dr164Devices.some(d => d.id === deviceId && (d.controller === 'kva' || d.controller === 'kvar'));
+            const isDseDevice = dr164Devices.some(d => d.id === deviceId && d.controller === 'dse');
             const kvaResults = isKvaDevice ? decodeKvaPayload(payload) : [];
+            const dseResults = isDseDevice ? decodeDsePayload(payload) : [];
 
             // If we have valid decoded blocks, merge them into a unified status object
-            if (results.length > 0 || kvaResults.length > 0) {
+            if (results.length > 0 || kvaResults.length > 0 || dseResults.length > 0) {
                 // We might receive multiple blocks (Voltages + Engine), so we start with a base object
                 // and merge all decoded fields.
                 let unifiedData = {};
@@ -685,8 +700,8 @@ export const initMqttService = (io) => {
                         }
 
                         // Recalculate Combined Decimal Run Hours if cache has data
-                        // SKIP for KVA devices — KVA has its own totalHours from KVA_STATUS_12001
-                        if (global.mqttDeviceCache[deviceId] && !isKvaDevice) {
+                        // SKIP for KVA and DSE devices — they have their own totalHours from Modbus registers
+                        if (global.mqttDeviceCache[deviceId] && !isKvaDevice && !isDseDevice) {
                             const h = global.mqttDeviceCache[deviceId].runHours;
                             const m = global.mqttDeviceCache[deviceId].runMinutes;
                             const decimalHours = h + (m / 60.0);
@@ -766,6 +781,61 @@ export const initMqttService = (io) => {
                             // Calculate average voltage
                             const avgVal = (d.voltageL1 + d.voltageL2 + d.voltageL3) / 3;
                             unifiedData.avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
+                        }
+                    }
+                });
+
+                // ========================================
+                // DSE Controller Data Mapping
+                // ========================================
+                dseResults.forEach(res => {
+                    if (res.ok && res.decoded) {
+                        const d = res.decoded;
+
+                        if (d.block === 'DSE_ENGINE_GEN_1024') {
+                            unifiedData.oilPressure = d.oilPressure;
+                            unifiedData.engineTemp = d.engineTemp;
+                            unifiedData.fuelLevel = d.fuelLevel;
+                            unifiedData.batteryVoltage = d.batteryVoltage;
+                            unifiedData.rpm = d.rpm;
+                            unifiedData.frequency = d.frequency;
+                            unifiedData.voltageL1 = d.voltageL1;
+                            unifiedData.voltageL2 = d.voltageL2;
+                            unifiedData.voltageL3 = d.voltageL3;
+                            unifiedData.avgVoltage = d.avgVoltage;
+                            unifiedData.voltageL12 = d.voltageL12;
+                            unifiedData.voltageL23 = d.voltageL23;
+                            unifiedData.voltageL31 = d.voltageL31;
+                            unifiedData.currentL1 = d.currentL1;
+                            unifiedData.currentL2 = d.currentL2;
+                            unifiedData.currentL3 = d.currentL3;
+                            unifiedData.mainsCurrentL1 = d.mainsCurrentL1;
+                            unifiedData.mainsCurrentL2 = d.mainsCurrentL2;
+                            unifiedData.mainsCurrentL3 = d.mainsCurrentL3;
+                        }
+
+                        if (d.block === 'DSE_MAINS_1058') {
+                            unifiedData.mainsVoltageL1 = d.mainsVoltageL1;
+                            unifiedData.mainsVoltageL2 = d.mainsVoltageL2;
+                            unifiedData.mainsVoltageL3 = d.mainsVoltageL3;
+                            unifiedData.mainsVoltageL12 = d.mainsVoltageL12;
+                            unifiedData.mainsVoltageL23 = d.mainsVoltageL23;
+                            unifiedData.mainsVoltageL31 = d.mainsVoltageL31;
+                            unifiedData.mainsFrequency = d.mainsFrequency;
+                        }
+
+                        if (d.block === 'DSE_POWER_1536') {
+                            unifiedData.activePower = d.activePower;
+                            unifiedData.activePowerTotal = d.activePowerTotal;
+                        }
+
+                        if (d.block === 'DSE_RUNHOURS_1798') {
+                            unifiedData.runHours = d.runHours;
+                            unifiedData.totalHours = d.totalHours;
+                        }
+
+                        if (d.block === 'DSE_STATUS_1408') {
+                            unifiedData.status = d.status;
                         }
                     }
                 });
@@ -994,7 +1064,8 @@ export const initMqttService = (io) => {
                                     voltage_l31 = COALESCE($21, voltage_l31),
                                     run_hours = COALESCE($22, run_hours),
                                     active_power = COALESCE($23, active_power),
-                                    power_factor = COALESCE($24, power_factor)
+                                    power_factor = COALESCE($24, power_factor),
+                                    last_connected = NOW()
                                 WHERE id = $18 OR connection_info->>'ip' = $18
                             `;
 
@@ -1456,8 +1527,9 @@ export const sendControlCommand = (deviceId, action) => {
         // DR164/KVA: Send raw Modbus binary (no JSON wrapper)
         if (isDR164) {
             pausedDevices.add(deviceId); // DR164 needs pause to prevent polling collisions
-            // Check if this is a KVA controller
+            // Check if this is a KVA or DSE controller
             const isKvaController = device.controller === 'kva' || device.controller === 'kvar';
+            const isDseController = device.controller === 'dse';
 
             if (isKvaController) {
                 // KVA: Use register 19108 with Function 06 (Write Single Register)
@@ -1522,6 +1594,33 @@ export const sendControlCommand = (deviceId, action) => {
                 setTimeout(() => {
                     pausedDevices.delete(deviceId);
                     console.log(`[KVA-CMD] Resumed polling for ${deviceId}`);
+                }, 2000);
+
+                return { success: true };
+            }
+
+            if (isDseController) {
+                // DSE System Control Command (Reg 4104, 2 words)
+                // Keys: 35701=SELECT_AUTO_MODE, 35732=TELEMETRY_START (Start), 35733=TELEMETRY_STOP (Stop)
+                let key;
+                switch (action) {
+                    case 'auto':    key = 35701; break;
+                    case 'start':   key = 35732; break;
+                    case 'stop':    key = 35733; break;
+                    case 'manual':  
+                        return { success: false, error: 'DSE manual mode selection not supported via Modbus commands (use start/stop/auto)' };
+                    default:
+                        return { success: false, error: `DSE command '${action}' not supported` };
+                }
+
+                const onesComplement = 65535 - key;
+                const buf = createModbusWriteMultipleRequest(slaveId, 4104, [key, onesComplement]);
+                client.publish(topic, buf);
+                console.log(`[DSE-CMD] ${action.toUpperCase()}: Sent SCF command to ${deviceId}. Key: ${key}, Compl: ${onesComplement}. Hex: ${buf.toString('hex').toUpperCase()}`);
+
+                setTimeout(() => {
+                    pausedDevices.delete(deviceId);
+                    console.log(`[DSE-CMD] Resumed polling for ${deviceId}`);
                 }, 2000);
 
                 return { success: true };

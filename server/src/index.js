@@ -206,6 +206,7 @@ const initDb = async (retries = 15, delay = 5000) => {
             try {
                 await client.query("ALTER TABLE generators ADD COLUMN IF NOT EXISTS company_id INT REFERENCES companies(id) ON DELETE SET NULL");
                 await client.query("ALTER TABLE generators ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+                await client.query("ALTER TABLE generators ADD COLUMN IF NOT EXISTS last_connected TIMESTAMP");
             } catch (e) {
                 console.log("Migration generators.company_id already applied or failed:", e.message);
             }
@@ -873,6 +874,7 @@ router.get('/generators', authenticateToken, async (req, res) => {
             deviceType: row.connection_info?.deviceType || 'modem',
             companyId: row.company_id,
             companyName: row.company_name,
+            lastDataReceived: row.last_connected ? new Date(row.last_connected).getTime() : null,
 
             // Map Persistent Real-Time Values
             fuelLevel: row.fuel_level === null || row.fuel_level === 65535 ? null : Number(row.fuel_level),
