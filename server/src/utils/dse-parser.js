@@ -83,6 +83,69 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
         };
     }
 
+    // ---- Block 1a: Engine + Gen Voltages L-N (Reg 1024-1037, 14 regs) ----
+    if (startAddress === 1024 && regs.length === 14) {
+        const oilPressureRaw = u16(regs, 0); // Reg 1024 (kPa)
+        const coolantTempRaw = u16(regs, 1); // Reg 1025 (°C, signed)
+        const fuelLevel = u16(regs, 3);      // Reg 1027 (%)
+        const batteryRaw = u16(regs, 5);     // Reg 1029 (V, scaled by 10)
+        const rpm = u16(regs, 6);            // Reg 1030 (RPM)
+        const frequencyRaw = u16(regs, 7);   // Reg 1031 (Hz, scaled by 10)
+
+        const engineTemp = coolantTempRaw > 32767 ? coolantTempRaw - 65536 : coolantTempRaw;
+        const oilPressure = parseFloat((oilPressureRaw / 100.0).toFixed(2));
+        const batteryVoltage = parseFloat((batteryRaw / 10.0).toFixed(1));
+        const frequency = parseFloat((frequencyRaw / 10.0).toFixed(1));
+
+        // Voltages (u32, scaled by 10)
+        const voltageL1 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));   // Reg 1032-1033 (L1-N)
+        const voltageL2 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));  // Reg 1034-1035 (L2-N)
+        const voltageL3 = parseFloat((u32(regs, 12) / 10.0).toFixed(1));  // Reg 1036-1037 (L3-N)
+
+        const avgVal = (voltageL1 + voltageL2 + voltageL3) / 3;
+        const avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
+
+        return {
+            block: 'DSE_ENGINE_GEN_1024_PART1',
+            oilPressure,
+            engineTemp,
+            fuelLevel,
+            batteryVoltage,
+            rpm,
+            frequency,
+            voltageL1,
+            voltageL2,
+            voltageL3,
+            avgVoltage,
+        };
+    }
+
+    // ---- Block 1b: Gen Voltages L-L & Currents (Reg 1038-1051, 14 regs) ----
+    if (startAddress === 1038 && regs.length === 14) {
+        // Voltages (u32, scaled by 10)
+        const voltageL12 = parseFloat((u32(regs, 0) / 10.0).toFixed(1)); // Reg 1038-1039 (L1-L2)
+        const voltageL23 = parseFloat((u32(regs, 2) / 10.0).toFixed(1)); // Reg 1040-1041 (L2-L3)
+        const voltageL31 = parseFloat((u32(regs, 4) / 10.0).toFixed(1)); // Reg 1042-1043 (L3-L1)
+
+        // Currents (u32, scaled by 10)
+        const currentL1 = parseFloat((u32(regs, 6) / 10.0).toFixed(1));  // Reg 1044-1045
+        const currentL2 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));  // Reg 1046-1047
+        const currentL3 = parseFloat((u32(regs, 10) / 10.0).toFixed(1)); // Reg 1048-1049
+
+        return {
+            block: 'DSE_ENGINE_GEN_1038_PART2',
+            voltageL12,
+            voltageL23,
+            voltageL31,
+            currentL1,
+            currentL2,
+            currentL3,
+            mainsCurrentL1: currentL1,
+            mainsCurrentL2: currentL2,
+            mainsCurrentL3: currentL3,
+        };
+    }
+
     // ---- Block 2: Mains Voltages & Freq (Reg 1058-1072, 15 regs) ----
     if (startAddress === 1058 && regs.length >= 15) {
         const mainsVoltageL1 = parseFloat((u32(regs, 0) / 10.0).toFixed(1));   // Reg 1058-1059 (L1-N)

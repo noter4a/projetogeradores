@@ -101,7 +101,8 @@ const KVA_POLL_SEQUENCE = [
 ];
 
 const DSE_POLL_SEQUENCE = [
-    { startAddress: 1024, quantity: 28 }, // 1. Engine + Gen Voltages & Currents (Reg 1024-1051)
+    { startAddress: 1024, quantity: 14 }, // 1a. Engine + Gen Voltages L-N (Reg 1024-1037)
+    { startAddress: 1038, quantity: 14 }, // 1b. Gen Voltages L-L & Currents (Reg 1038-1051)
     { startAddress: 1058, quantity: 15 }, // 2. Mains Voltages & Freq (Reg 1058-1072)
     { startAddress: 1536, quantity: 2 },  // 3. Active Power (Reg 1536-1537)
     { startAddress: 1798, quantity: 2 },  // 4. Run Hours in Seconds (Reg 1798-1799)
@@ -792,7 +793,7 @@ export const initMqttService = (io) => {
                     if (res.ok && res.decoded) {
                         const d = res.decoded;
 
-                        if (d.block === 'DSE_ENGINE_GEN_1024') {
+                        if (d.block === 'DSE_ENGINE_GEN_1024' || d.block === 'DSE_ENGINE_GEN_1024_PART1') {
                             unifiedData.oilPressure = d.oilPressure;
                             unifiedData.engineTemp = d.engineTemp;
                             unifiedData.fuelLevel = d.fuelLevel;
@@ -803,6 +804,9 @@ export const initMqttService = (io) => {
                             unifiedData.voltageL2 = d.voltageL2;
                             unifiedData.voltageL3 = d.voltageL3;
                             unifiedData.avgVoltage = d.avgVoltage;
+                        }
+
+                        if (d.block === 'DSE_ENGINE_GEN_1024' || d.block === 'DSE_ENGINE_GEN_1038_PART2') {
                             unifiedData.voltageL12 = d.voltageL12;
                             unifiedData.voltageL23 = d.voltageL23;
                             unifiedData.voltageL31 = d.voltageL31;
@@ -1069,39 +1073,71 @@ export const initMqttService = (io) => {
                                 WHERE id = $18 OR connection_info->>'ip' = $18
                             `;
 
-                            // FIX: Safe rounding - returns null instead of NaN
-                            // so PostgreSQL COALESCE keeps the existing DB value
+                            // FIX: Safe rounding/float mapping
+                            // Filters out Modbus error/null flags (e.g. 65535, 6553.5) to prevent numeric overflow
+                            const isModbusNull = (v) => {
+                                if (v === undefined || v === null || isNaN(v)) return true;
+                                const val = parseFloat(v);
+                                const abs = Math.abs(val);
+                                
+                                // Catch-all for large out-of-bounds values (e.g. 32-bit Modbus error flags like 0x7FFFFFFF)
+                                if (abs > 999999) return true;
+                                
+                                // Check ranges for standard Modbus error/null flags
+                                // 16-bit Unsigned (65532 - 65535)
+                                if (abs >= 65532 && abs <= 65535) return true;
+                                if (abs >= 6553.2 && abs <= 6553.5) return true;
+                                if (abs >= 655.32 && abs <= 655.35) return true;
+                                
+                                // 16-bit Signed (32764 - 32768)
+                                if (abs >= 32764 && abs <= 32768) return true;
+                                if (abs >= 3276.4 && abs <= 3276.8) return true;
+                                if (abs >= 327.64 && abs <= 327.68) return true;
+
+                                // 32-bit (4294967292 - 4294967295)
+                                if (abs >= 4294967292 && abs <= 4294967295) return true;
+                                if (abs >= 429496729.2 && abs <= 429496729.5) return true;
+                                if (abs >= 42949672.92 && abs <= 42949672.95) return true;
+                                
+                                return false;
+                            };
+
                             const safeRound = (v) => {
-                                if (v === undefined || v === null || isNaN(v)) return null;
-                                return Math.round(v);
+                                if (isModbusNull(v)) return null;
+                                return Math.round(parseFloat(v));
+                            };
+
+                            const safeFloat = (v) => {
+                                if (isModbusNull(v)) return null;
+                                return parseFloat(parseFloat(v).toFixed(2));
                             };
 
                             const values = [
-                                safeRound(unifiedData.voltageL1),
-                                safeRound(unifiedData.voltageL2),
-                                safeRound(unifiedData.voltageL3),
+                                safeFloat(unifiedData.voltageL1),
+                                safeFloat(unifiedData.voltageL2),
+                                safeFloat(unifiedData.voltageL3),
                                 safeRound(unifiedData.currentL1),
                                 safeRound(unifiedData.currentL2),
                                 safeRound(unifiedData.currentL3),
-                                safeRound(unifiedData.frequency),
-                                safeRound(unifiedData.oilPressure),
+                                safeFloat(unifiedData.frequency),
+                                safeFloat(unifiedData.oilPressure),
                                 safeRound(unifiedData.engineTemp),
                                 safeRound(unifiedData.fuelLevel),
                                 safeRound(unifiedData.rpm),
-                                safeRound(unifiedData.batteryVoltage),
-                                safeRound(unifiedData.mainsVoltageL1),
-                                safeRound(unifiedData.mainsVoltageL2),
-                                safeRound(unifiedData.mainsVoltageL3),
-                                safeRound(unifiedData.mainsFrequency),
+                                safeFloat(unifiedData.batteryVoltage),
+                                safeFloat(unifiedData.mainsVoltageL1),
+                                safeFloat(unifiedData.mainsVoltageL2),
+                                safeFloat(unifiedData.mainsVoltageL3),
+                                safeFloat(unifiedData.mainsFrequency),
                                 unifiedData.status || null,
                                 // ID to match
                                 deviceId,
                                 safeRound(unifiedData.voltageL12),
                                 safeRound(unifiedData.voltageL23),
                                 safeRound(unifiedData.voltageL31),
-                                safeRound(unifiedData.runHours),
-                                safeRound(unifiedData.activePower),
-                                safeRound(unifiedData.powerFactor)
+                                safeFloat(unifiedData.runHours),
+                                safeFloat(unifiedData.activePower),
+                                safeFloat(unifiedData.powerFactor)
                             ];
 
                             await pool.query(query, values);
@@ -1123,10 +1159,10 @@ export const initMqttService = (io) => {
                                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
                                         [
                                             readingGenId,
-                                            safeRound(unifiedData.activePower || unifiedData.activePowerTotal || 0),
+                                            safeFloat(unifiedData.activePower || unifiedData.activePowerTotal || 0),
                                             safeRound(unifiedData.rpm),
-                                            safeRound(unifiedData.frequency),
-                                            safeRound(unifiedData.voltageL1),
+                                            safeFloat(unifiedData.frequency),
+                                            safeFloat(unifiedData.voltageL1),
                                             safeRound(unifiedData.currentL1),
                                             safeRound(unifiedData.fuelLevel),
                                             safeRound(unifiedData.engineTemp)
