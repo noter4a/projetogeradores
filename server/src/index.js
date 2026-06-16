@@ -1124,10 +1124,10 @@ router.get('/generators/:id/readings', authenticateToken, async (req, res) => {
 // FIX #8: Alarm Routes protegidas com autenticação
 app.use('/api/alarms', authenticateToken, alarmRoutes);
 
-// Quotation Module Routes (ADMIN and TECHNICIAN only)
-app.use('/api/crm', authenticateToken, requireRole('ADMIN', 'TECHNICIAN'), crmRoutes);
-app.use('/api/catalog', authenticateToken, requireRole('ADMIN', 'TECHNICIAN'), catalogRoutes);
-app.use('/api/proposals', authenticateToken, requireRole('ADMIN', 'TECHNICIAN'), proposalRoutes);
+// Quotation Module Routes (ADMIN, TECHNICIAN and ORCAMENTOS)
+app.use('/api/crm', authenticateToken, requireRole('ADMIN', 'TECHNICIAN', 'ORCAMENTOS'), crmRoutes);
+app.use('/api/catalog', authenticateToken, requireRole('ADMIN', 'TECHNICIAN', 'ORCAMENTOS'), catalogRoutes);
+app.use('/api/proposals', authenticateToken, requireRole('ADMIN', 'TECHNICIAN', 'ORCAMENTOS'), proposalRoutes);
 
 // Mount Main Router (handling Auth, Generators, Control which are defined inline above)
 app.use('/api', router);
