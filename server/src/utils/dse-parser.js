@@ -84,7 +84,7 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
     }
 
     // ---- Block 1a: Engine + Gen Voltages L-N (Reg 1024-1037, 14 regs) ----
-    if (startAddress === 1024 && regs.length === 14) {
+    if (startAddress === 1024 && regs.length >= 14) {
         const oilPressureRaw = u16(regs, 0); // Reg 1024 (kPa)
         const coolantTempRaw = u16(regs, 1); // Reg 1025 (°C, signed)
         const fuelLevel = u16(regs, 3);      // Reg 1027 (%)
@@ -121,7 +121,7 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
     }
 
     // ---- Block 1b: Gen Voltages L-L & Currents (Reg 1038-1051, 14 regs) ----
-    if (startAddress === 1038 && regs.length === 14) {
+    if (startAddress === 1038 && regs.length >= 14) {
         // Voltages (u32, scaled by 10)
         const voltageL12 = parseFloat((u32(regs, 0) / 10.0).toFixed(1)); // Reg 1038-1039 (L1-L2)
         const voltageL23 = parseFloat((u32(regs, 2) / 10.0).toFixed(1)); // Reg 1040-1041 (L2-L3)

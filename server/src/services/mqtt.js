@@ -179,6 +179,10 @@ async function pollDR164Device(device) {
             console.log(`[DR164] Client disconnected, aborting cycle for ${device.id}`);
             break;
         }
+        if (pausedDevices.has(device.id)) {
+            console.log(`[DR164] Polling loop for ${device.id} paused due to command, aborting cycle`);
+            break;
+        }
 
         try {
             console.log(`[${controllerLabel}] [${device.id}] Step ${stepIndex}/${pollSequence.length}: Addr ${req.startAddress}, Qty ${req.quantity}`);
@@ -278,6 +282,10 @@ function stopDR164DevicePolling(deviceId) {
 async function pollSingleDR164Device(device) {
     if (dr164DevicePollingActive.get(device.id)) {
         return; // Previous poll cycle for THIS device is still running
+    }
+    if (pausedDevices.has(device.id)) {
+        console.log(`[DR164] Skipping poll cycle for ${device.id} because device is paused for command.`);
+        return;
     }
     dr164DevicePollingActive.set(device.id, true);
     try {
