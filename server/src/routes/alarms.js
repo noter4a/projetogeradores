@@ -51,13 +51,46 @@ router.get('/', async (req, res) => {
 router.post('/:id/ack', async (req, res) => {
     try {
         const { id } = req.params;
-        const { userId } = req.body; // Pass user who acked
+
+        if (!req.user) {
+            return res.status(401).json({ error: 'Autenticação necessária.' });
+        }
+
+        // Locate the alarm and resolve the owning company (match by generator id or modem IP)
+        const alarmResult = await pool.query(
+            `SELECT a.id, COALESCE(g.company_id, g2.company_id) AS company_id
+             FROM alarm_history a
+             LEFT JOIN generators g ON a.generator_id = g.id
+             LEFT JOIN generators g2 ON a.generator_id = g2.connection_info->>'ip'
+             WHERE a.id = $1`,
+            [id]
+        );
+
+        if (alarmResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Alarme não encontrado.' });
+        }
+
+        // Non-admins can only acknowledge alarms from their own company
+        if (req.user.role !== 'ADMIN') {
+            const alarmCompanyId = alarmResult.rows[0].company_id;
+            if (
+                alarmCompanyId == null ||
+                req.user.companyId == null ||
+                Number(alarmCompanyId) !== Number(req.user.companyId)
+            ) {
+                return res.status(403).json({ error: 'Acesso negado. Alarme não pertence à sua empresa.' });
+            }
+        }
+
+        // Trust the authenticated identity, never the request body
+        const userResult = await pool.query('SELECT name, email FROM users WHERE id = $1', [req.user.id]);
+        const acknowledgedBy = userResult.rows[0]?.name || userResult.rows[0]?.email || req.user.email || 'Desconhecido';
 
         await pool.query(
             `UPDATE alarm_history 
              SET acknowledged = TRUE, acknowledged_at = NOW(), acknowledged_by = $2 
              WHERE id = $1`,
-            [id, userId || 'System']
+            [id, acknowledgedBy]
         );
 
         res.json({ success: true });

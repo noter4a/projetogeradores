@@ -7,7 +7,7 @@ import { AlarmRecord } from '../types';
 import { formatDuration } from '../utils/formatters';
 
 const AlarmCenter: React.FC = () => {
-    const { user, token } = useAuth();
+    const { token } = useAuth();
     const { generators } = useGenerators();
     const [searchParams, setSearchParams] = useSearchParams();
     const generatorIdFilter = searchParams.get('generatorId');
@@ -78,7 +78,6 @@ const AlarmCenter: React.FC = () => {
     const handleAck = async (id: number) => {
         await fetch(`/api/alarms/${id}/ack`, {
             method: 'POST',
-            body: JSON.stringify({ userId: user?.name }),
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         });
         fetchHistory();
