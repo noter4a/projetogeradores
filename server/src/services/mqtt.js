@@ -647,6 +647,7 @@ export const initMqttService = (io) => {
             // Check if this device uses a KVA or DSE controller
             const isKvaDevice = dr164Devices.some(d => d.id === deviceId && (d.controller === 'kva' || d.controller === 'kvar'));
             const isDseDevice = dr164Devices.some(d => d.id === deviceId && d.controller === 'dse');
+            const isDr164Device = dr164Devices.some(d => d.id === deviceId);
             const kvaResults = isKvaDevice ? decodeKvaPayload(payload) : [];
             const dseResults = isDseDevice ? decodeDsePayload(payload) : [];
 
@@ -810,10 +811,18 @@ export const initMqttService = (io) => {
                                 console.log(`[DEBUG-CACHE] ${deviceId} cached Reg78: ${reg78_int} (Hex: 0x${d.reg78_hex})`);
                             }
 
-                            // EXGLUSIVE REG 16 MODE:
-                            // We DO NOT set operationMode here anymore.
-                            // Reg 78 is broken (returns 0/Manual in Auto).
-                            // We rely 100% on STATUS_16 packet to set mode.
+                            // DR164 DEIF: Reg 78 reliably reports the operation mode for transparent
+                            // DR164 devices (verified in field: 0x6C80 -> high byte 0x6C = AUTO).
+                            // Reg 16's bitmask (& 0x0C === 0) fails to capture all valid AUTO states
+                            // (e.g. Reg16 = 0x08E5), which left the UI stuck in MANUAL even when the
+                            // controller was physically in AUTO. Trust the decoded Reg 78 mode here for
+                            // pure DR164 DEIF devices only (modem SGC120, KVA and DSE keep their own logic).
+                            if (isDr164Device && !isKvaDevice && !isDseDevice && d.opMode && d.opMode !== 'UNKNOWN') {
+                                unifiedData.operationMode = d.opMode;
+                                if (d.opMode === 'AUTO' && global.mqttDeviceCache[deviceId]) {
+                                    global.mqttDeviceCache[deviceId].lastAutoTime = Date.now();
+                                }
+                            }
 
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
