@@ -51,14 +51,72 @@ io.use((socket, next) => {
     }
 });
 
+const CONTROL_ALLOWED_ROLES = ['ADMIN', 'TECHNICIAN', 'CLIENT'];
+
+async function assertGeneratorControlAccess(user, generatorId) {
+    if (!user) {
+        return { allowed: false, status: 401, message: 'Autenticação necessária.' };
+    }
+    if (!generatorId || typeof generatorId !== 'string' || !generatorId.trim()) {
+        return { allowed: false, status: 400, message: 'ID do gerador inválido.' };
+    }
+    if (!CONTROL_ALLOWED_ROLES.includes(user.role)) {
+        return { allowed: false, status: 403, message: 'Acesso negado. Seu perfil não pode controlar geradores.' };
+    }
+    if (user.role === 'ADMIN') {
+        return { allowed: true };
+    }
+
+    const trimmedId = generatorId.trim();
+    const result = await pool.query(
+        `SELECT id, company_id FROM generators
+         WHERE id = $1
+            OR connection_info->>'ip' = $1
+            OR connection_info->>'connectionName' = $1
+         LIMIT 1`,
+        [trimmedId]
+    );
+
+    if (result.rows.length === 0) {
+        return { allowed: false, status: 404, message: 'Gerador não encontrado.' };
+    }
+
+    const generator = result.rows[0];
+    if (
+        generator.company_id == null ||
+        user.companyId == null ||
+        Number(generator.company_id) !== Number(user.companyId)
+    ) {
+        return { allowed: false, status: 403, message: 'Acesso negado. Gerador não pertence à sua empresa.' };
+    }
+
+    return { allowed: true };
+}
+
 io.on('connection', (socket) => {
     console.log(`Client connected to Socket.IO (User: ${socket.user?.email})`);
 
-    socket.on('control_generator', ({ generatorId, action }) => {
-        console.log(`[API] Control Command from ${socket.user?.email}: ${action} for ${generatorId}`);
-        import('./services/mqtt.js').then(module => {
+    socket.on('control_generator', async ({ generatorId, action }) => {
+        if (!action || typeof action !== 'string' || !action.trim()) {
+            socket.emit('control_error', { generatorId, message: 'Ação inválida.' });
+            return;
+        }
+
+        try {
+            const access = await assertGeneratorControlAccess(socket.user, generatorId);
+            if (!access.allowed) {
+                console.warn(`[API] Control denied for ${socket.user?.email}: ${access.message}`);
+                socket.emit('control_error', { generatorId, message: access.message });
+                return;
+            }
+
+            console.log(`[API] Control Command from ${socket.user?.email}: ${action} for ${generatorId}`);
+            const module = await import('./services/mqtt.js');
             module.sendControlCommand(generatorId, action);
-        });
+        } catch (err) {
+            console.error('[API] Socket control error:', err);
+            socket.emit('control_error', { generatorId, message: 'Erro ao enviar comando.' });
+        }
     });
 });
 
@@ -815,9 +873,20 @@ router.delete('/companies/:id', authenticateToken, async (req, res) => {
 // Control Route (HTTP > Socket for reliability) - PROTECTED
 router.post('/control', authenticateToken, async (req, res) => {
     const { generatorId, action } = req.body;
-    console.log(`[API] Received Control Command (HTTP): ${action} for ${generatorId}`);
+
+    if (!action || typeof action !== 'string' || !action.trim()) {
+        return res.status(400).json({ success: false, message: 'Ação inválida.' });
+    }
 
     try {
+        const access = await assertGeneratorControlAccess(req.user, generatorId);
+        if (!access.allowed) {
+            console.warn(`[API] Control denied for ${req.user?.email}: ${access.message}`);
+            return res.status(access.status).json({ success: false, message: access.message });
+        }
+
+        console.log(`[API] Received Control Command (HTTP): ${action} for ${generatorId}`);
+
         const { sendControlCommand } = await import('./services/mqtt.js');
         const result = sendControlCommand(generatorId, action); // Returns { success, error }
 
