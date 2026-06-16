@@ -5,7 +5,6 @@ import { Generator, GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators, getSocket } from '../context/GeneratorContext';
 
-import AlarmPopup from '../components/AlarmPopup'; // NEW
 import { useIsMobile } from '../hooks/useIsMobile';
 import {
   Power, AlertOctagon, RotateCcw, Settings, Gauge,
@@ -963,9 +962,6 @@ const GeneratorDetail: React.FC = () => {
         </div>
       )}
 
-      {/* NEW ALARM POPUP */}
-      <AlarmPopup generatorId={gen.ip || gen.id} />
-
       {/* Top Bar - Full on desktop, hidden on mobile (sidebar handles navigation) */}
       {!isMobile && (
         <div className="flex flex-row items-center justify-between gap-4">
@@ -1358,9 +1354,6 @@ const GeneratorDetail: React.FC = () => {
           </div>
         )
       }
-
-
-      <AlarmPopup generatorId={id} />
     </div >
   );
 };

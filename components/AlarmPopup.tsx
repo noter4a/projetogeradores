@@ -17,7 +17,7 @@ interface AlarmPopupProps {
 }
 
 const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
-  const { user, token } = useAuth();
+  const { token } = useAuth();
   const [alarms, setAlarms] = useState<Alarm[]>([]);
 
   const fetchAlarms = () => {
@@ -49,8 +49,7 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
     try {
       await fetch(`/api/alarms/${alarmId}/ack`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ userId: user?.name || 'User' })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
       });
       setAlarms(prev => prev.filter(a => a.id !== alarmId));
     } catch (err) {
