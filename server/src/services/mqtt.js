@@ -74,6 +74,20 @@ let dr164Devices = [];
 const dr164PendingRequests = new Map();   // deviceId -> { requestHex, slaveId, fn, startAddress, quantity, sentAt }
 const dr164ResponseResolvers = new Map(); // deviceId -> resolve() function for async polling
 const dr164DeviceTimers = new Map();      // deviceId -> setInterval ID (per-device independent polling)
+const dr164ConsecutiveTimeouts = new Map(); // deviceId -> number — tracks consecutive timeouts for abort logic
+const dr164LastGhostResponse = new Map();   // deviceId -> Date.now() — tracks when a ghost response was received
+let watchdogTimerId = null;                 // Global watchdog timer ID
+
+// Resilience constants
+const DR164_POLL_INTERVAL_MS = 30000;      // 30s between poll cycles (was 15s — too aggressive for RS485)
+const DR164_STEP_GAP_MS = 1500;            // 1.5s gap between Modbus steps (was 1s)
+const DR164_TIMEOUT_MS = 5000;             // 5s timeout per step
+const DR164_POST_TIMEOUT_DRAIN_MS = 2500;  // 2.5s drain after timeout to flush late responses
+const DR164_POST_ERROR_DRAIN_MS = 3000;    // 3s drain after errors
+const DR164_MAX_CONSECUTIVE_TIMEOUTS = 3;  // Abort cycle after 3 consecutive timeouts
+const DR164_WATCHDOG_INTERVAL_MS = 60000;  // 60s watchdog check interval
+const DR164_STALE_THRESHOLD_MS = 180000;   // 3 minutes — mark device as stale
+const DR164_DEAD_THRESHOLD_MS = 600000;    // 10 minutes — mark device as dead/offline
 
 export let updatePollingList = async () => {};
 
@@ -130,12 +144,17 @@ function waitForDR164Response(deviceId, timeoutMs) {
 function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
     const pending = dr164PendingRequests.get(deviceId);
     if (!pending) {
-        console.log(`[DR164] Received binary data for ${deviceId} but no pending request — ignoring.`);
+        // Ghost response — arrived after timeout. Track it to avoid sending next command too fast.
+        dr164LastGhostResponse.set(deviceId, Date.now());
+        console.log(`[DR164] ⚠ Ghost response for ${deviceId} (no pending request) — marking for drain.`);
         return;
     }
 
     const respHex = rawBuffer.toString('hex');
     console.log(`[DR164] Response for ${deviceId}: ${respHex} (Req: Addr ${pending.startAddress}, Qty ${pending.quantity})`);
+
+    // Valid response received — reset consecutive timeout counter
+    dr164ConsecutiveTimeouts.set(deviceId, 0);
 
     // Create synthetic modem payload that the existing parser understands
     const syntheticPayload = {
@@ -172,16 +191,35 @@ async function pollDR164Device(device) {
     const topic = `devices/command/${device.id}`;
     console.log(`[${controllerLabel}] Starting poll cycle for ${device.id} (Slave ${device.slaveId}) — ${pollSequence.length} steps`);
 
+    let consecutiveTimeouts = 0;
     let stepIndex = 0;
     for (const req of pollSequence) {
         stepIndex++;
+
+        // === GUARD 1: MQTT client alive ===
         if (!client || !client.connected) {
             console.log(`[DR164] Client disconnected, aborting cycle for ${device.id}`);
             break;
         }
+
+        // === GUARD 2: Device not paused for command ===
         if (pausedDevices.has(device.id)) {
             console.log(`[DR164] Polling loop for ${device.id} paused due to command, aborting cycle`);
             break;
+        }
+
+        // === GUARD 3: Too many consecutive timeouts — serial bus is broken ===
+        if (consecutiveTimeouts >= DR164_MAX_CONSECUTIVE_TIMEOUTS) {
+            console.warn(`[DR164] ⛔ ${device.id}: ${consecutiveTimeouts} consecutive timeouts — aborting cycle to protect serial bus`);
+            break;
+        }
+
+        // === GUARD 4: Ghost response drain — wait if a late response just arrived ===
+        const lastGhost = dr164LastGhostResponse.get(device.id);
+        if (lastGhost && (Date.now() - lastGhost) < 1000) {
+            console.log(`[DR164] Draining ghost response for ${device.id}, waiting 1s...`);
+            await dr164Sleep(1000);
+            dr164LastGhostResponse.delete(device.id);
         }
 
         try {
@@ -201,11 +239,21 @@ async function pollDR164Device(device) {
             // Send raw binary frame to DR164
             client.publish(topic, frame);
 
-            // Wait for response (5s timeout — DR164 transparent mode is slower than direct modem)
-            await waitForDR164Response(device.id, 5000);
+            // Wait for response
+            const result = await waitForDR164Response(device.id, DR164_TIMEOUT_MS);
 
-            // Normal gap between requests
-            await dr164Sleep(1000);
+            if (result === 'timeout') {
+                consecutiveTimeouts++;
+                dr164ConsecutiveTimeouts.set(device.id, (dr164ConsecutiveTimeouts.get(device.id) || 0) + 1);
+                console.warn(`[DR164] ${device.id} timeout streak: ${consecutiveTimeouts} (global: ${dr164ConsecutiveTimeouts.get(device.id)})`);
+                // Post-timeout drain — give the serial bus time to flush any late bytes
+                await dr164Sleep(DR164_POST_TIMEOUT_DRAIN_MS);
+            } else {
+                // Successful response — reset timeout counter
+                consecutiveTimeouts = 0;
+                // Normal gap between requests
+                await dr164Sleep(DR164_STEP_GAP_MS);
+            }
         } catch (stepErr) {
             console.error(`[DR164] Error polling ${device.id} addr ${req.startAddress}: ${stepErr.message}`);
             // Clean up any dangling state for this device
@@ -215,12 +263,18 @@ async function pollDR164Device(device) {
                 dr164ResponseResolvers.delete(device.id);
                 resolver('error');
             }
+            consecutiveTimeouts++;
             // Longer recovery after error — give the gateway time to flush
-            await dr164Sleep(3000);
+            await dr164Sleep(DR164_POST_ERROR_DRAIN_MS);
         }
     }
 
-    console.log(`[${controllerLabel}] Poll cycle complete for ${device.id}`);
+    // Log final result
+    if (consecutiveTimeouts >= DR164_MAX_CONSECUTIVE_TIMEOUTS) {
+        console.warn(`[DR164] ⚠ Poll cycle for ${device.id} ABORTED due to serial timeouts. Device may be offline or RS485 bus congested.`);
+    } else {
+        console.log(`[${controllerLabel}] ✓ Poll cycle complete for ${device.id}`);
+    }
 }
 
 /**
@@ -242,19 +296,137 @@ function startDR164DevicePolling(device) {
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
     const isDse = device.controller === 'dse';
     const label = isKva ? 'KVA' : (isDse ? 'DSE' : 'DR164');
-    console.log(`[${label}] Starting independent polling timer for ${device.id}`);
+    console.log(`[${label}] Starting independent polling timer for ${device.id} (interval: ${DR164_POLL_INTERVAL_MS}ms)`);
+
+    // Clear stale state before starting
+    dr164ConsecutiveTimeouts.set(device.id, 0);
+    dr164LastGhostResponse.delete(device.id);
+    dr164PendingRequests.delete(device.id);
+    dr164DevicePollingActive.set(device.id, false);
 
     // Run immediately on first start
     pollSingleDR164Device(device);
 
-    // Then schedule recurring polls every 15 seconds
+    // Schedule recurring polls at a safe interval (30s instead of 15s to prevent RS485 bus congestion)
     const timerId = setInterval(() => {
         if (client && client.connected) {
             pollSingleDR164Device(device);
         }
-    }, 15000);
+    }, DR164_POLL_INTERVAL_MS);
 
     dr164DeviceTimers.set(device.id, timerId);
+}
+
+/**
+ * WATCHDOG SYSTEM — Monitors all DR164 devices for staleness and auto-recovers.
+ * Runs every 60 seconds. Detects devices that stopped responding and cleans up
+ * stuck state to allow recovery when they reconnect.
+ */
+function startDeviceWatchdog() {
+    if (watchdogTimerId) {
+        clearInterval(watchdogTimerId);
+    }
+
+    console.log(`[WATCHDOG] Starting device watchdog (interval: ${DR164_WATCHDOG_INTERVAL_MS}ms, stale: ${DR164_STALE_THRESHOLD_MS}ms, dead: ${DR164_DEAD_THRESHOLD_MS}ms)`);
+
+    watchdogTimerId = setInterval(() => {
+        const now = Date.now();
+        let staleCount = 0;
+        let deadCount = 0;
+        let healthyCount = 0;
+
+        for (const device of dr164Devices) {
+            const lastSeen = modemLastDataReceived.get(device.id);
+            const hasTimer = dr164DeviceTimers.has(device.id);
+            const isActive = dr164DevicePollingActive.get(device.id);
+            const globalTimeouts = dr164ConsecutiveTimeouts.get(device.id) || 0;
+
+            if (!lastSeen) {
+                // Never received data — might be newly registered or powered off
+                if (!hasTimer && client && client.connected) {
+                    console.log(`[WATCHDOG] ${device.id}: Never seen, ensuring polling timer exists`);
+                    startDR164DevicePolling(device);
+                }
+                continue;
+            }
+
+            const elapsed = now - lastSeen;
+
+            if (elapsed > DR164_DEAD_THRESHOLD_MS) {
+                // DEAD — device has not responded in 10+ minutes
+                deadCount++;
+                // Clean up stuck state so it can recover when it reconnects
+                if (isActive) {
+                    console.warn(`[WATCHDOG] ☠ ${device.id}: DEAD (${Math.round(elapsed/1000)}s silent). Resetting stuck polling state.`);
+                    dr164DevicePollingActive.set(device.id, false);
+                    dr164PendingRequests.delete(device.id);
+                    const resolver = dr164ResponseResolvers.get(device.id);
+                    if (resolver) {
+                        dr164ResponseResolvers.delete(device.id);
+                        resolver('watchdog-reset');
+                    }
+                }
+            } else if (elapsed > DR164_STALE_THRESHOLD_MS) {
+                // STALE — 3+ minutes without data, might be disconnecting/reconnecting
+                staleCount++;
+                console.warn(`[WATCHDOG] ⚠ ${device.id}: STALE (${Math.round(elapsed/1000)}s, timeouts: ${globalTimeouts}). Cleaning up state for recovery.`);
+
+                // Reset polling state to allow clean restart
+                if (isActive) {
+                    dr164DevicePollingActive.set(device.id, false);
+                }
+                dr164PendingRequests.delete(device.id);
+                dr164ConsecutiveTimeouts.set(device.id, 0);
+
+                // If timer is missing, recreate it
+                if (!hasTimer && client && client.connected) {
+                    console.log(`[WATCHDOG] Restarting polling timer for stale device ${device.id}`);
+                    startDR164DevicePolling(device);
+                }
+            } else {
+                healthyCount++;
+            }
+        }
+
+        if (staleCount > 0 || deadCount > 0) {
+            console.log(`[WATCHDOG] Status: ${healthyCount} healthy, ${staleCount} stale, ${deadCount} dead (of ${dr164Devices.length} DR164 devices)`);
+        }
+    }, DR164_WATCHDOG_INTERVAL_MS);
+}
+
+/**
+ * AUTO-RECOVERY: Called when we receive data from a DR164 device.
+ * If the device doesn't have an active polling timer, restart it automatically.
+ * This handles the case where a modem reconnects after a disconnect.
+ */
+function autoRecoverDR164Device(deviceId) {
+    // Check if this deviceId belongs to a DR164 device
+    const device = dr164Devices.find(d => d.id === deviceId);
+    if (!device) return; // Not a DR164 device, skip
+
+    // If the device has no polling timer, it disconnected and lost its timer
+    if (!dr164DeviceTimers.has(deviceId)) {
+        console.log(`[AUTO-RECOVERY] 🔄 ${deviceId}: Data received but no polling timer — restarting polling now!`);
+        // Clear any stale state
+        dr164ConsecutiveTimeouts.set(deviceId, 0);
+        dr164DevicePollingActive.set(deviceId, false);
+        dr164PendingRequests.delete(deviceId);
+        // Restart polling
+        startDR164DevicePolling(device);
+        return;
+    }
+
+    // If polling is stuck (active flag is true for too long), reset it
+    const isActive = dr164DevicePollingActive.get(deviceId);
+    const lastSeen = modemLastDataReceived.get(deviceId);
+    if (isActive && lastSeen) {
+        const timeSinceLastData = Date.now() - lastSeen;
+        // If we're getting data but the polling flag says "active" for 2+ minutes, it's stuck
+        if (timeSinceLastData > 120000) {
+            console.log(`[AUTO-RECOVERY] 🔧 ${deviceId}: Polling flag stuck for ${Math.round(timeSinceLastData/1000)}s — resetting.`);
+            dr164DevicePollingActive.set(deviceId, false);
+        }
+    }
 }
 
 /**
@@ -360,6 +532,9 @@ export const initMqttService = (io) => {
                 const topic = `devices/command/${device.id}`;
                 restorePolling(client, topic, device.slaveId, device.id);
             });
+
+            // START WATCHDOG — monitors all DR164 devices for staleness and auto-recovers
+            startDeviceWatchdog();
         }, 5000); // Wait 5s for DB fetch and Connection Stability
         client.subscribe(TOPIC, (err) => {
             if (!err) console.log(`[MQTT] Subscribed to ${TOPIC}`);
@@ -388,6 +563,10 @@ export const initMqttService = (io) => {
             } catch (jsonErr) {
                 // Not JSON — DR164 transparent binary mode
                 const deviceId = topic.split('/').pop();
+
+                // AUTO-RECOVERY: Device is alive and sending data — ensure polling is running
+                autoRecoverDR164Device(deviceId);
+
                 const syntheticPayload = handleDR164BinaryResponse(deviceId, message, io);
                 if (!syntheticPayload) return; // No pending request, ignore
                 // Use the synthetic payload and continue with existing processing below
