@@ -159,8 +159,8 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     // Run once on mount / token change
     syncProfile();
 
-    // Poll every 10 seconds for real-time authorization changes
-    const interval = setInterval(syncProfile, 10000);
+    // Poll every 60 seconds for real-time authorization changes
+    const interval = setInterval(syncProfile, 60000);
     return () => clearInterval(interval);
   }, [token]);
 

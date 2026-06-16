@@ -245,6 +245,7 @@ const initDb = async (retries = 15, delay = 5000) => {
             // Create index for fast time-range queries
             try {
                 await client.query(`CREATE INDEX IF NOT EXISTS idx_readings_gen_time ON generator_readings (generator_id, recorded_at DESC)`);
+                await client.query(`CREATE INDEX IF NOT EXISTS idx_alarm_history_gen_end ON alarm_history (generator_id, end_time DESC)`);
             } catch(e) { console.log('Index creation skipped:', e.message); }
 
             // --- QUOTATION MODULE (QM) TABLES ---
@@ -914,8 +915,8 @@ router.get('/generators', authenticateToken, async (req, res) => {
     }
 });
 
-// POST /api/generators - PROTECTED
-router.post('/generators', authenticateToken, async (req, res) => {
+// POST /api/generators - PROTECTED (Admin Only)
+router.post('/generators', authenticateToken, requireRole('ADMIN'), async (req, res) => {
     const gen = req.body;
     try {
         const connectionInfo = {
@@ -948,8 +949,8 @@ router.post('/generators', authenticateToken, async (req, res) => {
     }
 });
 
-// PUT /api/generators/:id - PROTECTED
-router.put('/generators/:id', authenticateToken, async (req, res) => {
+// PUT /api/generators/:id - PROTECTED (Admin Only)
+router.put('/generators/:id', authenticateToken, requireRole('ADMIN'), async (req, res) => {
     const { id } = req.params;
     const gen = req.body;
     try {
@@ -983,8 +984,8 @@ router.put('/generators/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// DELETE /api/generators/:id - PROTECTED
-router.delete('/generators/:id', authenticateToken, async (req, res) => {
+// DELETE /api/generators/:id - PROTECTED (Admin Only)
+router.delete('/generators/:id', authenticateToken, requireRole('ADMIN'), async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM generators WHERE id = $1', [id]);

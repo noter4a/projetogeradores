@@ -59,6 +59,55 @@ if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true });
 }
 
+// Global in-memory cache for generators state to avoid synchronous file operations on every MQTT packet
+let currentGeneratorsState = {};
+
+const stateFile = path.join(__dirname, '../../logs/generators_state.json');
+try {
+    const stateDir = path.dirname(stateFile);
+    if (!fs.existsSync(stateDir)) {
+        fs.mkdirSync(stateDir, { recursive: true });
+    }
+    if (fs.existsSync(stateFile)) {
+        const rawState = fs.readFileSync(stateFile, 'utf8');
+        currentGeneratorsState = JSON.parse(rawState);
+    }
+} catch (err) {
+    console.error('[MQTT] Failed to load initial state file:', err.message);
+}
+
+// Log rotation settings
+const MAX_LOG_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+async function rotateLogIfNeeded() {
+    try {
+        if (!fs.existsSync(LOG_FILE)) return;
+        const stats = await fs.promises.stat(LOG_FILE);
+        if (stats.size < MAX_LOG_SIZE_BYTES) return;
+
+        console.log('[LOG-ROTATION] LOG_FILE size exceeded 5MB, rotating logs...');
+        
+        const file3 = path.join(logDir, 'mqtt_data.3.json');
+        const file2 = path.join(logDir, 'mqtt_data.2.json');
+        const file1 = path.join(logDir, 'mqtt_data.1.json');
+
+        if (fs.existsSync(file2)) {
+            if (fs.existsSync(file3)) {
+                await fs.promises.unlink(file3).catch(() => {});
+            }
+            await fs.promises.rename(file2, file3).catch(() => {});
+        }
+        if (fs.existsSync(file1)) {
+            await fs.promises.rename(file1, file2).catch(() => {});
+        }
+        await fs.promises.rename(LOG_FILE, file1).catch(() => {});
+        
+        console.log('[LOG-ROTATION] Log rotation complete.');
+    } catch (err) {
+        console.error('[LOG-ROTATION] Failed to rotate logs:', err.message);
+    }
+}
+
 let client;
 let lastConnectionError = null;
 let devicesToPoll = [];
@@ -366,6 +415,7 @@ function startDeviceWatchdog() {
                         resolver('watchdog-reset');
                     }
                 }
+                pausedDevices.delete(device.id); // Reset stuck command pause state
             } else if (elapsed > DR164_STALE_THRESHOLD_MS) {
                 // STALE — 3+ minutes without data, might be disconnecting/reconnecting
                 staleCount++;
@@ -377,6 +427,7 @@ function startDeviceWatchdog() {
                 }
                 dr164PendingRequests.delete(device.id);
                 dr164ConsecutiveTimeouts.set(device.id, 0);
+                pausedDevices.delete(device.id); // Reset stuck command pause state
 
                 // If timer is missing, recreate it
                 if (!hasTimer && client && client.connected) {
@@ -1081,29 +1132,21 @@ export const initMqttService = (io) => {
                     // 1. Append valid data to History Log
                     try {
                         const logEntry = JSON.stringify(updatePayload) + '\n';
-                        fs.appendFileSync(LOG_FILE, logEntry);
+                        rotateLogIfNeeded().then(() => {
+                            fs.promises.appendFile(LOG_FILE, logEntry).catch(err => {
+                                console.error('[MQTT] Async History Log Error:', err.message);
+                            });
+                        }).catch(err => {
+                            console.error('[MQTT] Log rotation check failed:', err.message);
+                        });
                     } catch (err) {
                         console.error('[MQTT] History Log Error:', err.message);
                     }
 
-                    // 2. Update Current State (generators_state.json)
+                    // 2. Update Current State (generators_state.json) in-memory first, then write asynchronously
                     let existingDeviceData = {}; // HOISTED by Agent
                     try {
                         const stateFile = path.join(__dirname, '../../logs/generators_state.json');
-                        // FIX: Load existing state instead of wiping it
-                        let currentState = {};
-                        if (fs.existsSync(stateFile)) {
-                            try {
-                                const rawState = fs.readFileSync(stateFile, 'utf8');
-                                currentState = JSON.parse(rawState);
-                            } catch (readErr) {
-                                console.error('[MQTT] Failed to read state file, starting fresh:', readErr.message);
-                                currentState = {};
-                            }
-                        } else {
-                            currentState = {};
-                        }
-
                         // Default schema to prevent undefined errors
                         const defaultSchema = {
                             voltageL1: 0, voltageL2: 0, voltageL3: 0,
@@ -1119,23 +1162,22 @@ export const initMqttService = (io) => {
                             frequency: 0, mainsFrequency: 0
                         };
 
-                        // Merge logic: Defaults <- Existing from File <- New Unified Data
-                        existingDeviceData = currentState[deviceId]?.data || {}; // Assignment only
-                        currentState[deviceId] = {
+                        // Merge logic: Defaults <- Existing from memory <- New Unified Data
+                        existingDeviceData = currentGeneratorsState[deviceId]?.data || {}; // Assignment only
+                        currentGeneratorsState[deviceId] = {
                             ...updatePayload,
                             data: { ...existingDeviceData, ...unifiedData }
                         };
 
-                        try {
-                            fs.writeFileSync(stateFile, JSON.stringify(currentState, null, 2));
-                        } catch (writeErr) {
+                        // Non-blocking disk write
+                        fs.promises.writeFile(stateFile, JSON.stringify(currentGeneratorsState, null, 2)).catch(writeErr => {
                             console.error('[MQTT] Failed to write state file:', writeErr.message);
-                        }
+                        });
 
                         // 3. Broadcast to Real-Time Clients (Moved inside Try block to access currentState)
-                        if (currentState[deviceId]) {
+                        if (currentGeneratorsState[deviceId]) {
                             // console.log(`[MQTT-SOCKET] Emitting update for ${deviceId}`);
-                            io.emit('generator:update', currentState[deviceId]);
+                            io.emit('generator:update', currentGeneratorsState[deviceId]);
                         } else {
                             // console.log(`[MQTT-SOCKET] Emitting payload for ${deviceId}`);
                             io.emit('generator:update', updatePayload);
@@ -1749,7 +1791,6 @@ export const sendControlCommand = (deviceId, action) => {
 
         // DR164/KVA: Send raw Modbus binary (no JSON wrapper)
         if (isDR164) {
-            pausedDevices.add(deviceId); // DR164 needs pause to prevent polling collisions
             // Check if this is a KVA or DSE controller
             const isKvaController = device.controller === 'kva' || device.controller === 'kvar';
             const isDseController = device.controller === 'dse';
@@ -1770,31 +1811,15 @@ export const sendControlCommand = (deviceId, action) => {
                     case 'stop':       commandValue = 6;  break;  // Parada Manual
                     case 'reset': case 'ack': commandValue = 4; break; // Limpa Falha Ativa
                     case 'toggleGen': {
-                        // Read current breaker state from state file
-                        let genClosed = false;
-                        try {
-                            const stateFile = path.join(__dirname, '../../logs/generators_state.json');
-                            if (fs.existsSync(stateFile)) {
-                                const raw = fs.readFileSync(stateFile, 'utf8');
-                                const state = JSON.parse(raw);
-                                genClosed = state[deviceId]?.data?.genBreakerClosed || false;
-                            }
-                        } catch (e) { console.warn('[KVA-CMD] Could not read breaker state:', e.message); }
+                        // Read current breaker state from in-memory cache
+                        const genClosed = currentGeneratorsState[deviceId]?.data?.genBreakerClosed || false;
                         commandValue = genClosed ? 8 : 7; // 8=Desliga, 7=Liga Chave Carga Gerador
                         console.log(`[KVA-CMD] toggleGen: currentState=${genClosed ? 'CLOSED' : 'OPEN'}, sending ${commandValue === 7 ? 'LIGA(7)' : 'DESLIGA(8)'}`);
                         break;
                     }
                     case 'toggleMains': {
-                        // Read current breaker state from state file
-                        let mainsClosed = false;
-                        try {
-                            const stateFile = path.join(__dirname, '../../logs/generators_state.json');
-                            if (fs.existsSync(stateFile)) {
-                                const raw = fs.readFileSync(stateFile, 'utf8');
-                                const state = JSON.parse(raw);
-                                mainsClosed = state[deviceId]?.data?.mainsBreakerClosed || false;
-                            }
-                        } catch (e) { console.warn('[KVA-CMD] Could not read breaker state:', e.message); }
+                        // Read current breaker state from in-memory cache
+                        const mainsClosed = currentGeneratorsState[deviceId]?.data?.mainsBreakerClosed || false;
                         commandValue = mainsClosed ? 10 : 9; // 10=Desliga, 9=Liga Chave Carga Rede
                         console.log(`[KVA-CMD] toggleMains: currentState=${mainsClosed ? 'CLOSED' : 'OPEN'}, sending ${commandValue === 9 ? 'LIGA(9)' : 'DESLIGA(10)'}`);
                         break;
@@ -1807,6 +1832,7 @@ export const sendControlCommand = (deviceId, action) => {
                         return { success: false, error: `Unknown KVA action '${action}'` };
                 }
 
+                pausedDevices.add(deviceId); // Only pause when action is valid and command is being sent
                 const buf = createModbusWriteRequest(slaveId, 19108, commandValue);
                 client.publish(topic, buf); // Raw binary frame
                 console.log(`[KVA-CMD] ${action.toUpperCase()}: Sent Func 06 (Reg 19108, Val ${commandValue}) to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
@@ -1836,6 +1862,7 @@ export const sendControlCommand = (deviceId, action) => {
                         return { success: false, error: `DSE command '${action}' not supported` };
                 }
 
+                pausedDevices.add(deviceId); // Only pause when action is valid and command is being sent
                 const onesComplement = 65535 - key;
                 const buf = createModbusWriteMultipleRequest(slaveId, 4104, [key, onesComplement]);
                 client.publish(topic, buf);
@@ -1861,6 +1888,7 @@ export const sendControlCommand = (deviceId, action) => {
                     return { success: false, error: `Unknown action '${action}'` };
             }
 
+            pausedDevices.add(deviceId); // Only pause when action is valid and command is being sent
             const buf = createModbusWriteMultipleRequest(slaveId, 0, [commandValue]);
             client.publish(topic, buf); // Raw binary frame
             console.log(`[DR164-CMD] ${action.toUpperCase()}: Sent raw Modbus to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
@@ -1987,6 +2015,9 @@ export const sendControlCommand = (deviceId, action) => {
 
     } catch (err) {
         console.error('[MQTT-CMD] Critical Error:', err);
+        if (deviceId) {
+            pausedDevices.delete(deviceId); // Ensure cleanup on crash
+        }
         return { success: false, error: `Backend Crash: ${err.message || String(err)}` };
     }
 };
