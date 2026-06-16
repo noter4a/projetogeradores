@@ -120,6 +120,10 @@ const modemLastDataReceived = new Map(); // deviceId -> Date.now() — Watchdog 
 // DR164 sends/receives raw Modbus RTU bytes over MQTT (no JSON wrapper).
 // Each device gets its own independent polling timer for true parallel operation.
 let dr164Devices = [];
+// Tracks the last operation mode commanded to a DR164 DEIF device ('AUTO' | 'MANUAL').
+// Used to disambiguate the controller's operation mode when the raw registers are ambiguous
+// (e.g. "AUTO stopped/faulted" reports the same Reg16=0 / Reg78 high byte 0x20 as "MANUAL stopped").
+const dr164CommandedMode = new Map(); // deviceId -> 'AUTO' | 'MANUAL'
 const dr164PendingRequests = new Map();   // deviceId -> { requestHex, slaveId, fn, startAddress, quantity, sentAt }
 const dr164ResponseResolvers = new Map(); // deviceId -> resolve() function for async polling
 const dr164DeviceTimers = new Map();      // deviceId -> setInterval ID (per-device independent polling)
@@ -811,17 +815,38 @@ export const initMqttService = (io) => {
                                 console.log(`[DEBUG-CACHE] ${deviceId} cached Reg78: ${reg78_int} (Hex: 0x${d.reg78_hex})`);
                             }
 
-                            // DR164 DEIF: Reg 78 reliably reports the operation mode for transparent
-                            // DR164 devices (verified in field: 0x6C80 -> high byte 0x6C = AUTO).
-                            // Reg 16's bitmask (& 0x0C === 0) fails to capture all valid AUTO states
-                            // (e.g. Reg16 = 0x08E5), which left the UI stuck in MANUAL even when the
-                            // controller was physically in AUTO. Trust the decoded Reg 78 mode here for
-                            // pure DR164 DEIF devices only (modem SGC120, KVA and DSE keep their own logic).
-                            if (isDr164Device && !isKvaDevice && !isDseDevice && d.opMode && d.opMode !== 'UNKNOWN') {
-                                unifiedData.operationMode = d.opMode;
-                                if (d.opMode === 'AUTO' && global.mqttDeviceCache[deviceId]) {
-                                    global.mqttDeviceCache[deviceId].lastAutoTime = Date.now();
+                            // DR164 DEIF: resolve operation mode from Reg 78, disambiguating with the
+                            // last commanded mode when the raw registers are ambiguous.
+                            // Field findings:
+                            //   - high byte 0x6C (108) / 0x04 (4) => unambiguous AUTO (auto running/ready)
+                            //   - high byte 0x64 (100) / 0x60 (96) => unambiguous MANUAL (manual running/test)
+                            //   - high byte 0x20 (32) with Reg16=0 => AMBIGUOUS: this is reported both by
+                            //     "AUTO stopped/standby/faulted" and "MANUAL stopped". The registers alone
+                            //     cannot tell them apart, so we fall back to the last commanded mode.
+                            // Only pure DR164 DEIF devices use this; modem SGC120, KVA and DSE keep their logic.
+                            if (isDr164Device && !isKvaDevice && !isDseDevice) {
+                                const highByte = parseInt(d.reg78_hex, 16) >> 8;
+                                let resolvedMode = null;
+
+                                if (highByte === 108 || highByte === 4) {
+                                    resolvedMode = 'AUTO';
+                                    dr164CommandedMode.set(deviceId, 'AUTO'); // sync tracker with physical state
+                                } else if (highByte === 100 || highByte === 96) {
+                                    resolvedMode = 'MANUAL';
+                                    dr164CommandedMode.set(deviceId, 'MANUAL'); // sync tracker with physical state
+                                } else {
+                                    // Ambiguous register state -> trust last commanded mode, else parser opMode
+                                    resolvedMode = dr164CommandedMode.get(deviceId)
+                                        || (d.opMode && d.opMode !== 'UNKNOWN' ? d.opMode : null);
                                 }
+
+                                if (resolvedMode) {
+                                    unifiedData.operationMode = resolvedMode;
+                                    if (resolvedMode === 'AUTO' && global.mqttDeviceCache[deviceId]) {
+                                        global.mqttDeviceCache[deviceId].lastAutoTime = Date.now();
+                                    }
+                                }
+                                console.log(`[DR164-MODE] ${deviceId} Reg78=0x${d.reg78_hex} (Hi=${highByte}) | commanded=${dr164CommandedMode.get(deviceId) || 'none'} -> mode=${resolvedMode || 'hold'}`);
                             }
 
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
@@ -887,8 +912,13 @@ export const initMqttService = (io) => {
                             // Fix: If Reg 78 explicitly reports a Manual state (32, 96, 100), we MUST respect it.
                             // We do this BEFORE looking at Reg 16's bitmask.
 
+                            // For pure DR164 DEIF devices the mode is resolved in the Reg 77/78 block
+                            // (with commanded-mode disambiguation), so skip the Reg 16 heuristics here
+                            // to avoid forcing MANUAL while AUTO-stopped/standby.
+                            const skipReg16Mode = isDr164Device && !isKvaDevice && !isDseDevice;
+
                             let priorityManual = false;
-                            if (global.mqttDeviceCache[deviceId]) {
+                            if (!skipReg16Mode && global.mqttDeviceCache[deviceId]) {
                                 const reg78 = global.mqttDeviceCache[deviceId].reg78_int || 0;
                                 const highByte = reg78 >> 8;
 
@@ -917,7 +947,9 @@ export const initMqttService = (io) => {
                                 console.log(`[DEBUG-MODE] ${deviceId} Reg78 Priority Check: Reg78=${reg78} (Hi=${highByte}) -> Manual? ${priorityManual}`);
                             }
 
-                            if (priorityManual) {
+                            if (skipReg16Mode) {
+                                // Operation mode for DR164 DEIF is set by the STATUS_COMBINED_77_78 block.
+                            } else if (priorityManual) {
                                 unifiedData.operationMode = 'MANUAL';
                                 console.log(`[DEBUG-MODE] ${deviceId} -> FORCED MANUAL (Priority: Reg78 says Manual - Overrides Reg16)`);
                             } else {
@@ -1895,6 +1927,14 @@ export const sendControlCommand = (deviceId, action) => {
                 case 'reset': case 'ack': commandValue = 64; break;
                 default:
                     return { success: false, error: `Unknown action '${action}'` };
+            }
+
+            // Track the commanded operation mode so the UI can resolve the mode even when the
+            // controller's registers are ambiguous (e.g. AUTO-stopped after a start failure).
+            if (action === 'auto') {
+                dr164CommandedMode.set(deviceId, 'AUTO');
+            } else if (action === 'manual') {
+                dr164CommandedMode.set(deviceId, 'MANUAL');
             }
 
             pausedDevices.add(deviceId); // Only pause when action is valid and command is being sent
