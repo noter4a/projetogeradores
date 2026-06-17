@@ -276,7 +276,7 @@ const AddGenerator: React.FC = () => {
               onChange={handleChange}
               className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
             >
-              <option value="dse">Deep Sea Electronics (DSE)</option>
+              <option value="dse">Deep Sea DSE4501 (GenComm)</option>
               <option value="comap">ComAp</option>
               <option value="deif">DEIF</option>
               <option value="kvar">KVA</option>

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
 import { decodeKvaPayload } from '../utils/kva-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
+import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
 import pool from '../db.js';
 import { sendAlarmEmail } from './email.js';
 import { sendAlarmWhatsApp, sendAlarmResolvedWhatsApp } from './whatsapp.js';
@@ -124,6 +125,7 @@ let dr164Devices = [];
 // Used to disambiguate the controller's operation mode when the raw registers are ambiguous
 // (e.g. "AUTO stopped/faulted" reports the same Reg16=0 / Reg78 high byte 0x20 as "MANUAL stopped").
 const dr164CommandedMode = new Map(); // deviceId -> 'AUTO' | 'MANUAL'
+const dseCommandedMode = new Map(); // deviceId -> 'AUTO' | 'MANUAL' | 'INHIBITED'
 const dr164PendingRequests = new Map();   // deviceId -> { requestHex, slaveId, fn, startAddress, quantity, sentAt }
 const dr164ResponseResolvers = new Map(); // deviceId -> resolve() function for async polling
 const dr164DeviceTimers = new Map();      // deviceId -> setInterval ID (per-device independent polling)
@@ -167,14 +169,8 @@ const KVA_POLL_SEQUENCE = [
     { startAddress: 12043, quantity: 6 },   // Tensões Fase-Neutro (Rede + GMG)
 ];
 
-const DSE_POLL_SEQUENCE = [
-    { startAddress: 1024, quantity: 14 }, // 1a. Engine + Gen Voltages L-N (Reg 1024-1037)
-    { startAddress: 1038, quantity: 14 }, // 1b. Gen Voltages L-L & Currents (Reg 1038-1051)
-    { startAddress: 1058, quantity: 15 }, // 2. Mains Voltages & Freq (Reg 1058-1072)
-    { startAddress: 1536, quantity: 2 },  // 3. Active Power (Reg 1536-1537)
-    { startAddress: 1798, quantity: 2 },  // 4. Run Hours in Seconds (Reg 1798-1799)
-    { startAddress: 1408, quantity: 1 },  // 5. StatusCode (Reg 1408)
-];
+// DSE4501 GenComm poll sequence — see server/src/data/dse4501-map.js
+const DSE_POLL_SEQUENCE = DSE4501_POLL_SEQUENCE;
 
 function waitForDR164Response(deviceId, timeoutMs) {
     return new Promise((resolve) => {
@@ -1117,8 +1113,43 @@ export const initMqttService = (io) => {
                             unifiedData.totalHours = d.totalHours;
                         }
 
+                        if (d.block === 'DSE_POWER_PHASE_1052') {
+                            unifiedData.powerL1 = d.powerL1;
+                            unifiedData.powerL2 = d.powerL2;
+                            unifiedData.powerL3 = d.powerL3;
+                        }
+
+                        if (d.block === 'DSE_CONTROL_772') {
+                            if (d.operationMode) {
+                                unifiedData.operationMode = d.operationMode;
+                                dseCommandedMode.set(deviceId, d.operationMode);
+                            }
+                            console.log(`[DSE-MODE] ${deviceId} Reg772=${d.controlModeRaw} -> mode=${d.operationMode || 'unknown'}`);
+                        }
+
+                        if (d.block === 'DSE_FLAGS_774') {
+                            if (d.shutdownAlarmActive || d.electricalTripActive) {
+                                unifiedData.alarmCode = unifiedData.alarmCode || 3;
+                                unifiedData.alarmMessage = unifiedData.alarmMessage || 'Alarme de shutdown no DSE';
+                            } else if (d.warningAlarmActive && !unifiedData.alarmCode) {
+                                unifiedData.alarmCode = 2;
+                                unifiedData.alarmMessage = unifiedData.alarmMessage || 'Alarme de aviso no DSE';
+                            }
+                        }
+
+                        if (d.block === 'DSE_LOAD_1558') {
+                            unifiedData.engineLoad = d.engineLoad;
+                        }
+
                         if (d.block === 'DSE_STATUS_1408') {
                             unifiedData.status = d.status;
+                        }
+
+                        if (d.block === 'DSE_ALARMS_2048') {
+                            unifiedData.alarmCode = d.alarmCode;
+                            unifiedData.alarmMessage = d.alarmMessage || '';
+                            if (!unifiedData.alarms) unifiedData.alarms = {};
+                            unifiedData.alarms.startFailure = d.isStartFailure;
                         }
                     }
                 });
@@ -1890,20 +1921,37 @@ export const sendControlCommand = (deviceId, action) => {
             }
 
             if (isDseController) {
-                // DSE System Control Command (Reg 4104, 2 words)
-                // Keys: 35701=SELECT_AUTO_MODE, 35732=TELEMETRY_START (Start), 35733=TELEMETRY_STOP (Stop)
+                // DSE4501 GenComm System Control Keys (Reg 4104 + one's complement at 4105)
                 let key;
                 switch (action) {
-                    case 'auto':    key = 35701; break;
-                    case 'start':   key = 35732; break;
-                    case 'stop':    key = 35733; break;
-                    case 'manual':  
-                        return { success: false, error: 'DSE manual mode selection not supported via Modbus commands (use start/stop/auto)' };
+                    case 'auto':
+                        key = DSE_CONTROL_KEYS.AUTO;
+                        dseCommandedMode.set(deviceId, 'AUTO');
+                        break;
+                    case 'manual':
+                        key = DSE_CONTROL_KEYS.MANUAL;
+                        dseCommandedMode.set(deviceId, 'MANUAL');
+                        break;
+                    case 'start': {
+                        const mode = dseCommandedMode.get(deviceId)
+                            || currentGeneratorsState[deviceId]?.data?.operationMode;
+                        key = (mode === 'MANUAL')
+                            ? DSE_CONTROL_KEYS.START_MANUAL
+                            : DSE_CONTROL_KEYS.TELEMETRY_START;
+                        break;
+                    }
+                    case 'stop':
+                        key = DSE_CONTROL_KEYS.TELEMETRY_STOP;
+                        break;
+                    case 'reset':
+                    case 'ack':
+                        key = DSE_CONTROL_KEYS.RESET_ALARMS;
+                        break;
                     default:
                         return { success: false, error: `DSE command '${action}' not supported` };
                 }
 
-                pausedDevices.add(deviceId); // Only pause when action is valid and command is being sent
+                pausedDevices.add(deviceId);
                 const onesComplement = 65535 - key;
                 const buf = createModbusWriteMultipleRequest(slaveId, 4104, [key, onesComplement]);
                 client.publish(topic, buf);

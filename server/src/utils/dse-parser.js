@@ -1,8 +1,12 @@
 // dse-parser.js
-// Parser for Deep Sea Electronics (DSE) controllers using GenComm Modbus protocol
-// Mapped parameters: Voltages (Ph-N and Ph-Ph), Currents, Freq, RPM, Temperature, Oil Pressure, Battery, Fuel, Run Hours, Status.
+// Parser for Deep Sea Electronics (DSE4501 / GenComm) Modbus protocol
 
 import { parseRtuRequestHex, parseRtuResponseHex } from './sgc120-parser.js';
+import {
+    DSE_CONTROL_MODE,
+    DSE_NAMED_ALARMS,
+    DSE_STATUS_CODE,
+} from '../data/dse4501-map.js';
 
 const u16 = (regs, i) => (regs[i] ?? 0);
 
@@ -18,44 +22,94 @@ const s32 = (regs, i) => {
     return val;
 };
 
+const s16 = (val) => (val > 32767 ? val - 65536 : val);
+
+function decodeStatusFromCode(statusVal) {
+    if (DSE_STATUS_CODE[statusVal]) return DSE_STATUS_CODE[statusVal];
+    if (statusVal >= 1 && statusVal <= 7) return 'STARTING';
+    return 'STOPPED';
+}
+
+function decodeControlMode(raw) {
+    return DSE_CONTROL_MODE[raw] ?? null;
+}
+
+function decodeAlarmNibble(code) {
+    return code === 2 || code === 3 || code === 4 || code === 5;
+}
+
+function decodeNamedAlarms(regs) {
+    const alarmCount = u16(regs, 0);
+    if (alarmCount === 0 || alarmCount > 128) {
+        return { activeAlarms: [], alarmCode: 0, alarmMessage: '', hasFault: false, isStartFailure: false };
+    }
+
+    const activeAlarms = [];
+    const numPackedRegs = Math.ceil(alarmCount / 4);
+
+    for (let regIdx = 0; regIdx < numPackedRegs; regIdx++) {
+        const packed = u16(regs, regIdx + 1);
+        for (let n = 0; n < 4; n++) {
+            const alarmIdx = regIdx * 4 + n;
+            if (alarmIdx >= alarmCount) break;
+
+            const code = (packed >> (12 - n * 4)) & 0xF;
+            if (!decodeAlarmNibble(code)) continue;
+
+            activeAlarms.push({
+                index: alarmIdx,
+                name: DSE_NAMED_ALARMS[alarmIdx] || `Alarme ${alarmIdx + 1}`,
+                severity: code,
+            });
+        }
+    }
+
+    const alarmCode = activeAlarms.length > 0
+        ? activeAlarms.reduce((max, a) => Math.max(max, a.severity), 0)
+        : 0;
+    const alarmMessage = activeAlarms.map(a => a.name).join(', ');
+    const isStartFailure = activeAlarms.some(a =>
+        a.name.toLowerCase().includes('fail to start') || a.index === 6
+    );
+
+    return {
+        activeAlarms,
+        alarmCode,
+        alarmMessage,
+        hasFault: activeAlarms.length > 0,
+        isStartFailure,
+    };
+}
+
 /**
  * Decode DSE registers by block (startAddress + register array)
- * Returns decoded object with block name and mapped fields
  */
 export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
     console.log(`[DSE-PARSER] Rx Slave: ${slaveId}, Fn: ${fn}, Addr: ${startAddress}, Len: ${regs.length}`);
 
     // ---- Block 1: Engine + Gen Voltages & Currents (Reg 1024-1051, 28 regs) ----
     if (startAddress === 1024 && regs.length >= 28) {
-        const oilPressureRaw = u16(regs, 0); // Reg 1024 (kPa)
-        const coolantTempRaw = u16(regs, 1); // Reg 1025 (°C, signed)
-        const fuelLevel = u16(regs, 3);      // Reg 1027 (%)
-        const batteryRaw = u16(regs, 5);     // Reg 1029 (V, scaled by 10)
-        const rpm = u16(regs, 6);            // Reg 1030 (RPM)
-        const frequencyRaw = u16(regs, 7);   // Reg 1031 (Hz, scaled by 10)
+        const oilPressureRaw = u16(regs, 0);
+        const coolantTempRaw = u16(regs, 1);
+        const fuelLevel = u16(regs, 3);
+        const batteryRaw = u16(regs, 5);
+        const rpm = u16(regs, 6);
+        const frequencyRaw = u16(regs, 7);
 
-        // Signed coolant temp conversion
-        const engineTemp = coolantTempRaw > 32767 ? coolantTempRaw - 65536 : coolantTempRaw;
-        // Convert kPa to bar (1 bar = 100 kPa)
+        const engineTemp = s16(coolantTempRaw);
         const oilPressure = parseFloat((oilPressureRaw / 100.0).toFixed(2));
         const batteryVoltage = parseFloat((batteryRaw / 10.0).toFixed(1));
         const frequency = parseFloat((frequencyRaw / 10.0).toFixed(1));
 
-        // Voltages (u32, scaled by 10)
-        const voltageL1 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));   // Reg 1032-1033 (L1-N)
-        const voltageL2 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));  // Reg 1034-1035 (L2-N)
-        const voltageL3 = parseFloat((u32(regs, 12) / 10.0).toFixed(1));  // Reg 1036-1037 (L3-N)
-
-        const voltageL12 = parseFloat((u32(regs, 14) / 10.0).toFixed(1)); // Reg 1038-1039 (L1-L2)
-        const voltageL23 = parseFloat((u32(regs, 16) / 10.0).toFixed(1)); // Reg 1040-1041 (L2-L3)
-        const voltageL31 = parseFloat((u32(regs, 18) / 10.0).toFixed(1)); // Reg 1042-1043 (L3-L1)
-
-        // Currents (u32, scaled by 10)
-        const currentL1 = parseFloat((u32(regs, 20) / 10.0).toFixed(1));  // Reg 1044-1045
-        const currentL2 = parseFloat((u32(regs, 22) / 10.0).toFixed(1));  // Reg 1046-1047
-        const currentL3 = parseFloat((u32(regs, 24) / 10.0).toFixed(1));  // Reg 1048-1049
-
-        // Calculate average voltage
+        const voltageL1 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));
+        const voltageL2 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));
+        const voltageL3 = parseFloat((u32(regs, 12) / 10.0).toFixed(1));
+        const voltageL12 = parseFloat((u32(regs, 14) / 10.0).toFixed(1));
+        const voltageL23 = parseFloat((u32(regs, 16) / 10.0).toFixed(1));
+        const voltageL31 = parseFloat((u32(regs, 18) / 10.0).toFixed(1));
+        const currentL1 = parseFloat((u32(regs, 20) / 10.0).toFixed(1));
+        const currentL2 = parseFloat((u32(regs, 22) / 10.0).toFixed(1));
+        const currentL3 = parseFloat((u32(regs, 24) / 10.0).toFixed(1));
         const avgVal = (voltageL1 + voltageL2 + voltageL3) / 3;
         const avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
 
@@ -67,17 +121,10 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
             batteryVoltage,
             rpm,
             frequency,
-            voltageL1,
-            voltageL2,
-            voltageL3,
-            avgVoltage,
-            voltageL12,
-            voltageL23,
-            voltageL31,
-            currentL1,
-            currentL2,
-            currentL3,
-            mainsCurrentL1: currentL1, // Load current matches mains current when on mains
+            voltageL1, voltageL2, voltageL3, avgVoltage,
+            voltageL12, voltageL23, voltageL31,
+            currentL1, currentL2, currentL3,
+            mainsCurrentL1: currentL1,
             mainsCurrentL2: currentL2,
             mainsCurrentL3: currentL3,
         };
@@ -85,135 +132,157 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
 
     // ---- Block 1a: Engine + Gen Voltages L-N (Reg 1024-1037, 14 regs) ----
     if (startAddress === 1024 && regs.length >= 14) {
-        const oilPressureRaw = u16(regs, 0); // Reg 1024 (kPa)
-        const coolantTempRaw = u16(regs, 1); // Reg 1025 (°C, signed)
-        const fuelLevel = u16(regs, 3);      // Reg 1027 (%)
-        const batteryRaw = u16(regs, 5);     // Reg 1029 (V, scaled by 10)
-        const rpm = u16(regs, 6);            // Reg 1030 (RPM)
-        const frequencyRaw = u16(regs, 7);   // Reg 1031 (Hz, scaled by 10)
+        const oilPressureRaw = u16(regs, 0);
+        const coolantTempRaw = u16(regs, 1);
+        const fuelLevel = u16(regs, 3);
+        const batteryRaw = u16(regs, 5);
+        const rpm = u16(regs, 6);
+        const frequencyRaw = u16(regs, 7);
 
-        const engineTemp = coolantTempRaw > 32767 ? coolantTempRaw - 65536 : coolantTempRaw;
+        const engineTemp = s16(coolantTempRaw);
         const oilPressure = parseFloat((oilPressureRaw / 100.0).toFixed(2));
         const batteryVoltage = parseFloat((batteryRaw / 10.0).toFixed(1));
         const frequency = parseFloat((frequencyRaw / 10.0).toFixed(1));
-
-        // Voltages (u32, scaled by 10)
-        const voltageL1 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));   // Reg 1032-1033 (L1-N)
-        const voltageL2 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));  // Reg 1034-1035 (L2-N)
-        const voltageL3 = parseFloat((u32(regs, 12) / 10.0).toFixed(1));  // Reg 1036-1037 (L3-N)
-
+        const voltageL1 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));
+        const voltageL2 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));
+        const voltageL3 = parseFloat((u32(regs, 12) / 10.0).toFixed(1));
         const avgVal = (voltageL1 + voltageL2 + voltageL3) / 3;
         const avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
 
         return {
             block: 'DSE_ENGINE_GEN_1024_PART1',
-            oilPressure,
-            engineTemp,
-            fuelLevel,
-            batteryVoltage,
-            rpm,
-            frequency,
-            voltageL1,
-            voltageL2,
-            voltageL3,
-            avgVoltage,
+            oilPressure, engineTemp, fuelLevel, batteryVoltage, rpm, frequency,
+            voltageL1, voltageL2, voltageL3, avgVoltage,
         };
     }
 
     // ---- Block 1b: Gen Voltages L-L & Currents (Reg 1038-1051, 14 regs) ----
     if (startAddress === 1038 && regs.length >= 14) {
-        // Voltages (u32, scaled by 10)
-        const voltageL12 = parseFloat((u32(regs, 0) / 10.0).toFixed(1)); // Reg 1038-1039 (L1-L2)
-        const voltageL23 = parseFloat((u32(regs, 2) / 10.0).toFixed(1)); // Reg 1040-1041 (L2-L3)
-        const voltageL31 = parseFloat((u32(regs, 4) / 10.0).toFixed(1)); // Reg 1042-1043 (L3-L1)
-
-        // Currents (u32, scaled by 10)
-        const currentL1 = parseFloat((u32(regs, 6) / 10.0).toFixed(1));  // Reg 1044-1045
-        const currentL2 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));  // Reg 1046-1047
-        const currentL3 = parseFloat((u32(regs, 10) / 10.0).toFixed(1)); // Reg 1048-1049
+        const voltageL12 = parseFloat((u32(regs, 0) / 10.0).toFixed(1));
+        const voltageL23 = parseFloat((u32(regs, 2) / 10.0).toFixed(1));
+        const voltageL31 = parseFloat((u32(regs, 4) / 10.0).toFixed(1));
+        const currentL1 = parseFloat((u32(regs, 6) / 10.0).toFixed(1));
+        const currentL2 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));
+        const currentL3 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));
 
         return {
             block: 'DSE_ENGINE_GEN_1038_PART2',
-            voltageL12,
-            voltageL23,
-            voltageL31,
-            currentL1,
-            currentL2,
-            currentL3,
+            voltageL12, voltageL23, voltageL31,
+            currentL1, currentL2, currentL3,
             mainsCurrentL1: currentL1,
             mainsCurrentL2: currentL2,
             mainsCurrentL3: currentL3,
         };
     }
 
+    // ---- Block 1c: Per-phase active power (Reg 1052-1057, 6 regs) ----
+    if (startAddress === 1052 && regs.length >= 6) {
+        const powerL1 = parseFloat((s32(regs, 0) / 1000.0).toFixed(2));
+        const powerL2 = parseFloat((s32(regs, 2) / 1000.0).toFixed(2));
+        const powerL3 = parseFloat((s32(regs, 4) / 1000.0).toFixed(2));
+
+        return {
+            block: 'DSE_POWER_PHASE_1052',
+            powerL1, powerL2, powerL3,
+        };
+    }
+
     // ---- Block 2: Mains Voltages & Freq (Reg 1058-1072, 15 regs) ----
     if (startAddress === 1058 && regs.length >= 15) {
-        const mainsVoltageL1 = parseFloat((u32(regs, 0) / 10.0).toFixed(1));   // Reg 1058-1059 (L1-N)
-        const mainsVoltageL2 = parseFloat((u32(regs, 2) / 10.0).toFixed(1));   // Reg 1060-1061 (L2-N)
-        const mainsVoltageL3 = parseFloat((u32(regs, 4) / 10.0).toFixed(1));   // Reg 1062-1063 (L3-N)
-
-        const mainsVoltageL12 = parseFloat((u32(regs, 6) / 10.0).toFixed(1));  // Reg 1064-1065 (L1-L2)
-        const mainsVoltageL23 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));  // Reg 1066-1067 (L2-L3)
-        const mainsVoltageL31 = parseFloat((u32(regs, 10) / 10.0).toFixed(1)); // Reg 1068-1069 (L3-L1)
-
-        const mainsFreqRaw = u16(regs, 14); // Reg 1072 (Hz, scaled by 10)
+        const mainsVoltageL1 = parseFloat((u32(regs, 0) / 10.0).toFixed(1));
+        const mainsVoltageL2 = parseFloat((u32(regs, 2) / 10.0).toFixed(1));
+        const mainsVoltageL3 = parseFloat((u32(regs, 4) / 10.0).toFixed(1));
+        const mainsVoltageL12 = parseFloat((u32(regs, 6) / 10.0).toFixed(1));
+        const mainsVoltageL23 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));
+        const mainsVoltageL31 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));
+        const mainsFreqRaw = u16(regs, 14);
         const mainsFrequency = parseFloat((mainsFreqRaw / 10.0).toFixed(1));
 
         return {
             block: 'DSE_MAINS_1058',
-            mainsVoltageL1,
-            mainsVoltageL2,
-            mainsVoltageL3,
-            mainsVoltageL12,
-            mainsVoltageL23,
-            mainsVoltageL31,
+            mainsVoltageL1, mainsVoltageL2, mainsVoltageL3,
+            mainsVoltageL12, mainsVoltageL23, mainsVoltageL31,
             mainsFrequency,
         };
     }
 
-    // ---- Block 3: Total Active Power (Reg 1536-1537, 2 regs) ----
+    // ---- Block 3: Control mode (Reg 772, Page 3 offset 4) ----
+    if (startAddress === 772 && regs.length >= 1) {
+        const controlModeRaw = u16(regs, 0);
+        const operationMode = decodeControlMode(controlModeRaw);
+
+        return {
+            block: 'DSE_CONTROL_772',
+            controlModeRaw,
+            operationMode,
+        };
+    }
+
+    // ---- Block 4: Status flags (Reg 774, Page 3 offset 6) ----
+    if (startAddress === 774 && regs.length >= 1) {
+        const flags = u16(regs, 0);
+        return {
+            block: 'DSE_FLAGS_774',
+            shutdownAlarmActive: Boolean(flags & (1 << 13)),
+            electricalTripActive: Boolean(flags & (1 << 12)),
+            warningAlarmActive: Boolean(flags & (1 << 11)),
+            controlledShutdownActive: Boolean(flags & (1 << 7)),
+        };
+    }
+
+    // ---- Block 5: Total Active Power (Reg 1536-1537, 2 regs) ----
     if (startAddress === 1536 && regs.length >= 2) {
-        const activePowerRaw = s32(regs, 0); // Reg 1536-1537 (Watts)
-        const activePower = parseFloat((activePowerRaw / 1000.0).toFixed(2)); // convert to kW
+        const activePowerRaw = s32(regs, 0);
+        const activePower = parseFloat((activePowerRaw / 1000.0).toFixed(2));
 
         return {
             block: 'DSE_POWER_1536',
             activePower,
-            activePowerTotal: activePower
+            activePowerTotal: activePower,
         };
     }
 
-    // ---- Block 4: Run Hours (Reg 1798-1799, 2 regs) ----
+    // ---- Block 6: Engine load (Reg 1558, 1 reg) ----
+    if (startAddress === 1558 && regs.length >= 1) {
+        const loadRaw = u16(regs, 0);
+        const engineLoad = parseFloat((s16(loadRaw) / 10.0).toFixed(1));
+
+        return {
+            block: 'DSE_LOAD_1558',
+            engineLoad,
+        };
+    }
+
+    // ---- Block 7: Run Hours (Reg 1798-1799, 2 regs) ----
     if (startAddress === 1798 && regs.length >= 2) {
-        const runTimeSeconds = u32(regs, 0); // Reg 1798-1799 (Seconds)
+        const runTimeSeconds = u32(regs, 0);
         const runHours = parseFloat((runTimeSeconds / 3600.0).toFixed(2));
 
         return {
             block: 'DSE_RUNHOURS_1798',
             runHours,
-            totalHours: runHours
+            totalHours: runHours,
         };
     }
 
-    // ---- Block 5: StatusCode (Reg 1408, 1 reg) ----
+    // ---- Block 8: StatusCode (Reg 1408, 1 reg) ----
     if (startAddress === 1408 && regs.length >= 1) {
-        const statusVal = u16(regs, 0); // Reg 1408
-        
-        let status = 'STOPPED';
-        if (statusVal === 8) {
-            status = 'RUNNING';
-        } else if (statusVal >= 1 && statusVal <= 7) {
-            status = 'STARTING';
-        } else if (statusVal === 9) {
-            status = 'STOPPING';
-        } else if (statusVal === 10) {
-            status = 'ALARM';
-        }
+        const statusVal = u16(regs, 0);
 
         return {
             block: 'DSE_STATUS_1408',
-            status,
-            statusCodeRaw: statusVal
+            status: decodeStatusFromCode(statusVal),
+            statusCodeRaw: statusVal,
+        };
+    }
+
+    // ---- Block 9: Named alarms (Reg 2048+, Page 8) ----
+    if (startAddress === 2048 && regs.length >= 2) {
+        const alarmData = decodeNamedAlarms(regs);
+
+        return {
+            block: 'DSE_ALARMS_2048',
+            ...alarmData,
         };
     }
 
