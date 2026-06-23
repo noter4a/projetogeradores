@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Save, X, ArrowRight, User as UserIcon, ListPlus, Box, DollarSign, PlusCircle } from 'lucide-react';
 import CurrencyInput from '../../components/CurrencyInput';
+import ClientSearchSelect from '../../components/ClientSearchSelect';
 import { useNavigate, useParams } from 'react-router-dom';
 import { 
   QmClient, QmCatalogGenerator, QmCatalogMotor, QmCatalogAlternator, 
@@ -241,16 +242,11 @@ const NewProposal: React.FC = () => {
               <UserIcon className="text-ciklo-yellow" size={20} />
               1. Cliente
             </h3>
-            <select
+            <ClientSearchSelect
+              clients={clients}
               value={clientId}
-              onChange={e => setClientId(e.target.value)}
-              className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-3 text-white focus:border-ciklo-orange outline-none"
-            >
-              <option value="">-- Selecione o Cliente (CRM) --</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>{c.razao_social} {c.cnpj_cpf ? `(${c.cnpj_cpf})` : ''}</option>
-              ))}
-            </select>
+              onChange={setClientId}
+            />
           </div>
 
           {/* Card: Gerador */}
