@@ -1,10 +1,25 @@
 
-import React, { useState, useEffect } from 'react';
-import { Save, Server, Cpu, MapPin, Zap, Building } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, Server, Cpu, MapPin, Zap, Building, AlertTriangle, X } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGenerators } from '../context/GeneratorContext';
 import { useAuth } from '../context/AuthContext';
 import { Generator, GeneratorStatus, Company } from '../types';
+
+type GeneratorFormData = {
+  name: string;
+  location: string;
+  model: string;
+  power: string;
+  connectionName: string;
+  controller: string;
+  protocol: string;
+  ip: string;
+  port: string;
+  slaveId: string;
+  deviceType: string;
+  companyId: string;
+};
 
 const AddGenerator: React.FC = () => {
   const navigate = useNavigate();
@@ -13,9 +28,10 @@ const AddGenerator: React.FC = () => {
   const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // Form State
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<GeneratorFormData>({
     name: '',
     location: '',
     model: '',
@@ -30,6 +46,12 @@ const AddGenerator: React.FC = () => {
     companyId: ''
   });
 
+  // Snapshot of the originally loaded values (for change detection)
+  const initialDataRef = useRef<GeneratorFormData | null>(null);
+  // Ensures the form is populated only once, so live Socket.IO telemetry
+  // updates don't overwrite what the user is typing.
+  const hydratedRef = useRef(false);
+
   // Fetch companies list
   useEffect(() => {
     if (token) {
@@ -42,12 +64,19 @@ const AddGenerator: React.FC = () => {
     }
   }, [token]);
 
-  // Load existing data if editing
+  // Reset hydration flag when switching to a different generator
   useEffect(() => {
-    if (id) {
+    hydratedRef.current = false;
+    initialDataRef.current = null;
+  }, [id]);
+
+  // Load existing data if editing — only once, to avoid live telemetry
+  // updates (Socket.IO) from resetting the fields while the user edits.
+  useEffect(() => {
+    if (id && !hydratedRef.current) {
       const existingGen = generators.find(g => g.id === id);
       if (existingGen) {
-        setFormData({
+        const loaded: GeneratorFormData = {
           name: existingGen.name,
           location: existingGen.location,
           model: existingGen.model,
@@ -60,10 +89,20 @@ const AddGenerator: React.FC = () => {
           slaveId: existingGen.slaveId || '1',
           deviceType: existingGen.deviceType || 'modem',
           companyId: existingGen.companyId ? existingGen.companyId.toString() : ''
-        });
+        };
+        setFormData(loaded);
+        initialDataRef.current = loaded;
+        hydratedRef.current = true;
       }
     }
   }, [id, generators]);
+
+  const hasChanges = () => {
+    if (!initialDataRef.current) return true;
+    return (Object.keys(formData) as (keyof GeneratorFormData)[]).some(
+      key => formData[key] !== initialDataRef.current![key]
+    );
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -81,6 +120,22 @@ const AddGenerator: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Edit mode: ask for confirmation only when something actually changed
+    if (id) {
+      if (!hasChanges()) {
+        navigate('/fleet');
+        return;
+      }
+      setShowConfirm(true);
+      return;
+    }
+
+    doSave();
+  };
+
+  const doSave = () => {
+    setShowConfirm(false);
     setLoading(true);
 
     if (id) {
@@ -362,6 +417,52 @@ const AddGenerator: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/* Confirmation modal — shown only when editing and there are changes */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-ciklo-card border border-gray-700 rounded-2xl shadow-2xl shadow-black/50 max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-ciklo-orange/15 border border-ciklo-orange/30 flex items-center justify-center shrink-0">
+                <AlertTriangle className="text-ciklo-orange" size={24} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white">Confirmar atualização</h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  Você está prestes a alterar as informações de
+                  <span className="text-white font-semibold"> {formData.name || 'este gerador'}</span>.
+                  Deseja realmente salvar as alterações?
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                className="text-gray-500 hover:text-white p-1"
+                aria-label="Fechar"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                className="px-5 py-2.5 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition-colors font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={doSave}
+                disabled={loading}
+                className="px-6 py-2.5 bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold rounded-lg shadow-lg flex items-center gap-2 disabled:opacity-50 transition-all"
+              >
+                <Save size={18} /> Sim, atualizar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
