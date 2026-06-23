@@ -114,6 +114,25 @@ let lastConnectionError = null;
 let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands
 const modemLastDataReceived = new Map(); // deviceId -> Date.now() — Watchdog tracking
+const lastLinkHeartbeatDb = new Map(); // deviceId -> last DB heartbeat ms
+
+/** Mark device as online at link layer (MQTT/RS485 responded) even when Modbus decode fails. */
+function emitDr164LinkHeartbeat(deviceId, io) {
+    const now = Date.now();
+    io.emit('generator:update', {
+        id: deviceId,
+        timestamp: new Date().toISOString(),
+        data: { lastDataReceived: now },
+    });
+    const lastDb = lastLinkHeartbeatDb.get(deviceId) || 0;
+    if (now - lastDb > 15000) {
+        lastLinkHeartbeatDb.set(deviceId, now);
+        pool.query(
+            "UPDATE generators SET last_connected = NOW() WHERE id = $1 OR connection_info->>'ip' = $1",
+            [deviceId]
+        ).catch(err => console.error('[MQTT] Link heartbeat DB error:', err.message));
+    }
+}
 
 // ==========================================
 // USR-DR164 TRANSPARENT MODE SUPPORT
@@ -201,6 +220,11 @@ function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
 
     const respHex = rawBuffer.toString('hex');
     console.log(`[DR164] Response for ${deviceId}: ${respHex} (Req: Addr ${pending.startAddress}, Qty ${pending.quantity})`);
+
+    // Modbus exception (fn >= 0x80): link is OK but register map/slave may be wrong
+    if (rawBuffer.length >= 3 && (rawBuffer[1] & 0x80)) {
+        console.warn(`[DR164] Modbus EXCEPTION for ${deviceId}: code ${rawBuffer[2]} at Addr ${pending.startAddress} — no telemetry decoded`);
+    }
 
     // Valid response received — reset consecutive timeout counter
     dr164ConsecutiveTimeouts.set(deviceId, 0);
@@ -531,11 +555,17 @@ const BROKER_URL = process.env.MQTT_BROKER_URL;
 if (!BROKER_URL) {
     console.error('[MQTT] FATAL: MQTT_BROKER_URL not set in environment variables!');
 }
-const OPTIONS = {
-    username: process.env.MQTT_USER,
-    password: process.env.MQTT_PASSWORD,
-    rejectUnauthorized: process.env.NODE_ENV === 'production'
-};
+
+function buildMqttOptions() {
+    const rejectUnauthorized = process.env.MQTT_TLS_REJECT_UNAUTHORIZED !== 'false'
+        && process.env.NODE_ENV === 'production';
+    console.log(`[MQTT] TLS rejectUnauthorized=${rejectUnauthorized} (MQTT_TLS_REJECT_UNAUTHORIZED=${process.env.MQTT_TLS_REJECT_UNAUTHORIZED ?? 'unset'})`);
+    return {
+        username: process.env.MQTT_USER,
+        password: process.env.MQTT_PASSWORD,
+        rejectUnauthorized
+    };
+}
 
 const TOPIC = 'devices/data/#';
 
@@ -561,7 +591,7 @@ export const initMqttService = (io) => {
         console.error('[MQTT] FAILED TO WRITE LOG FILE:', err.message);
     }
 
-    client = mqtt.connect(BROKER_URL, OPTIONS);
+    client = mqtt.connect(BROKER_URL, buildMqttOptions());
     global.mqttClient = client; // FIX: Expose to global scope for sendControlCommand
 
     client.on('connect', () => {
@@ -1477,7 +1507,12 @@ export const initMqttService = (io) => {
                             console.error('[MQTT] DB Persistence Error:', dbErr.message);
                         }
                     })();
+                } else if (isDr164Device) {
+                    // Modbus responded but no telemetry decoded (e.g. KVA exception / wrong map)
+                    emitDr164LinkHeartbeat(deviceId, io);
                 }
+            } else if (isDr164Device && payload?.modbusResponse?.some(r => r && r !== '')) {
+                emitDr164LinkHeartbeat(deviceId, io);
             }
 
         } catch (e) {
