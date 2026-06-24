@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Pencil, Trash2, X, Search, Building2, MapPin, Phone, Mail } from 'lucide-react';
 import { QmClient } from '../../types';
+import { maskCpfCnpj, maskPhone, maskCep, UF_LIST } from '../../utils/formatters';
 
 const Clients: React.FC = () => {
   const [clients, setClients] = useState<QmClient[]>([]);
@@ -55,7 +56,13 @@ const Clients: React.FC = () => {
 
   const handleEdit = (client: QmClient) => {
     setEditingId(client.id);
-    setFormData(client);
+    setFormData({
+      ...client,
+      cnpj_cpf: client.cnpj_cpf ? maskCpfCnpj(client.cnpj_cpf) : '',
+      fones: client.fones ? maskPhone(client.fones) : '',
+      cep: client.cep ? maskCep(client.cep) : '',
+      uf: client.uf ? client.uf.toUpperCase() : '',
+    });
     setIsFormOpen(true);
   };
 
@@ -169,7 +176,7 @@ const Clients: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">CNPJ / CPF</label>
-                  <input type="text" value={formData.cnpj_cpf} onChange={e => setFormData({...formData, cnpj_cpf: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none" />
+                  <input type="text" inputMode="numeric" value={formData.cnpj_cpf} onChange={e => setFormData({...formData, cnpj_cpf: maskCpfCnpj(e.target.value)})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none" placeholder="000.000.000-00" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Inscrição Estadual (IE)</label>
@@ -185,7 +192,7 @@ const Clients: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Telefones</label>
-                  <div className="relative"><Phone className="absolute left-3 top-3 text-gray-500" size={16} /><input type="text" value={formData.fones} onChange={e => setFormData({...formData, fones: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 pl-10 text-white focus:border-ciklo-orange outline-none" /></div>
+                  <div className="relative"><Phone className="absolute left-3 top-3 text-gray-500" size={16} /><input type="text" inputMode="numeric" value={formData.fones} onChange={e => setFormData({...formData, fones: maskPhone(e.target.value)})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 pl-10 text-white focus:border-ciklo-orange outline-none" placeholder="(00) 00000-0000" /></div>
                 </div>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">E-mail</label>
@@ -198,7 +205,7 @@ const Clients: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="col-span-2">
                     <label className="block text-sm text-gray-400 mb-1">CEP</label>
-                    <input type="text" value={formData.cep} onChange={e => setFormData({...formData, cep: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none" />
+                    <input type="text" inputMode="numeric" value={formData.cep} onChange={e => setFormData({...formData, cep: maskCep(e.target.value)})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none" placeholder="00000-000" />
                   </div>
                   <div className="col-span-2">
                     <label className="block text-sm text-gray-400 mb-1">Endereço</label>
@@ -214,7 +221,10 @@ const Clients: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-400 mb-1">UF</label>
-                    <input type="text" maxLength={2} value={formData.uf} onChange={e => setFormData({...formData, uf: e.target.value.toUpperCase()})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none text-center" />
+                    <select value={formData.uf || ''} onChange={e => setFormData({...formData, uf: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none text-center">
+                      <option value="">--</option>
+                      {UF_LIST.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                    </select>
                   </div>
                 </div>
               </div>
