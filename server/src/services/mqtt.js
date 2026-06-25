@@ -874,17 +874,19 @@ export const initMqttService = (io) => {
                             //     "AUTO stopped/standby/faulted" and "MANUAL stopped". The registers alone
                             //     cannot tell them apart, so we fall back to the last commanded mode.
                             // Only pure DR164 DEIF devices use this; modem SGC120, KVA and DSE keep their logic.
-                            // SGC 420: modo selecionado no nibble alto do Reg 91 (não usar dgOpMode nem Reg 1019)
+                            // SGC 420: modo no byte alto do Reg 91 (0x4A80=Auto, 0x4280=Manual); ambíguo → último comando
                             if (isSgc420Device) {
-                                if (d.opMode) {
-                                    unifiedData.operationMode = d.opMode;
-                                    dr164CommandedMode.set(deviceId, d.opMode);
-                                } else {
-                                    const held = dr164CommandedMode.get(deviceId)
+                                let resolvedMode = d.opMode || null;
+                                if (!resolvedMode) {
+                                    resolvedMode = dr164CommandedMode.get(deviceId)
                                         || currentGeneratorsState[deviceId]?.data?.operationMode
                                         || 'AUTO';
-                                    unifiedData.operationMode = held;
                                 }
+                                unifiedData.operationMode = resolvedMode;
+                                if (d.opMode) {
+                                    dr164CommandedMode.set(deviceId, d.opMode);
+                                }
+                                console.log(`[SGC420-MODE] ${deviceId} Reg91=0x${d.reg78_hex} dgOp=${d.dgOpMode ?? '?'} -> ${resolvedMode}${d.opMode ? '' : ' (held)'}`);
                                 // Chaves QTA: definidas por reconcileSgc420BreakerState (tensão/RPM)
                             } else if (isDeifDevice) {
                                 const highByte = parseInt(d.reg78_hex, 16) >> 8;

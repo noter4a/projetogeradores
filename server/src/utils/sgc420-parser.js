@@ -23,15 +23,18 @@ export function isSgc420Controller(controller) {
 const u16 = (regs, i) => (regs[i] ?? 0);
 const scale01 = (x) => Math.round(x * 10) / 10;
 
-/** Reg 91: modo selecionado — nibble alto ou byte alto (compatível SGC120 em campo) */
+/**
+ * Reg 91: modo selecionado no byte alto.
+ * Campo SGC420: Auto parado = 0x4A80, Manual parado = 0x4280 — mesmo nibble 4, bytes 0x4A vs 0x42.
+ * Não usar só (raw >> 12) & 0x0f — distingue errado Auto/Manual.
+ */
 function decodeReg91OperationMode(raw) {
   const highByte = (raw >> 8) & 0xff;
-  const nibble = (raw >> 12) & 0x0f;
 
-  if (highByte === 0x04 || highByte === 0x6c || nibble === 4 || nibble === 0xc) return 'AUTO';
-  if (highByte === 0x60 || highByte === 0x64 || nibble === 6 || nibble === 9) return 'MANUAL';
-  if (nibble === 5) return 'TEST';
-  return null; // estado parado/ambíguo — não alternar o modo exibido
+  if (highByte === 0x04 || highByte === 0x4a || highByte === 0x6c) return 'AUTO';
+  if (highByte === 0x42 || highByte === 0x60 || highByte === 0x64 || highByte === 0x96) return 'MANUAL';
+  if (highByte === 0x50) return 'TEST';
+  return null;
 }
 
 /**
@@ -406,6 +409,7 @@ export function decodeSgc420Payload(payload) {
         reg77_hex: pendingInputs.reg77_hex,
         reg78_hex: decoded.reg78_hex,
         opMode: decoded.opMode,
+        dgOpMode: decoded.dgOpMode,
         loadOnMains: decoded.loadOnMains,
         loadOnDg: decoded.loadOnDg,
       };
@@ -416,6 +420,7 @@ export function decodeSgc420Payload(payload) {
         reg77_hex: '0',
         reg78_hex: decoded.reg78_hex,
         opMode: decoded.opMode,
+        dgOpMode: decoded.dgOpMode,
         loadOnMains: decoded.loadOnMains,
         loadOnDg: decoded.loadOnDg,
       };
