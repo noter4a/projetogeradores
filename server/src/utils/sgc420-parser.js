@@ -4,8 +4,9 @@
 import { parseRtuRequestHex, parseRtuResponseHex } from './sgc120-parser.js';
 
 export const SGC420_POLL_SEQUENCE = [
-  { startAddress: 91, quantity: 1 },   // Modo / status DG (equivalente ao Reg 78 do SGC 120)
-  { startAddress: 89, quantity: 1 },   // Entradas digitais (equivalente ao Reg 77)
+  { startAddress: 91, quantity: 1 },   // Status word (modo DG nos bits 12-14)
+  { startAddress: 1019, quantity: 1 }, // Manual/Auto explícito (bit2=Manual, bit4=Auto)
+  { startAddress: 89, quantity: 1 },   // Entradas digitais
   { startAddress: 61, quantity: 4 },   // Horímetro motor 61-64
   { startAddress: 1,  quantity: 9 },   // Tensões / freq gerador
   { startAddress: 51, quantity: 8 },   // Motor 51-58
@@ -22,6 +23,39 @@ export function isSgc420Controller(controller) {
 
 const u16 = (regs, i) => (regs[i] ?? 0);
 const scale01 = (x) => Math.round(x * 10) / 10;
+
+/** Reg 1019: bit2 = Manual, bit4 = Auto (DEIF mode information register) */
+function decodeReg1019Mode(raw) {
+  const manual = (raw & 0x0002) !== 0;
+  const auto = (raw & 0x0008) !== 0;
+  if (auto && !manual) return 'AUTO';
+  if (manual && !auto) return 'MANUAL';
+  if (auto) return 'AUTO';
+  if (manual) return 'MANUAL';
+  return null;
+}
+
+/**
+ * Reg 91 status word — mesmo layout do Reg 78 do SGC 120.
+ * DG operation mode = bits 12-14 (numeração DEIF, MSB = bit 16).
+ */
+function decodeReg91Mode(raw) {
+  const dgOpMode = (raw >> 11) & 0x07;
+  switch (dgOpMode) {
+    case 2: return 'AUTO';
+    case 1: return 'MANUAL';
+    case 3: return 'TEST';
+    case 0: return 'MANUAL'; // parado — SGC 420 não expõe "Inibido" aqui
+    default: return 'UNKNOWN';
+  }
+}
+
+/** Combustível: valor ≤100 = % inteiro; >100 = escala 0.1 (ex. 890 → 89%) */
+function decodeFuelLevelPct(raw) {
+  if (raw <= 0) return 0;
+  if (raw <= 100) return raw;
+  return scale01(Math.min(raw * 0.1, 100));
+}
 
 const ALARM_DEFS_420 = {
   72: [
@@ -85,14 +119,6 @@ const ALARM_DEFS_420 = {
   ],
 };
 
-function decodeOpModeHighByte(highByte) {
-  if (highByte === 100 || highByte === 96) return 'MANUAL';
-  if (highByte === 0) return 'INHIBITED';
-  if (highByte === 32) return 'MANUAL';
-  if (highByte === 4 || highByte === 108) return 'AUTO';
-  if (highByte === 5) return 'TEST';
-  return 'UNKNOWN';
-}
 
 function decodeAlarms(startAddress, regs) {
   const activeAlarms = [];
@@ -139,7 +165,6 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
   if (startAddress === 89 && regs.length >= 3) {
     const rawInputs = u16(regs, 0);
     const rawMode = u16(regs, 2);
-    const highByte = rawMode >> 8;
     const inputA = (rawInputs & 0x8000) !== 0;
     const inputB = (rawInputs & 0x4000) !== 0;
 
@@ -147,7 +172,7 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
       block: 'STATUS_COMBINED_77_78',
       reg77_hex: rawInputs.toString(16).toUpperCase(),
       reg78_hex: rawMode.toString(16).toUpperCase(),
-      opMode: decodeOpModeHighByte(highByte),
+      opMode: decodeReg91Mode(rawMode),
       mainsBreakerClosed: inputB,
       genBreakerClosed: inputA,
       ...result,
@@ -171,15 +196,29 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
 
   if (startAddress === 91 && regs.length >= 1) {
     const rawMode = u16(regs, 0);
-    const highByte = rawMode >> 8;
-    const mode = decodeOpModeHighByte(highByte);
+    const mode = decodeReg91Mode(rawMode);
 
-    console.log(`[PARSER-420] Reg91(Mode): 0x${rawMode.toString(16)} | Mode: ${mode}`);
+    console.log(`[PARSER-420] Reg91=0x${rawMode.toString(16)} dgOp=${(rawMode >> 11) & 0x07} -> Mode: ${mode}`);
 
     return {
       block: 'STATUS_MODE_91',
       reg78_hex: rawMode.toString(16).toUpperCase(),
       opMode: mode,
+      reg91_raw: rawMode,
+      ...result,
+    };
+  }
+
+  if (startAddress === 1019 && regs.length >= 1) {
+    const raw = u16(regs, 0);
+    const mode = decodeReg1019Mode(raw);
+
+    console.log(`[PARSER-420] Reg1019=0x${raw.toString(16)} -> Mode: ${mode || 'UNKNOWN'}`);
+
+    return {
+      block: 'MODE_1019',
+      opMode: mode || 'UNKNOWN',
+      reg1019_raw: raw,
       ...result,
     };
   }
@@ -226,7 +265,7 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
       block: 'ENGINE_51_59',
       oilPressure_bar: scale01(u16(regs, 0) * 0.1),
       coolantTemp_c: scale01(u16(regs, 1) * 0.1),
-      fuelLevel_pct: scale01(u16(regs, 2) * 0.1),
+      fuelLevel_pct: decodeFuelLevelPct(u16(regs, 2)),
       fuelLiters_l: scale01(u16(regs, 3) * 0.1),
       chargeAltVoltage_v: scale01(u16(regs, 4) * 0.1),
       batteryVoltage_v: scale01(u16(regs, 5) * 0.1),
