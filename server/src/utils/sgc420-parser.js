@@ -220,15 +220,16 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
   }
 
   // Motor 51-58 — escalas SGC 420
+  // Nota: regs 52/56 vêm do ECU em décimos (391 → 39,1 °C; 276 → 27,6 V)
   if (startAddress === 51 && regs.length >= 8) {
     return {
       block: 'ENGINE_51_59',
       oilPressure_bar: scale01(u16(regs, 0) * 0.1),
-      coolantTemp_c: u16(regs, 1),
+      coolantTemp_c: scale01(u16(regs, 1) * 0.1),
       fuelLevel_pct: scale01(u16(regs, 2) * 0.1),
       fuelLiters_l: scale01(u16(regs, 3) * 0.1),
       chargeAltVoltage_v: scale01(u16(regs, 4) * 0.1),
-      batteryVoltage_v: u16(regs, 5),
+      batteryVoltage_v: scale01(u16(regs, 5) * 0.1),
       rpm: u16(regs, 6),
       starts: u16(regs, 7),
       ...result,
@@ -272,16 +273,16 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  // Potência 26-30: watts por fase (0.1), total (inteiro kW), % carga (0.1)
+  // Potência 26-30: watts por fase (0.1 kW), total (0.1 kW), % carga (0.1)
   if (startAddress === 26 && regs.length >= 5) {
     const pL1 = scale01(u16(regs, 0) * 0.1);
     const pL2 = scale01(u16(regs, 1) * 0.1);
     const pL3 = scale01(u16(regs, 2) * 0.1);
-    const pTotalRaw = u16(regs, 3);
-    const pTotal = pTotalRaw > 0 ? pTotalRaw : parseFloat((pL1 + pL2 + pL3).toFixed(1));
+    const phaseSum = parseFloat((pL1 + pL2 + pL3).toFixed(1));
+    const pTotal = phaseSum;
     const loadPct = scale01(u16(regs, 4) * 0.1);
 
-    console.log(`[PARSER-420] Power 26-30: L1=${pL1} L2=${pL2} L3=${pL3} Total=${pTotal}kW Load=${loadPct}%`);
+    console.log(`[PARSER-420] Power 26-30: L1=${pL1} L2=${pL2} L3=${pL3} Total=${pTotal}kW Load=${loadPct}% (Reg29 raw=${u16(regs, 3)})`);
 
     return {
       block: 'ACTIVE_POWER_29_31',
