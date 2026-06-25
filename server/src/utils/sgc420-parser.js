@@ -38,16 +38,30 @@ function decodeReg1019Mode(raw) {
 /**
  * Reg 91 status word — mesmo layout do Reg 78 do SGC 120.
  * DG operation mode = bits 12-14 (numeração DEIF, MSB = bit 16).
+ * Load on Mains = bit 11, Load on DG = bit 10.
  */
-function decodeReg91Mode(raw) {
+function decodeReg91Status(raw) {
   const dgOpMode = (raw >> 11) & 0x07;
+  let opMode = 'UNKNOWN';
   switch (dgOpMode) {
-    case 2: return 'AUTO';
-    case 1: return 'MANUAL';
-    case 3: return 'TEST';
-    case 0: return 'MANUAL'; // parado — SGC 420 não expõe "Inibido" aqui
-    default: return 'UNKNOWN';
+    case 2: opMode = 'AUTO'; break;
+    case 1: opMode = 'MANUAL'; break;
+    case 3: opMode = 'TEST'; break;
+    case 0: opMode = 'MANUAL'; break;
+    default: opMode = 'UNKNOWN';
   }
+
+  const loadOnMains = (raw & 0x0400) !== 0; // bit 11
+  const loadOnDg = (raw & 0x0200) !== 0;    // bit 10
+
+  return {
+    opMode,
+    dgOpMode,
+    loadOnMains,
+    loadOnDg,
+    mainsBreakerClosed: loadOnMains,
+    genBreakerClosed: loadOnDg,
+  };
 }
 
 /** Combustível: valor ≤100 = % inteiro; >100 = escala 0.1 (ex. 890 → 89%) */
@@ -165,46 +179,40 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
   if (startAddress === 89 && regs.length >= 3) {
     const rawInputs = u16(regs, 0);
     const rawMode = u16(regs, 2);
-    const inputA = (rawInputs & 0x8000) !== 0;
-    const inputB = (rawInputs & 0x4000) !== 0;
+    const status = decodeReg91Status(rawMode);
 
     return {
       block: 'STATUS_COMBINED_77_78',
       reg77_hex: rawInputs.toString(16).toUpperCase(),
       reg78_hex: rawMode.toString(16).toUpperCase(),
-      opMode: decodeReg91Mode(rawMode),
-      mainsBreakerClosed: inputB,
-      genBreakerClosed: inputA,
+      ...status,
       ...result,
     };
   }
 
-  // Reg 89: entradas digitais
+  // Reg 89: entrada digital A (SGC 420 não expõe feedback de chaves aqui como o SGC 120)
   if (startAddress === 89 && regs.length >= 1) {
     const rawInputs = u16(regs, 0);
-    const inputA = (rawInputs & 0x8000) !== 0;
-    const inputB = (rawInputs & 0x4000) !== 0;
 
     return {
       block: 'STATUS_INPUTS_89',
       reg77_hex: rawInputs.toString(16).toUpperCase(),
-      mainsBreakerClosed: inputB,
-      genBreakerClosed: inputA,
+      digitalInputA: (rawInputs & 0x8000) !== 0,
       ...result,
     };
   }
 
   if (startAddress === 91 && regs.length >= 1) {
     const rawMode = u16(regs, 0);
-    const mode = decodeReg91Mode(rawMode);
+    const status = decodeReg91Status(rawMode);
 
-    console.log(`[PARSER-420] Reg91=0x${rawMode.toString(16)} dgOp=${(rawMode >> 11) & 0x07} -> Mode: ${mode}`);
+    console.log(`[PARSER-420] Reg91=0x${rawMode.toString(16)} dgOp=${status.dgOpMode} mains=${status.loadOnMains} dg=${status.loadOnDg} -> ${status.opMode}`);
 
     return {
       block: 'STATUS_MODE_91',
       reg78_hex: rawMode.toString(16).toUpperCase(),
-      opMode: mode,
       reg91_raw: rawMode,
+      ...status,
       ...result,
     };
   }
@@ -295,17 +303,12 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
     const c1 = scale01(u16(regs, 0) * 0.1);
     const c2 = scale01(u16(regs, 1) * 0.1);
     const c3 = scale01(u16(regs, 2) * 0.1);
-    const val24 = u16(regs, 1);
-    const mainsClosed = (val24 & 0x0004) !== 0;
-    const genClosed = (val24 & 0x0002) !== 0;
 
     return {
       block: 'LOAD_CURRENT_23',
       loadCurr_l1: c1,
       loadCurr_l2: c2,
       loadCurr_l3: c3,
-      mainsBreakerClosed: mainsClosed,
-      genBreakerClosed: genClosed,
       reg23: u16(regs, 0),
       reg24: u16(regs, 1),
       ...result,
@@ -394,8 +397,10 @@ export function decodeSgc420Payload(payload) {
         reg77_hex: pendingInputs.reg77_hex,
         reg78_hex: decoded.reg78_hex,
         opMode: decoded.opMode,
-        mainsBreakerClosed: pendingInputs.mainsBreakerClosed,
-        genBreakerClosed: pendingInputs.genBreakerClosed,
+        mainsBreakerClosed: decoded.mainsBreakerClosed,
+        genBreakerClosed: decoded.genBreakerClosed,
+        loadOnMains: decoded.loadOnMains,
+        loadOnDg: decoded.loadOnDg,
       };
       pendingInputs = null;
     } else if (decoded.block === 'STATUS_MODE_91') {
@@ -404,8 +409,10 @@ export function decodeSgc420Payload(payload) {
         reg77_hex: '0',
         reg78_hex: decoded.reg78_hex,
         opMode: decoded.opMode,
-        mainsBreakerClosed: false,
-        genBreakerClosed: false,
+        mainsBreakerClosed: decoded.mainsBreakerClosed,
+        genBreakerClosed: decoded.genBreakerClosed,
+        loadOnMains: decoded.loadOnMains,
+        loadOnDg: decoded.loadOnDg,
       };
     }
 
