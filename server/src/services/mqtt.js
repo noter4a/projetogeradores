@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
-import { decodeSgc420Payload, SGC420_POLL_SEQUENCE, isSgc420Controller } from '../utils/sgc420-parser.js';
+import { decodeSgc420Payload, SGC420_POLL_SEQUENCE, isSgc420Controller, reconcileSgc420BreakerState } from '../utils/sgc420-parser.js';
 import { decodeKvaPayload } from '../utils/kva-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
 import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
@@ -879,6 +879,7 @@ export const initMqttService = (io) => {
                                 if (d.opMode && d.opMode !== 'UNKNOWN') {
                                     unifiedData.operationMode = d.opMode;
                                 }
+                                // Chaves QTA: definidas por reconcileSgc420BreakerState (tensão/RPM)
                             } else if (isDeifDevice) {
                                 const highByte = parseInt(d.reg78_hex, 16) >> 8;
                                 let resolvedMode = null;
@@ -1304,9 +1305,17 @@ export const initMqttService = (io) => {
 
                         // Merge logic: Defaults <- Existing from memory <- New Unified Data
                         existingDeviceData = currentGeneratorsState[deviceId]?.data || {}; // Assignment only
+                        let mergedData = { ...existingDeviceData, ...unifiedData };
+
+                        if (isSgc420Device) {
+                            reconcileSgc420BreakerState(mergedData);
+                            unifiedData.mainsBreakerClosed = mergedData.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
+                        }
+
                         currentGeneratorsState[deviceId] = {
                             ...updatePayload,
-                            data: { ...existingDeviceData, ...unifiedData }
+                            data: mergedData
                         };
 
                         // Non-blocking disk write

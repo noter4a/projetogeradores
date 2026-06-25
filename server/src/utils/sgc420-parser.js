@@ -51,17 +51,50 @@ function decodeReg91Status(raw) {
     default: opMode = 'UNKNOWN';
   }
 
-  const loadOnMains = (raw & 0x0400) !== 0; // bit 11
-  const loadOnDg = (raw & 0x0200) !== 0;    // bit 10
+  const loadOnMains = (raw & 0x0400) !== 0; // bit 11 — flag de status, não = chave fechada
+  const loadOnDg = (raw & 0x0200) !== 0;    // bit 10 — idem
 
   return {
     opMode,
     dgOpMode,
     loadOnMains,
     loadOnDg,
-    mainsBreakerClosed: loadOnMains,
-    genBreakerClosed: loadOnDg,
+    // Breaker state is derived later from voltages/RPM (reconcileSgc420BreakerState)
   };
+}
+
+/**
+ * Estado real das chaves QTA — derivado de tensão/RPM, não dos bits Load on DG/Mains.
+ * Reg 91 "Load on DG" pode ficar ativo mesmo com GMG parado (estado lógico do ATS).
+ */
+export function reconcileSgc420BreakerState(data) {
+  const mainsV = Math.max(data.mainsVoltageL1 || 0, data.mainsVoltageL2 || 0, data.mainsVoltageL3 || 0);
+  const genV = Math.max(data.voltageL1 || 0, data.voltageL2 || 0, data.voltageL3 || 0);
+  const rpm = data.rpm ?? 0;
+
+  const genEnergized = rpm > 100 || genV > 80;
+  const mainsEnergized = mainsV > 100;
+
+  if (!genEnergized && mainsEnergized) {
+    data.mainsBreakerClosed = true;
+    data.genBreakerClosed = false;
+  } else if (genEnergized && !mainsEnergized) {
+    data.genBreakerClosed = true;
+    data.mainsBreakerClosed = false;
+  } else if (genEnergized && mainsEnergized) {
+    if (genV > mainsV + 20) {
+      data.genBreakerClosed = true;
+      data.mainsBreakerClosed = false;
+    } else {
+      data.mainsBreakerClosed = true;
+      data.genBreakerClosed = false;
+    }
+  } else {
+    data.mainsBreakerClosed = false;
+    data.genBreakerClosed = false;
+  }
+
+  return data;
 }
 
 /** Combustível: valor ≤100 = % inteiro; >100 = escala 0.1 (ex. 890 → 89%) */
@@ -397,8 +430,6 @@ export function decodeSgc420Payload(payload) {
         reg77_hex: pendingInputs.reg77_hex,
         reg78_hex: decoded.reg78_hex,
         opMode: decoded.opMode,
-        mainsBreakerClosed: decoded.mainsBreakerClosed,
-        genBreakerClosed: decoded.genBreakerClosed,
         loadOnMains: decoded.loadOnMains,
         loadOnDg: decoded.loadOnDg,
       };
@@ -409,8 +440,6 @@ export function decodeSgc420Payload(payload) {
         reg77_hex: '0',
         reg78_hex: decoded.reg78_hex,
         opMode: decoded.opMode,
-        mainsBreakerClosed: decoded.mainsBreakerClosed,
-        genBreakerClosed: decoded.genBreakerClosed,
         loadOnMains: decoded.loadOnMains,
         loadOnDg: decoded.loadOnDg,
       };
