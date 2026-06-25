@@ -874,10 +874,16 @@ export const initMqttService = (io) => {
                             //     "AUTO stopped/standby/faulted" and "MANUAL stopped". The registers alone
                             //     cannot tell them apart, so we fall back to the last commanded mode.
                             // Only pure DR164 DEIF devices use this; modem SGC120, KVA and DSE keep their logic.
-                            // SGC 420: modo vem do bitfield Reg 91 / Reg 1019 (não usar highByte do SGC 120)
+                            // SGC 420: modo selecionado no nibble alto do Reg 91 (não usar dgOpMode nem Reg 1019)
                             if (isSgc420Device) {
-                                if (d.opMode && d.opMode !== 'UNKNOWN') {
+                                if (d.opMode) {
                                     unifiedData.operationMode = d.opMode;
+                                    dr164CommandedMode.set(deviceId, d.opMode);
+                                } else {
+                                    const held = dr164CommandedMode.get(deviceId)
+                                        || currentGeneratorsState[deviceId]?.data?.operationMode
+                                        || 'AUTO';
+                                    unifiedData.operationMode = held;
                                 }
                                 // Chaves QTA: definidas por reconcileSgc420BreakerState (tensão/RPM)
                             } else if (isDeifDevice) {
@@ -933,14 +939,6 @@ export const initMqttService = (io) => {
                             // Alias for DB Storage and Legacy Compatibility
                             unifiedData.activePower = d.activePowerTotal;
                             if (d.engineLoad !== undefined) unifiedData.engineLoad = d.engineLoad;
-                        }
-
-                        // Map MODE_1019 (SGC 420 Manual/Auto — prioridade sobre Reg 91)
-                        if (d.block === 'MODE_1019') {
-                            if (d.opMode && d.opMode !== 'UNKNOWN') {
-                                unifiedData.operationMode = d.opMode;
-                                dr164CommandedMode.set(deviceId, d.opMode);
-                            }
                         }
 
                         // Map STATUS_32 (Debug Only)

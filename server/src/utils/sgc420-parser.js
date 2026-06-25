@@ -4,8 +4,7 @@
 import { parseRtuRequestHex, parseRtuResponseHex } from './sgc120-parser.js';
 
 export const SGC420_POLL_SEQUENCE = [
-  { startAddress: 91, quantity: 1 },   // Status word (modo DG nos bits 12-14)
-  { startAddress: 1019, quantity: 1 }, // Manual/Auto explícito (bit2=Manual, bit4=Auto)
+  { startAddress: 91, quantity: 1 },   // Status word — modo selecionado + flags
   { startAddress: 89, quantity: 1 },   // Entradas digitais
   { startAddress: 61, quantity: 4 },   // Horímetro motor 61-64
   { startAddress: 1,  quantity: 9 },   // Tensões / freq gerador
@@ -24,32 +23,24 @@ export function isSgc420Controller(controller) {
 const u16 = (regs, i) => (regs[i] ?? 0);
 const scale01 = (x) => Math.round(x * 10) / 10;
 
-/** Reg 1019: bit2 = Manual, bit4 = Auto (DEIF mode information register) */
-function decodeReg1019Mode(raw) {
-  const manual = (raw & 0x0002) !== 0;
-  const auto = (raw & 0x0008) !== 0;
-  if (auto && !manual) return 'AUTO';
-  if (manual && !auto) return 'MANUAL';
-  if (auto) return 'AUTO';
-  if (manual) return 'MANUAL';
-  return null;
+/** Reg 91: modo selecionado — nibble alto ou byte alto (compatível SGC120 em campo) */
+function decodeReg91OperationMode(raw) {
+  const highByte = (raw >> 8) & 0xff;
+  const nibble = (raw >> 12) & 0x0f;
+
+  if (highByte === 0x04 || highByte === 0x6c || nibble === 4 || nibble === 0xc) return 'AUTO';
+  if (highByte === 0x60 || highByte === 0x64 || nibble === 6 || nibble === 9) return 'MANUAL';
+  if (nibble === 5) return 'TEST';
+  return null; // estado parado/ambíguo — não alternar o modo exibido
 }
 
 /**
- * Reg 91 status word — mesmo layout do Reg 78 do SGC 120.
- * DG operation mode = bits 12-14 (numeração DEIF, MSB = bit 16).
- * Load on Mains = bit 11, Load on DG = bit 10.
+ * Reg 91 status word.
+ * dgOpMode (bits 11-13) = estado de operação do DG (stop/manual/auto/test), não o botão Auto/Manual.
  */
 function decodeReg91Status(raw) {
   const dgOpMode = (raw >> 11) & 0x07;
-  let opMode = 'UNKNOWN';
-  switch (dgOpMode) {
-    case 2: opMode = 'AUTO'; break;
-    case 1: opMode = 'MANUAL'; break;
-    case 3: opMode = 'TEST'; break;
-    case 0: opMode = 'MANUAL'; break;
-    default: opMode = 'UNKNOWN';
-  }
+  const opMode = decodeReg91OperationMode(raw);
 
   const loadOnMains = (raw & 0x0400) !== 0; // bit 11 — flag de status, não = chave fechada
   const loadOnDg = (raw & 0x0200) !== 0;    // bit 10 — idem
@@ -250,21 +241,6 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
     };
   }
 
-  if (startAddress === 1019 && regs.length >= 1) {
-    const raw = u16(regs, 0);
-    const mode = decodeReg1019Mode(raw);
-
-    console.log(`[PARSER-420] Reg1019=0x${raw.toString(16)} -> Mode: ${mode || 'UNKNOWN'}`);
-
-    return {
-      block: 'MODE_1019',
-      opMode: mode || 'UNKNOWN',
-      reg1019_raw: raw,
-      ...result,
-    };
-  }
-
-  // Horímetro: Reg 61 = horas motor, 62 = minutos (SGC 420 não usa par 60/61 32-bit)
   if (startAddress === 61 && regs.length >= 2) {
     const engHrs = u16(regs, 0);
     const engMin = u16(regs, 1);
