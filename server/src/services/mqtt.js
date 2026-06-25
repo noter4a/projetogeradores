@@ -905,8 +905,10 @@ export const initMqttService = (io) => {
                                 console.log(`[DR164-MODE] ${deviceId} Reg78=0x${d.reg78_hex} (Hi=${highByte}) | commanded=${dr164CommandedMode.get(deviceId) || 'none'} -> mode=${resolvedMode || 'hold'}`);
                             }
 
-                            unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
-                            unifiedData.genBreakerClosed = d.genBreakerClosed;
+                            if (!isSgc420Device) {
+                                unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                                unifiedData.genBreakerClosed = d.genBreakerClosed;
+                            }
                         }
 
                         // Map STATUS_78 (Legacy / Fallback)
