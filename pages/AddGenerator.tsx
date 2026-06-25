@@ -110,8 +110,8 @@ const AddGenerator: React.FC = () => {
       const updated = { ...prev, [name]: value };
       // Auto-select deviceType when controller changes
       if (name === 'controller') {
-        if (value === 'kvar' || value === 'dse') {
-          updated.deviceType = 'dr164'; // KVA and DSE use transparent binary mode (DR164/USR162)
+        if (value === 'kvar' || value === 'dse' || value === 'sgc420') {
+          updated.deviceType = 'dr164'; // KVA, DSE e SGC420 usam modo transparente (DR164/USR162)
         }
       }
       return updated;
@@ -333,7 +333,8 @@ const AddGenerator: React.FC = () => {
             >
               <option value="dse">Deep Sea DSE4501 (GenComm)</option>
               <option value="comap">ComAp</option>
-              <option value="deif">DEIF</option>
+              <option value="deif">DEIF SGC 120</option>
+              <option value="sgc420">DEIF SGC 420</option>
               <option value="kvar">KVA</option>
             </select>
           </div>

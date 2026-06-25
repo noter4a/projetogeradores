@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
+import { decodeSgc420Payload, SGC420_POLL_SEQUENCE, isSgc420Controller } from '../utils/sgc420-parser.js';
 import { decodeKvaPayload } from '../utils/kva-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
 import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
@@ -177,6 +178,22 @@ const DR164_POLL_SEQUENCE = [
     { startAddress: 65, quantity: 12 },  // 9. Alarms Complete (Reg 65-76) — SINGLE SOURCE OF TRUTH for alarm state
 ];
 
+function getPollSequenceForController(controller) {
+    return isSgc420Controller(controller) ? SGC420_POLL_SEQUENCE : DR164_POLL_SEQUENCE;
+}
+
+function buildPollRequestHexList(slaveId, controller) {
+    return getPollSequenceForController(controller).map(req =>
+        createModbusReadRequest(slaveId, req.startAddress, req.quantity).toString('hex').toUpperCase()
+    );
+}
+
+function resolveDeviceController(deviceId) {
+    const device = dr164Devices.find(d => d.id === deviceId)
+        || devicesToPoll.find(d => d.id === deviceId);
+    return (device?.controller || 'deif').toLowerCase();
+}
+
 const dr164Sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // KVA Controller Poll Sequence (K30XTe / K30XL / Eclipse)
@@ -258,8 +275,10 @@ async function pollDR164Device(device) {
     // Select poll sequence based on controller type
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
     const isDse = device.controller === 'dse';
-    const pollSequence = isKva ? KVA_POLL_SEQUENCE : (isDse ? DSE_POLL_SEQUENCE : DR164_POLL_SEQUENCE);
-    const controllerLabel = isKva ? 'KVA' : (isDse ? 'DSE' : 'DR164');
+    const isSgc420 = isSgc420Controller(device.controller);
+    const pollSequence = isKva ? KVA_POLL_SEQUENCE
+        : (isDse ? DSE_POLL_SEQUENCE : getPollSequenceForController(device.controller));
+    const controllerLabel = isKva ? 'KVA' : (isDse ? 'DSE' : (isSgc420 ? 'SGC420' : 'DR164'));
 
     const topic = `devices/command/${device.id}`;
     console.log(`[${controllerLabel}] Starting poll cycle for ${device.id} (Slave ${device.slaveId}) — ${pollSequence.length} steps`);
@@ -368,7 +387,8 @@ function startDR164DevicePolling(device) {
 
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
     const isDse = device.controller === 'dse';
-    const label = isKva ? 'KVA' : (isDse ? 'DSE' : 'DR164');
+    const isSgc420 = isSgc420Controller(device.controller);
+    const label = isKva ? 'KVA' : (isDse ? 'DSE' : (isSgc420 ? 'SGC420' : 'DR164'));
     console.log(`[${label}] Starting independent polling timer for ${device.id} (interval: ${DR164_POLL_INTERVAL_MS}ms)`);
 
     // Clear stale state before starting
@@ -611,7 +631,7 @@ export const initMqttService = (io) => {
 
             devicesToPoll.forEach(device => {
                 const topic = `devices/command/${device.id}`;
-                restorePolling(client, topic, device.slaveId, device.id);
+                restorePolling(client, topic, device.slaveId, device.id, device.controller);
             });
 
             // START WATCHDOG — monitors all DR164 devices for staleness and auto-recovers
@@ -672,12 +692,16 @@ export const initMqttService = (io) => {
             const deviceId = topic.split('/').pop(); // devices/data/Ciklo0 -> Ciklo0
             modemLastDataReceived.set(deviceId, Date.now()); // Watchdog: mark device as alive
 
-            const results = decodeSgc120Payload(payload);
+            const deviceController = resolveDeviceController(deviceId);
+            const isSgc420Device = isSgc420Controller(deviceController);
+            const results = isSgc420Device ? decodeSgc420Payload(payload) : decodeSgc120Payload(payload);
 
             // Check if this device uses a KVA or DSE controller
             const isKvaDevice = dr164Devices.some(d => d.id === deviceId && (d.controller === 'kva' || d.controller === 'kvar'));
             const isDseDevice = dr164Devices.some(d => d.id === deviceId && d.controller === 'dse');
             const isDr164Device = dr164Devices.some(d => d.id === deviceId);
+            const isDeifDr164Device = isDr164Device && !isKvaDevice && !isDseDevice;
+            const isDeifDevice = !isKvaDevice && !isDseDevice && (isDeifDr164Device || isSgc420Device);
             const kvaResults = isKvaDevice ? decodeKvaPayload(payload) : [];
             const dseResults = isDseDevice ? decodeDsePayload(payload) : [];
 
@@ -850,7 +874,7 @@ export const initMqttService = (io) => {
                             //     "AUTO stopped/standby/faulted" and "MANUAL stopped". The registers alone
                             //     cannot tell them apart, so we fall back to the last commanded mode.
                             // Only pure DR164 DEIF devices use this; modem SGC120, KVA and DSE keep their logic.
-                            if (isDr164Device && !isKvaDevice && !isDseDevice) {
+                            if (isDeifDevice) {
                                 const highByte = parseInt(d.reg78_hex, 16) >> 8;
                                 let resolvedMode = null;
 
@@ -900,6 +924,7 @@ export const initMqttService = (io) => {
                             unifiedData.activePowerTotal = d.activePowerTotal;
                             // Alias for DB Storage and Legacy Compatibility
                             unifiedData.activePower = d.activePowerTotal;
+                            if (d.engineLoad !== undefined) unifiedData.engineLoad = d.engineLoad;
                         }
 
                         // Map STATUS_32 (Debug Only)
@@ -941,7 +966,7 @@ export const initMqttService = (io) => {
                             // For pure DR164 DEIF devices the mode is resolved in the Reg 77/78 block
                             // (with commanded-mode disambiguation), so skip the Reg 16 heuristics here
                             // to avoid forcing MANUAL while AUTO-stopped/standby.
-                            const skipReg16Mode = isDr164Device && !isKvaDevice && !isDseDevice;
+                            const skipReg16Mode = isDeifDevice;
 
                             let priorityManual = false;
                             if (!skipReg16Mode && global.mqttDeviceCache[deviceId]) {
@@ -1229,7 +1254,7 @@ export const initMqttService = (io) => {
                         data: unifiedData
                     };
 
-                    console.log(`[MQTT] Decoded SGC-120 data for ${deviceId}:`, JSON.stringify(unifiedData));
+                    console.log(`[MQTT] Decoded ${isSgc420Device ? 'SGC-420' : 'SGC-120'} data for ${deviceId}:`, JSON.stringify(unifiedData));
 
                     // 1. Append valid data to History Log
                     try {
@@ -1543,7 +1568,8 @@ export const initMqttService = (io) => {
             // --- MODEM DEVICES (existing logic, unchanged) ---
             const newModemDevices = modemRows.map(row => ({
                 id: row.connection_info.ip,
-                slaveId: parseInt(row.connection_info.slaveId) || 1
+                slaveId: parseInt(row.connection_info.slaveId) || 1,
+                controller: (row.connection_info.controller || 'deif').toLowerCase()
             }));
 
             const currentIds = new Set(devicesToPoll.map(d => d.id));
@@ -1555,7 +1581,7 @@ export const initMqttService = (io) => {
                 console.log(`[MQTT] Detected ${newlyAdded.length} new modem generator(s). Sending configuration...`);
                 newlyAdded.forEach(device => {
                     const topic = `devices/command/${device.id}`;
-                    restorePolling(client, topic, device.slaveId, device.id);
+                    restorePolling(client, topic, device.slaveId, device.id, device.controller);
                 });
             }
 
@@ -1615,7 +1641,7 @@ export const initMqttService = (io) => {
                 if (!pausedDevices.has(deviceId)) {
                     console.log(`[MQTT-HEAL] Dispositivo ${deviceId} não inicializado detectado! Enviando Configuração...`);
                     const topic = `devices/command/${deviceId}`;
-                    restorePolling(client, topic, device.slaveId, deviceId);
+                    restorePolling(client, topic, device.slaveId, deviceId, device.controller);
                     return; // Interrompe para não mandar RAW
                 }
 
@@ -1749,7 +1775,7 @@ export const initMqttService = (io) => {
                 const staleSecs = Math.round((now - lastReceived) / 1000);
                 console.log(`[WATCHDOG] ⚠️ Modem ${deviceId} sem dados há ${staleSecs}s. Reenviando configuração de polling...`);
                 const topic = `devices/command/${deviceId}`;
-                restorePolling(client, topic, device.slaveId, deviceId);
+                restorePolling(client, topic, device.slaveId, deviceId, device.controller);
                 // restorePolling resets modemLastDataReceived, preventing re-trigger for 2 min
             }
         });
@@ -1802,31 +1828,20 @@ function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
 }
 
 // Helper: Restore Polling Configuration (User Request: Send full list after 30s)
-const restorePolling = (client, topic, slaveId, deviceId) => {
+const restorePolling = (client, topic, slaveId, deviceId, controller = 'deif') => {
     // Immediately pause active Node.js loop for this device to prevent RAW buffer collisions
     // with the Gateway's JSON-based internal polling.
     pausedDevices.add(deviceId);
     modemLastDataReceived.set(deviceId, Date.now()); // Reset watchdog timer to prevent re-trigger
-    console.log(`[MQTT-RESTORE] Aguardando 10s para restaurar lista de polling... (Polling ativo Node.js pausado para ${deviceId})`);
+    const profileLabel = isSgc420Controller(controller) ? 'SGC-420' : 'SGC-120';
+    console.log(`[MQTT-RESTORE] Aguardando 10s para restaurar lista de polling (${profileLabel})... (Polling ativo Node.js pausado para ${deviceId})`);
 
     setTimeout(() => {
         if (!client.connected) return;
 
-        console.log(`[MQTT-RESTORE] Enviando lista de polling completa para ${topic}`);
+        console.log(`[MQTT-RESTORE] Enviando lista de polling completa para ${topic} (${profileLabel})`);
 
-        // DYNAMICALLY Construct the full modbusRequest list using the correct slaveId
-        const requests = [
-            createModbusReadRequest(slaveId, 77, 2).toString('hex').toUpperCase(), // 1. Inputs + Mode (Reg 77-78) — PRIORITY: fastest mode feedback
-            createModbusReadRequest(slaveId, 60, 5).toString('hex').toUpperCase(), // 2. Run Hours (Reg 60-64)
-            createModbusReadRequest(slaveId, 1, 9).toString('hex').toUpperCase(),  // 3. Gen Voltage (Reg 1-9)
-            createModbusReadRequest(slaveId, 51, 11).toString('hex').toUpperCase(), // 4. Engine (Reg 51-61) - Expanded
-            createModbusReadRequest(slaveId, 14, 9).toString('hex').toUpperCase(), // 5. Mains Voltage (Reg 14-22)
-            createModbusReadRequest(slaveId, 23, 3).toString('hex').toUpperCase(), // 6. Current/Breaker (Reg 23-25)
-            createModbusReadRequest(slaveId, 29, 3).toString('hex').toUpperCase(), // 7. Active Power (Reg 29-31)
-            createModbusReadRequest(slaveId, 66, 1).toString('hex').toUpperCase(), // 8. Alarms 2 (Reg 66)
-            createModbusReadRequest(slaveId, 16, 1).toString('hex').toUpperCase(), // 9. Status (Discovery)
-            createModbusReadRequest(slaveId, 65, 12).toString('hex').toUpperCase(), // 10. Alarms Complete (Reg 65-76)
-        ];
+        const requests = buildPollRequestHexList(slaveId, controller);
 
         console.log(`[MQTT-RESTORE] Payload para ${deviceId}:`, JSON.stringify(requests)); // DEBUG LOG
 
