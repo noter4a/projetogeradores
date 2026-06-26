@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Generator, GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -12,7 +12,7 @@ import {
   RefreshCw, UtilityPole, Cable, TrendingUp, BarChart3, Play, Square,
   Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban, AlertTriangle
 } from 'lucide-react';
-import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from 'recharts';
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
 
 const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", size = 120 }: any) => {
   const radius = 40;
@@ -188,28 +188,43 @@ const GeneratorDetail: React.FC = () => {
   const [chartRange, setChartRange] = useState<'24h' | '7d' | '30d'>('24h');
   const [powerHistory, setPowerHistory] = useState<{ time: string; power: number }[]>([]);
   const [chartLoading, setChartLoading] = useState(false);
-  const [chartBrushRange, setChartBrushRange] = useState<{ startIndex: number; endIndex: number } | null>(null);
+  const [chartZoomRange, setChartZoomRange] = useState<{ startIndex: number; endIndex: number } | null>(null);
+  const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
+  const [dragEndIndex, setDragEndIndex] = useState<number | null>(null);
+  const [isDraggingChart, setIsDraggingChart] = useState(false);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  const chartBrushStart = chartBrushRange?.startIndex ?? 0;
-  const chartBrushEnd = chartBrushRange?.endIndex ?? Math.max(0, powerHistory.length - 1);
+  const CHART_PLOT_LEFT = 65;
+  const CHART_PLOT_RIGHT = 10;
+
+  const chartZoomStart = chartZoomRange?.startIndex ?? 0;
+  const chartZoomEnd = chartZoomRange?.endIndex ?? Math.max(0, powerHistory.length - 1);
 
   const visiblePowerHistory = useMemo(() => {
     if (powerHistory.length === 0) return [];
-    const end = Math.min(chartBrushEnd, powerHistory.length - 1);
-    const start = Math.min(chartBrushStart, end);
+    const end = Math.min(chartZoomEnd, powerHistory.length - 1);
+    const start = Math.min(chartZoomStart, end);
     return powerHistory.slice(start, end + 1);
-  }, [powerHistory, chartBrushStart, chartBrushEnd]);
+  }, [powerHistory, chartZoomStart, chartZoomEnd]);
 
   const isChartZoomed = powerHistory.length > 1 && (
-    chartBrushStart > 0 || chartBrushEnd < powerHistory.length - 1
+    chartZoomStart > 0 || chartZoomEnd < powerHistory.length - 1
   );
 
+  const chartDisplayData = isChartZoomed ? visiblePowerHistory : powerHistory;
+
   useEffect(() => {
-    setChartBrushRange(null);
+    setChartZoomRange(null);
+    setDragStartIndex(null);
+    setDragEndIndex(null);
+    setIsDraggingChart(false);
   }, [chartRange]);
 
   useEffect(() => {
-    setChartBrushRange(null);
+    setChartZoomRange(null);
+    setDragStartIndex(null);
+    setDragEndIndex(null);
+    setIsDraggingChart(false);
   }, [powerHistory.length, id]);
 
   // Fetch historical readings from DB
@@ -257,11 +272,81 @@ const GeneratorDetail: React.FC = () => {
     return maxVal < 10 ? 10 : Math.ceil(maxVal * 1.2); // 20% headroom
   }, [visiblePowerHistory]);
 
-  const handleChartBrushChange = useCallback((range: { startIndex?: number; endIndex?: number }) => {
-    if (range.startIndex == null || range.endIndex == null) return;
-    if (range.startIndex > range.endIndex) return;
-    setChartBrushRange({ startIndex: range.startIndex, endIndex: range.endIndex });
-  }, []);
+  const getIndexFromClientX = useCallback((clientX: number) => {
+    const el = chartContainerRef.current;
+    if (!el || powerHistory.length === 0) return null;
+    const rect = el.getBoundingClientRect();
+    const plotLeft = rect.left + CHART_PLOT_LEFT;
+    const plotWidth = Math.max(1, rect.width - CHART_PLOT_LEFT - CHART_PLOT_RIGHT);
+    const ratio = Math.max(0, Math.min(1, (clientX - plotLeft) / plotWidth));
+    return Math.round(ratio * (powerHistory.length - 1));
+  }, [powerHistory.length]);
+
+  const commitChartSelection = useCallback(() => {
+    if (dragStartIndex == null || dragEndIndex == null) {
+      setIsDraggingChart(false);
+      return;
+    }
+    const start = Math.min(dragStartIndex, dragEndIndex);
+    const end = Math.max(dragStartIndex, dragEndIndex);
+    if (end > start) {
+      setChartZoomRange({ startIndex: start, endIndex: end });
+    }
+    setDragStartIndex(null);
+    setDragEndIndex(null);
+    setIsDraggingChart(false);
+  }, [dragStartIndex, dragEndIndex]);
+
+  useEffect(() => {
+    if (!isDraggingChart) return;
+    const onPointerMove = (ev: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in ev ? ev.touches[0]?.clientX : ev.clientX;
+      if (clientX == null) return;
+      const idx = getIndexFromClientX(clientX);
+      if (idx != null) setDragEndIndex(idx);
+    };
+    const onPointerUp = () => commitChartSelection();
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('mouseup', onPointerUp);
+    window.addEventListener('touchend', onPointerUp);
+    return () => {
+      window.removeEventListener('mousemove', onPointerMove);
+      window.removeEventListener('touchmove', onPointerMove);
+      window.removeEventListener('mouseup', onPointerUp);
+      window.removeEventListener('touchend', onPointerUp);
+    };
+  }, [isDraggingChart, commitChartSelection, getIndexFromClientX]);
+
+  const handleChartPointerDown = (ev: React.MouseEvent | React.TouchEvent) => {
+    if (isChartZoomed || powerHistory.length < 2) return;
+    const clientX = 'touches' in ev ? ev.touches[0]?.clientX : ev.clientX;
+    if (clientX == null) return;
+    ev.preventDefault();
+    const idx = getIndexFromClientX(clientX);
+    if (idx == null) return;
+    setIsDraggingChart(true);
+    setDragStartIndex(idx);
+    setDragEndIndex(idx);
+  };
+
+  const handleChartPointerMove = (ev: React.MouseEvent | React.TouchEvent) => {
+    if (!isDraggingChart) return;
+    const clientX = 'touches' in ev ? ev.touches[0]?.clientX : ev.clientX;
+    if (clientX == null) return;
+    ev.preventDefault();
+    const idx = getIndexFromClientX(clientX);
+    if (idx != null) setDragEndIndex(idx);
+  };
+
+  const selectionStartIndex = dragStartIndex != null && dragEndIndex != null
+    ? Math.min(dragStartIndex, dragEndIndex)
+    : null;
+  const selectionEndIndex = dragStartIndex != null && dragEndIndex != null
+    ? Math.max(dragStartIndex, dragEndIndex)
+    : null;
+  const selectionX1 = selectionStartIndex != null ? powerHistory[selectionStartIndex]?.time : undefined;
+  const selectionX2 = selectionEndIndex != null ? powerHistory[selectionEndIndex]?.time : undefined;
 
 
 
@@ -908,7 +993,7 @@ const GeneratorDetail: React.FC = () => {
             {isChartZoomed && (
               <button
                 type="button"
-                onClick={() => setChartBrushRange(null)}
+                onClick={() => setChartZoomRange(null)}
                 className="text-xs font-bold text-ciklo-orange hover:text-orange-400 transition-colors"
               >
                 Ver período completo
@@ -917,13 +1002,26 @@ const GeneratorDetail: React.FC = () => {
           </div>
         </div>
 
-        {powerHistory.length > 5 && (
+        {powerHistory.length > 5 && !isChartZoomed && (
           <p className="text-[11px] text-gray-500 mb-2">
-            Arraste a faixa amarela abaixo do gráfico para ampliar um intervalo (mouse ou toque).
+            Clique no início do período e arraste até o fim no gráfico (mouse ou dedo).
+          </p>
+        )}
+        {isChartZoomed && (
+          <p className="text-[11px] text-ciklo-orange/80 mb-2">
+            Período: {powerHistory[chartZoomStart]?.time} → {powerHistory[chartZoomEnd]?.time}
           </p>
         )}
 
-        <div className={`w-full ${powerHistory.length > 5 ? 'h-[400px]' : 'h-[350px]'} flex flex-col`}>
+        <div
+          ref={chartContainerRef}
+          className="h-[350px] w-full select-none"
+          style={{ cursor: isChartZoomed ? 'default' : 'crosshair', touchAction: 'none' }}
+          onMouseDown={handleChartPointerDown}
+          onMouseMove={handleChartPointerMove}
+          onTouchStart={handleChartPointerDown}
+          onTouchMove={handleChartPointerMove}
+        >
           {chartLoading && powerHistory.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-600">
               <TrendingUp size={48} className="mb-3 opacity-30 animate-pulse" />
@@ -936,91 +1034,70 @@ const GeneratorDetail: React.FC = () => {
               <p className="text-xs text-gray-700 mt-1">Os dados serão coletados automaticamente</p>
             </div>
           ) : (
-            <>
-              <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={visiblePowerHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
-                        <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
-                        <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-                    <XAxis
-                      dataKey="time"
-                      stroke="#555"
-                      tick={{ fontSize: 10, fill: '#666' }}
-                      minTickGap={isMobile ? 24 : 40}
-                      axisLine={{ stroke: '#333' }}
-                    />
-                    <YAxis
-                      stroke="#555"
-                      tick={{ fontSize: 10, fill: '#666' }}
-                      domain={[0, chartMaxPower]}
-                      unit=" kW"
-                      axisLine={{ stroke: '#333' }}
-                      width={65}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#111',
-                        borderColor: '#444',
-                        color: '#fff',
-                        borderRadius: '10px',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                        padding: '12px 16px',
-                      }}
-                      labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
-                      itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
-                      formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
-                    />
-                    <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
-                    <Area
-                      type="monotone"
-                      dataKey="power"
-                      stroke="#FACC15"
-                      strokeWidth={2.5}
-                      fillOpacity={1}
-                      fill="url(#colorPowerLive)"
-                      dot={false}
-                      activeDot={{ r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 }}
-                      animationDuration={500}
-                      isAnimationActive={visiblePowerHistory.length <= 2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              {powerHistory.length > 5 && (
-                <div className="h-[56px] mt-2 shrink-0 touch-pan-x" style={{ touchAction: 'pan-x' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={powerHistory} margin={{ top: 4, right: 10, left: 0, bottom: 4 }}>
-                      <Area
-                        type="monotone"
-                        dataKey="power"
-                        stroke="#555"
-                        strokeWidth={1}
-                        fill="#252525"
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                      <Brush
-                        dataKey="time"
-                        height={48}
-                        stroke="#FACC15"
-                        fill="#1a1a1a"
-                        travellerWidth={isMobile ? 18 : 12}
-                        startIndex={chartBrushStart}
-                        endIndex={chartBrushEnd}
-                        onChange={handleChartBrushChange}
-                        tickFormatter={() => ''}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartDisplayData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
+                    <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+                <XAxis
+                  dataKey="time"
+                  stroke="#555"
+                  tick={{ fontSize: 10, fill: '#666' }}
+                  minTickGap={isMobile ? 24 : 40}
+                  axisLine={{ stroke: '#333' }}
+                />
+                <YAxis
+                  stroke="#555"
+                  tick={{ fontSize: 10, fill: '#666' }}
+                  domain={[0, chartMaxPower]}
+                  unit=" kW"
+                  axisLine={{ stroke: '#333' }}
+                  width={65}
+                />
+                <Tooltip
+                  active={!isDraggingChart}
+                  contentStyle={{
+                    backgroundColor: '#111',
+                    borderColor: '#444',
+                    color: '#fff',
+                    borderRadius: '10px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    padding: '12px 16px',
+                  }}
+                  labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
+                  itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
+                  formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
+                />
+                <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
+                {!isChartZoomed && selectionX1 && selectionX2 && selectionX1 !== selectionX2 && (
+                  <ReferenceArea
+                    x1={selectionX1}
+                    x2={selectionX2}
+                    stroke="#FACC15"
+                    strokeOpacity={0.9}
+                    fill="#FACC15"
+                    fillOpacity={0.2}
+                  />
+                )}
+                <Area
+                  type="monotone"
+                  dataKey="power"
+                  stroke="#FACC15"
+                  strokeWidth={2.5}
+                  fillOpacity={1}
+                  fill="url(#colorPowerLive)"
+                  dot={false}
+                  activeDot={isDraggingChart ? false : { r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 }}
+                  animationDuration={500}
+                  isAnimationActive={chartDisplayData.length <= 2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           )}
         </div>
       </div>
