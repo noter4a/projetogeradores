@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Generator, GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -192,10 +192,9 @@ const GeneratorDetail: React.FC = () => {
   const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
   const [dragEndIndex, setDragEndIndex] = useState<number | null>(null);
   const [isDraggingChart, setIsDraggingChart] = useState(false);
+  const [chartSelectMode, setChartSelectMode] = useState(false);
+  const [plotInset, setPlotInset] = useState({ left: 65, right: 10 });
   const chartContainerRef = useRef<HTMLDivElement>(null);
-
-  const CHART_PLOT_LEFT = 65;
-  const CHART_PLOT_RIGHT = 10;
 
   const chartZoomStart = chartZoomRange?.startIndex ?? 0;
   const chartZoomEnd = chartZoomRange?.endIndex ?? Math.max(0, powerHistory.length - 1);
@@ -218,6 +217,7 @@ const GeneratorDetail: React.FC = () => {
     setDragStartIndex(null);
     setDragEndIndex(null);
     setIsDraggingChart(false);
+    setChartSelectMode(false);
   }, [chartRange]);
 
   useEffect(() => {
@@ -225,7 +225,36 @@ const GeneratorDetail: React.FC = () => {
     setDragStartIndex(null);
     setDragEndIndex(null);
     setIsDraggingChart(false);
+    setChartSelectMode(false);
   }, [powerHistory.length, id]);
+
+  const measurePlotInset = useCallback(() => {
+    const container = chartContainerRef.current;
+    if (!container) return;
+    const gridEl = container.querySelector('.recharts-cartesian-grid');
+    const gridRect = gridEl?.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    if (gridRect && gridRect.width > 0) {
+      setPlotInset({
+        left: Math.max(0, gridRect.left - containerRect.left),
+        right: Math.max(0, containerRect.right - gridRect.right),
+      });
+    } else {
+      setPlotInset({ left: isMobile ? 48 : 65, right: isMobile ? 6 : 10 });
+    }
+  }, [isMobile]);
+
+  useLayoutEffect(() => {
+    measurePlotInset();
+  }, [measurePlotInset, chartDisplayData, chartLoading, isMobile, isChartZoomed]);
+
+  useEffect(() => {
+    const container = chartContainerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => measurePlotInset());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [measurePlotInset]);
 
   // Fetch historical readings from DB
   const fetchReadings = useCallback(async () => {
@@ -276,11 +305,11 @@ const GeneratorDetail: React.FC = () => {
     const el = chartContainerRef.current;
     if (!el || powerHistory.length === 0) return null;
     const rect = el.getBoundingClientRect();
-    const plotLeft = rect.left + CHART_PLOT_LEFT;
-    const plotWidth = Math.max(1, rect.width - CHART_PLOT_LEFT - CHART_PLOT_RIGHT);
+    const plotLeft = rect.left + plotInset.left;
+    const plotWidth = Math.max(1, rect.width - plotInset.left - plotInset.right);
     const ratio = Math.max(0, Math.min(1, (clientX - plotLeft) / plotWidth));
     return Math.round(ratio * (powerHistory.length - 1));
-  }, [powerHistory.length]);
+  }, [powerHistory.length, plotInset]);
 
   const commitChartSelection = useCallback(() => {
     if (dragStartIndex == null || dragEndIndex == null) {
@@ -295,48 +324,47 @@ const GeneratorDetail: React.FC = () => {
     setDragStartIndex(null);
     setDragEndIndex(null);
     setIsDraggingChart(false);
+    setChartSelectMode(false);
   }, [dragStartIndex, dragEndIndex]);
 
-  useEffect(() => {
-    if (!isDraggingChart) return;
-    const onPointerMove = (ev: MouseEvent | TouchEvent) => {
-      const clientX = 'touches' in ev ? ev.touches[0]?.clientX : ev.clientX;
-      if (clientX == null) return;
-      const idx = getIndexFromClientX(clientX);
-      if (idx != null) setDragEndIndex(idx);
-    };
-    const onPointerUp = () => commitChartSelection();
-    window.addEventListener('mousemove', onPointerMove);
-    window.addEventListener('touchmove', onPointerMove, { passive: false });
-    window.addEventListener('mouseup', onPointerUp);
-    window.addEventListener('touchend', onPointerUp);
-    return () => {
-      window.removeEventListener('mousemove', onPointerMove);
-      window.removeEventListener('touchmove', onPointerMove);
-      window.removeEventListener('mouseup', onPointerUp);
-      window.removeEventListener('touchend', onPointerUp);
-    };
-  }, [isDraggingChart, commitChartSelection, getIndexFromClientX]);
+  const chartInteractionEnabled = !isMobile || chartSelectMode;
 
-  const handleChartPointerDown = (ev: React.MouseEvent | React.TouchEvent) => {
-    if (isChartZoomed || powerHistory.length < 2) return;
-    const clientX = 'touches' in ev ? ev.touches[0]?.clientX : ev.clientX;
-    if (clientX == null) return;
-    ev.preventDefault();
-    const idx = getIndexFromClientX(clientX);
+  const handleChartPointerDown = (ev: React.PointerEvent<HTMLDivElement>) => {
+    if (isChartZoomed || powerHistory.length < 2 || !chartInteractionEnabled) return;
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+
+    const idx = getIndexFromClientX(ev.clientX);
     if (idx == null) return;
+
+    ev.preventDefault();
+    ev.currentTarget.setPointerCapture(ev.pointerId);
     setIsDraggingChart(true);
     setDragStartIndex(idx);
     setDragEndIndex(idx);
   };
 
-  const handleChartPointerMove = (ev: React.MouseEvent | React.TouchEvent) => {
+  const handleChartPointerMove = (ev: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingChart) return;
-    const clientX = 'touches' in ev ? ev.touches[0]?.clientX : ev.clientX;
-    if (clientX == null) return;
     ev.preventDefault();
-    const idx = getIndexFromClientX(clientX);
+    const idx = getIndexFromClientX(ev.clientX);
     if (idx != null) setDragEndIndex(idx);
+  };
+
+  const handleChartPointerUp = (ev: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingChart) return;
+    if (ev.currentTarget.hasPointerCapture(ev.pointerId)) {
+      ev.currentTarget.releasePointerCapture(ev.pointerId);
+    }
+    commitChartSelection();
+  };
+
+  const handleChartPointerCancel = (ev: React.PointerEvent<HTMLDivElement>) => {
+    if (ev.currentTarget.hasPointerCapture(ev.pointerId)) {
+      ev.currentTarget.releasePointerCapture(ev.pointerId);
+    }
+    setDragStartIndex(null);
+    setDragEndIndex(null);
+    setIsDraggingChart(false);
   };
 
   const selectionStartIndex = dragStartIndex != null && dragEndIndex != null
@@ -959,19 +987,22 @@ const GeneratorDetail: React.FC = () => {
   };
 
   const renderLoadCurve = () => {
+    const canSelectOnChart = powerHistory.length > 1 && !isChartZoomed;
+
     return (
-      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <h3 className="text-white font-bold flex items-center gap-2">
-            <TrendingUp size={18} className="text-ciklo-orange" /> Curva de Carga (kW)
+      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-3 sm:p-6">
+        <div className="mb-3 sm:mb-6 space-y-3">
+          <h3 className="text-white font-bold flex items-center gap-2 text-sm sm:text-base">
+            <TrendingUp size={18} className="text-ciklo-orange shrink-0" /> Curva de Carga (kW)
           </h3>
-          <div className="flex items-center gap-3">
-            <div className="flex bg-gray-900 rounded-lg p-0.5 border border-gray-700">
+
+          <div className="flex flex-col gap-2">
+            <div className="flex bg-gray-900 rounded-lg p-0.5 border border-gray-700 w-full">
               {([['24h', '24h'], ['7d', '7 dias'], ['30d', '1 mês']] as const).map(([value, label]) => (
                 <button
                   key={value}
                   onClick={() => setChartRange(value)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                  className={`flex-1 sm:flex-none px-2 sm:px-3 py-2 sm:py-1.5 text-xs font-bold rounded-md transition-all ${
                     chartRange === value
                       ? 'bg-ciklo-orange text-black shadow'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -981,47 +1012,103 @@ const GeneratorDetail: React.FC = () => {
                 </button>
               ))}
             </div>
-            <span className="flex items-center gap-1.5 text-xs text-gray-400">
-              <div className="w-2.5 h-2.5 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50"></div>
-              Potência Ativa
-            </span>
-            <span className="text-gray-600 font-mono text-xs">
-              {chartLoading ? '...' : visiblePowerHistory.length > 0
-                ? `${visiblePowerHistory.length}${isChartZoomed ? `/${powerHistory.length}` : ''} pts`
-                : ''}
-            </span>
-            {isChartZoomed && (
+
+            <div className="flex items-center justify-between gap-2 sm:hidden">
+              <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                <div className="w-2 h-2 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50" />
+                Potência Ativa
+              </span>
+              <span className="text-gray-600 font-mono text-xs">
+                {chartLoading ? '...' : visiblePowerHistory.length > 0
+                  ? `${visiblePowerHistory.length}${isChartZoomed ? `/${powerHistory.length}` : ''} pts`
+                  : ''}
+              </span>
+            </div>
+
+            <div className="hidden sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+              <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                <div className="w-2.5 h-2.5 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50" />
+                Potência Ativa
+              </span>
+              <span className="text-gray-600 font-mono text-xs">
+                {chartLoading ? '...' : visiblePowerHistory.length > 0
+                  ? `${visiblePowerHistory.length}${isChartZoomed ? `/${powerHistory.length}` : ''} pts`
+                  : ''}
+              </span>
+              {isChartZoomed && (
+                <button
+                  type="button"
+                  onClick={() => setChartZoomRange(null)}
+                  className="text-xs font-bold text-ciklo-orange hover:text-orange-400 transition-colors"
+                >
+                  Ver período completo
+                </button>
+              )}
+            </div>
+
+            {isMobile && isChartZoomed && (
               <button
                 type="button"
                 onClick={() => setChartZoomRange(null)}
-                className="text-xs font-bold text-ciklo-orange hover:text-orange-400 transition-colors"
+                className="w-full py-3 rounded-xl bg-ciklo-orange/15 border border-ciklo-orange/50 text-ciklo-orange font-bold text-sm active:scale-[0.98] transition-transform"
               >
                 Ver período completo
               </button>
             )}
-          </div>
-        </div>
 
-        {powerHistory.length > 5 && !isChartZoomed && (
-          <p className="text-[11px] text-gray-500 mb-2">
-            Clique no início do período e arraste até o fim no gráfico (mouse ou dedo).
-          </p>
-        )}
-        {isChartZoomed && (
-          <p className="text-[11px] text-ciklo-orange/80 mb-2">
-            Período: {powerHistory[chartZoomStart]?.time} → {powerHistory[chartZoomEnd]?.time}
-          </p>
-        )}
+            {isMobile && canSelectOnChart && (
+              <button
+                type="button"
+                onClick={() => setChartSelectMode((on) => !on)}
+                className={`w-full py-3 rounded-xl font-bold text-sm active:scale-[0.98] transition-all ${
+                  chartSelectMode
+                    ? 'bg-gray-800 border border-gray-600 text-gray-200'
+                    : 'bg-ciklo-orange text-black shadow-md shadow-orange-900/30'
+                }`}
+              >
+                {chartSelectMode ? 'Cancelar seleção' : 'Selecionar período no gráfico'}
+              </button>
+            )}
+
+            {isMobile && chartSelectMode && (
+              <p className="text-xs text-center text-ciklo-orange/90 px-1">
+                Toque no início e arraste até o fim do intervalo desejado
+              </p>
+            )}
+          </div>
+
+          {!isMobile && powerHistory.length > 5 && !isChartZoomed && (
+            <p className="text-[11px] text-gray-500">
+              Clique no início do período e arraste até o fim no gráfico.
+            </p>
+          )}
+          {isChartZoomed && (
+            <p className="text-[11px] text-ciklo-orange/80 break-words">
+              Período: {powerHistory[chartZoomStart]?.time} → {powerHistory[chartZoomEnd]?.time}
+            </p>
+          )}
+        </div>
 
         <div
           ref={chartContainerRef}
-          className="h-[350px] w-full select-none"
-          style={{ cursor: isChartZoomed ? 'default' : 'crosshair', touchAction: 'none' }}
-          onMouseDown={handleChartPointerDown}
-          onMouseMove={handleChartPointerMove}
-          onTouchStart={handleChartPointerDown}
-          onTouchMove={handleChartPointerMove}
+          className={`relative h-[240px] sm:h-[350px] w-full select-none rounded-lg ${
+            isMobile && chartSelectMode ? 'ring-2 ring-ciklo-orange/60 ring-offset-2 ring-offset-ciklo-card' : ''
+          }`}
+          style={{
+            cursor: isChartZoomed ? 'default' : chartInteractionEnabled ? 'crosshair' : 'default',
+            touchAction: isMobile && !chartSelectMode && !isDraggingChart ? 'pan-y' : 'none',
+          }}
+          onPointerDown={chartInteractionEnabled ? handleChartPointerDown : undefined}
+          onPointerMove={chartInteractionEnabled ? handleChartPointerMove : undefined}
+          onPointerUp={chartInteractionEnabled ? handleChartPointerUp : undefined}
+          onPointerCancel={chartInteractionEnabled ? handleChartPointerCancel : undefined}
         >
+          {isMobile && chartSelectMode && !isDraggingChart && (
+            <div
+              className="absolute inset-0 z-10 pointer-events-none rounded-lg border border-dashed border-ciklo-orange/30 bg-ciklo-orange/[0.03]"
+              aria-hidden
+            />
+          )}
           {chartLoading && powerHistory.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-600">
               <TrendingUp size={48} className="mb-3 opacity-30 animate-pulse" />
@@ -1035,7 +1122,7 @@ const GeneratorDetail: React.FC = () => {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartDisplayData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <AreaChart data={chartDisplayData} margin={{ top: 4, right: isMobile ? 4 : 10, left: 0, bottom: isMobile ? 16 : 5 }}>
                 <defs>
                   <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
@@ -1047,20 +1134,21 @@ const GeneratorDetail: React.FC = () => {
                 <XAxis
                   dataKey="time"
                   stroke="#555"
-                  tick={{ fontSize: 10, fill: '#666' }}
-                  minTickGap={isMobile ? 24 : 40}
+                  tick={{ fontSize: isMobile ? 9 : 10, fill: '#666' }}
+                  minTickGap={isMobile ? 32 : 40}
                   axisLine={{ stroke: '#333' }}
+                  interval={isMobile && chartDisplayData.length > 8 ? 'preserveStartEnd' : 'preserveEnd'}
                 />
                 <YAxis
                   stroke="#555"
-                  tick={{ fontSize: 10, fill: '#666' }}
+                  tick={{ fontSize: isMobile ? 9 : 10, fill: '#666' }}
                   domain={[0, chartMaxPower]}
-                  unit=" kW"
+                  unit={isMobile ? 'kW' : ' kW'}
                   axisLine={{ stroke: '#333' }}
-                  width={65}
+                  width={isMobile ? 48 : 65}
                 />
                 <Tooltip
-                  active={!isDraggingChart}
+                  active={!isDraggingChart && !(isMobile && chartSelectMode)}
                   contentStyle={{
                     backgroundColor: '#111',
                     borderColor: '#444',
@@ -1304,7 +1392,7 @@ const GeneratorDetail: React.FC = () => {
                   {expandedSections.has('load_curve') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
                 </button>
                 {expandedSections.has('load_curve') && (
-                  <div className="px-3 pb-4 animate-in fade-in duration-200">
+                  <div className="px-1 pb-4 sm:px-3 animate-in fade-in duration-200">
                     {renderLoadCurve()}
                   </div>
                 )}
