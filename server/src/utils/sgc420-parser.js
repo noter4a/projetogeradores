@@ -162,6 +162,7 @@ const ALARM_DEFS_420 = {
 
 
 function decodeAlarms(startAddress, regs) {
+  logReg76IfPresent(startAddress, regs);
   const activeAlarms = [];
   let syntheticCode = 0;
   let isStartFailure = false;
@@ -176,7 +177,8 @@ function decodeAlarms(startAddress, regs) {
 
     for (const def of defs) {
       const nibble = (val >> def.shift) & 0x0f;
-      if (nibble > 1) {
+      // DEIF: 0=off, 1=aviso, 2=desarme, 3=parada — 0xF = sem ECU/dado inválido (não é alarme)
+      if (nibble === 2 || nibble === 3) {
         let severityText = '';
         if (nibble === 2) severityText = '(Desarme Elétrico)';
         if (nibble === 3) severityText = '(Parada)';
@@ -191,12 +193,23 @@ function decodeAlarms(startAddress, regs) {
     }
   }
 
+  console.log(`[PARSER-420] Alarms: code=${activeAlarms.length > 0 ? syntheticCode : 0} -> "${activeAlarms.length > 0 ? activeAlarms.join(' | ') : 'Normal (Sem Alarme)'}"`);
+
   return {
     block: 'ALARM_65_76',
     alarmCode: activeAlarms.length > 0 ? syntheticCode : 0,
     alarmMessage: activeAlarms.length > 0 ? activeAlarms.join(' | ') : 'Normal (Sem Alarme)',
     startFailure: isStartFailure,
   };
+}
+
+function logReg76IfPresent(startAddress, regs) {
+  if (startAddress !== 72) return;
+  const idx = 76 - startAddress;
+  if (idx >= 0 && idx < regs.length) {
+    const v = u16(regs, idx);
+    if (v !== 0) console.log(`[PARSER-420] Reg76=0x${v.toString(16).toUpperCase()} (ECU/MIL field — 0xF=não disponível)`);
+  }
 }
 
 export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
