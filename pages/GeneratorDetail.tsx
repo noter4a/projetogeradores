@@ -12,7 +12,7 @@ import {
   RefreshCw, UtilityPole, Cable, TrendingUp, BarChart3, Play, Square,
   Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban, AlertTriangle
 } from 'lucide-react';
-import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Brush } from 'recharts';
 
 const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", size = 120 }: any) => {
   const radius = 40;
@@ -188,6 +188,29 @@ const GeneratorDetail: React.FC = () => {
   const [chartRange, setChartRange] = useState<'24h' | '7d' | '30d'>('24h');
   const [powerHistory, setPowerHistory] = useState<{ time: string; power: number }[]>([]);
   const [chartLoading, setChartLoading] = useState(false);
+  const [chartBrushRange, setChartBrushRange] = useState<{ startIndex: number; endIndex: number } | null>(null);
+
+  const chartBrushStart = chartBrushRange?.startIndex ?? 0;
+  const chartBrushEnd = chartBrushRange?.endIndex ?? Math.max(0, powerHistory.length - 1);
+
+  const visiblePowerHistory = useMemo(() => {
+    if (powerHistory.length === 0) return [];
+    const end = Math.min(chartBrushEnd, powerHistory.length - 1);
+    const start = Math.min(chartBrushStart, end);
+    return powerHistory.slice(start, end + 1);
+  }, [powerHistory, chartBrushStart, chartBrushEnd]);
+
+  const isChartZoomed = powerHistory.length > 1 && (
+    chartBrushStart > 0 || chartBrushEnd < powerHistory.length - 1
+  );
+
+  useEffect(() => {
+    setChartBrushRange(null);
+  }, [chartRange]);
+
+  useEffect(() => {
+    setChartBrushRange(null);
+  }, [powerHistory.length, id]);
 
   // Fetch historical readings from DB
   const fetchReadings = useCallback(async () => {
@@ -229,10 +252,16 @@ const GeneratorDetail: React.FC = () => {
 
   // Calculate chart Y-axis max for better visualization
   const chartMaxPower = useMemo(() => {
-    if (powerHistory.length === 0) return 10;
-    const maxVal = Math.max(...powerHistory.map(p => p.power));
+    if (visiblePowerHistory.length === 0) return 10;
+    const maxVal = Math.max(...visiblePowerHistory.map(p => p.power));
     return maxVal < 10 ? 10 : Math.ceil(maxVal * 1.2); // 20% headroom
-  }, [powerHistory]);
+  }, [visiblePowerHistory]);
+
+  const handleChartBrushChange = useCallback((range: { startIndex?: number; endIndex?: number }) => {
+    if (range.startIndex == null || range.endIndex == null) return;
+    if (range.startIndex > range.endIndex) return;
+    setChartBrushRange({ startIndex: range.startIndex, endIndex: range.endIndex });
+  }, []);
 
 
 
@@ -872,12 +901,29 @@ const GeneratorDetail: React.FC = () => {
               Potência Ativa
             </span>
             <span className="text-gray-600 font-mono text-xs">
-              {chartLoading ? '...' : powerHistory.length > 0 ? `${powerHistory.length} pts` : ''}
+              {chartLoading ? '...' : visiblePowerHistory.length > 0
+                ? `${visiblePowerHistory.length}${isChartZoomed ? `/${powerHistory.length}` : ''} pts`
+                : ''}
             </span>
+            {isChartZoomed && (
+              <button
+                type="button"
+                onClick={() => setChartBrushRange(null)}
+                className="text-xs font-bold text-ciklo-orange hover:text-orange-400 transition-colors"
+              >
+                Ver período completo
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="h-[350px] w-full">
+        {powerHistory.length > 5 && (
+          <p className="text-[11px] text-gray-500 mb-2">
+            Arraste a faixa amarela abaixo do gráfico para ampliar um intervalo (mouse ou toque).
+          </p>
+        )}
+
+        <div className={`w-full ${powerHistory.length > 5 ? 'h-[400px]' : 'h-[350px]'} flex flex-col`}>
           {chartLoading && powerHistory.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-gray-600">
               <TrendingUp size={48} className="mb-3 opacity-30 animate-pulse" />
@@ -890,59 +936,91 @@ const GeneratorDetail: React.FC = () => {
               <p className="text-xs text-gray-700 mt-1">Os dados serão coletados automaticamente</p>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={powerHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
-                    <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-                <XAxis
-                  dataKey="time"
-                  stroke="#555"
-                  tick={{ fontSize: 10, fill: '#666' }}
-                  minTickGap={40}
-                  axisLine={{ stroke: '#333' }}
-                />
-                <YAxis
-                  stroke="#555"
-                  tick={{ fontSize: 10, fill: '#666' }}
-                  domain={[0, chartMaxPower]}
-                  unit=" kW"
-                  axisLine={{ stroke: '#333' }}
-                  width={65}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#111',
-                    borderColor: '#444',
-                    color: '#fff',
-                    borderRadius: '10px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                    padding: '12px 16px',
-                  }}
-                  labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
-                  itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
-                  formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
-                />
-                <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
-                <Area
-                  type="monotone"
-                  dataKey="power"
-                  stroke="#FACC15"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#colorPowerLive)"
-                  dot={false}
-                  activeDot={{ r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 }}
-                  animationDuration={500}
-                  isAnimationActive={powerHistory.length <= 2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <>
+              <div className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={visiblePowerHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
+                        <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
+                        <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+                    <XAxis
+                      dataKey="time"
+                      stroke="#555"
+                      tick={{ fontSize: 10, fill: '#666' }}
+                      minTickGap={isMobile ? 24 : 40}
+                      axisLine={{ stroke: '#333' }}
+                    />
+                    <YAxis
+                      stroke="#555"
+                      tick={{ fontSize: 10, fill: '#666' }}
+                      domain={[0, chartMaxPower]}
+                      unit=" kW"
+                      axisLine={{ stroke: '#333' }}
+                      width={65}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#111',
+                        borderColor: '#444',
+                        color: '#fff',
+                        borderRadius: '10px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                        padding: '12px 16px',
+                      }}
+                      labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
+                      itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
+                      formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
+                    />
+                    <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
+                    <Area
+                      type="monotone"
+                      dataKey="power"
+                      stroke="#FACC15"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#colorPowerLive)"
+                      dot={false}
+                      activeDot={{ r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 }}
+                      animationDuration={500}
+                      isAnimationActive={visiblePowerHistory.length <= 2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              {powerHistory.length > 5 && (
+                <div className="h-[56px] mt-2 shrink-0 touch-pan-x" style={{ touchAction: 'pan-x' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={powerHistory} margin={{ top: 4, right: 10, left: 0, bottom: 4 }}>
+                      <Area
+                        type="monotone"
+                        dataKey="power"
+                        stroke="#555"
+                        strokeWidth={1}
+                        fill="#252525"
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                      <Brush
+                        dataKey="time"
+                        height={48}
+                        stroke="#FACC15"
+                        fill="#1a1a1a"
+                        travellerWidth={isMobile ? 18 : 12}
+                        startIndex={chartBrushStart}
+                        endIndex={chartBrushEnd}
+                        onChange={handleChartBrushChange}
+                        tickFormatter={() => ''}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
