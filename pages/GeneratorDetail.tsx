@@ -193,6 +193,7 @@ const GeneratorDetail: React.FC = () => {
   const [dragEndIndex, setDragEndIndex] = useState<number | null>(null);
   const [isDraggingChart, setIsDraggingChart] = useState(false);
   const [chartSelectMode, setChartSelectMode] = useState(false);
+  const [chartTooltipVisible, setChartTooltipVisible] = useState(false);
   const [plotInset, setPlotInset] = useState({ left: 65, right: 10 });
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
@@ -218,6 +219,7 @@ const GeneratorDetail: React.FC = () => {
     setDragEndIndex(null);
     setIsDraggingChart(false);
     setChartSelectMode(false);
+    setChartTooltipVisible(false);
   }, [chartRange]);
 
   useEffect(() => {
@@ -226,7 +228,23 @@ const GeneratorDetail: React.FC = () => {
     setDragEndIndex(null);
     setIsDraggingChart(false);
     setChartSelectMode(false);
+    setChartTooltipVisible(false);
   }, [powerHistory.length, id]);
+
+  useEffect(() => {
+    if (chartSelectMode || isDraggingChart) setChartTooltipVisible(false);
+  }, [chartSelectMode, isDraggingChart]);
+
+  useEffect(() => {
+    const dismissTooltip = (ev: PointerEvent) => {
+      const container = chartContainerRef.current;
+      if (container && !container.contains(ev.target as Node)) {
+        setChartTooltipVisible(false);
+      }
+    };
+    document.addEventListener('pointerdown', dismissTooltip);
+    return () => document.removeEventListener('pointerdown', dismissTooltip);
+  }, []);
 
   const measurePlotInset = useCallback(() => {
     const container = chartContainerRef.current;
@@ -329,6 +347,16 @@ const GeneratorDetail: React.FC = () => {
 
   const chartInteractionEnabled = !isMobile || chartSelectMode;
 
+  const handleChartHover = (state: { activeTooltipIndex?: number } | null) => {
+    if (isMobile || isDraggingChart || chartSelectMode) return;
+    if (state?.activeTooltipIndex != null) setChartTooltipVisible(true);
+  };
+
+  const handleChartTap = (state: { activeTooltipIndex?: number } | null) => {
+    if (isDraggingChart || chartSelectMode) return;
+    if (state?.activeTooltipIndex != null) setChartTooltipVisible(true);
+  };
+
   const handleChartPointerDown = (ev: React.PointerEvent<HTMLDivElement>) => {
     if (isChartZoomed || powerHistory.length < 2 || !chartInteractionEnabled) return;
     if (ev.pointerType === 'mouse' && ev.button !== 0) return;
@@ -337,6 +365,7 @@ const GeneratorDetail: React.FC = () => {
     if (idx == null) return;
 
     ev.preventDefault();
+    setChartTooltipVisible(false);
     ev.currentTarget.setPointerCapture(ev.pointerId);
     setIsDraggingChart(true);
     setDragStartIndex(idx);
@@ -1102,6 +1131,7 @@ const GeneratorDetail: React.FC = () => {
           onPointerMove={chartInteractionEnabled ? handleChartPointerMove : undefined}
           onPointerUp={chartInteractionEnabled ? handleChartPointerUp : undefined}
           onPointerCancel={chartInteractionEnabled ? handleChartPointerCancel : undefined}
+          onMouseLeave={() => { if (!isMobile) setChartTooltipVisible(false); }}
         >
           {isMobile && chartSelectMode && !isDraggingChart && (
             <div
@@ -1122,7 +1152,13 @@ const GeneratorDetail: React.FC = () => {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartDisplayData} margin={{ top: 4, right: isMobile ? 4 : 10, left: 0, bottom: isMobile ? 16 : 5 }}>
+              <AreaChart
+                data={chartDisplayData}
+                margin={{ top: 4, right: isMobile ? 4 : 10, left: 0, bottom: isMobile ? 16 : 5 }}
+                onMouseMove={handleChartHover}
+                onMouseLeave={() => setChartTooltipVisible(false)}
+                onClick={handleChartTap}
+              >
                 <defs>
                   <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
@@ -1148,7 +1184,7 @@ const GeneratorDetail: React.FC = () => {
                   width={isMobile ? 48 : 65}
                 />
                 <Tooltip
-                  active={!isDraggingChart && !(isMobile && chartSelectMode)}
+                  active={chartTooltipVisible && !isDraggingChart && !chartSelectMode}
                   contentStyle={{
                     backgroundColor: '#111',
                     borderColor: '#444',
@@ -1180,7 +1216,7 @@ const GeneratorDetail: React.FC = () => {
                   fillOpacity={1}
                   fill="url(#colorPowerLive)"
                   dot={false}
-                  activeDot={isDraggingChart ? false : { r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 }}
+                  activeDot={chartTooltipVisible && !isDraggingChart ? { r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 } : false}
                   animationDuration={500}
                   isAnimationActive={chartDisplayData.length <= 2}
                 />
