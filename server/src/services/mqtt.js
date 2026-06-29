@@ -395,10 +395,7 @@ function startDR164DevicePolling(device) {
         return; // Already polling this device
     }
 
-    const isKva = device.controller === 'kva' || device.controller === 'kvar';
-    const isDse = device.controller === 'dse';
-    const isSgc420 = isSgc420Controller(device.controller);
-    const label = isKva ? 'KVA' : (isDse ? 'DSE' : controllerProfileLabel(device.controller));
+    const label = devicePollingLabel(device);
     console.log(`[${label}] Starting independent polling timer for ${device.id} (interval: ${DR164_POLL_INTERVAL_MS}ms)`);
 
     // Clear stale state before starting
@@ -407,17 +404,31 @@ function startDR164DevicePolling(device) {
     dr164PendingRequests.delete(device.id);
     dr164DevicePollingActive.set(device.id, false);
 
-    // Run immediately on first start
-    pollSingleDR164Device(device);
+    const deviceId = device.id;
 
-    // Schedule recurring polls at a safe interval (30s instead of 15s to prevent RS485 bus congestion)
+    // Run immediately on first start
+    pollSingleDR164Device(deviceId);
+
+    // Always resolve latest config from dr164Devices (controller may change in DB)
     const timerId = setInterval(() => {
         if (client && client.connected) {
-            pollSingleDR164Device(device);
+            pollSingleDR164Device(deviceId);
         }
     }, DR164_POLL_INTERVAL_MS);
 
     dr164DeviceTimers.set(device.id, timerId);
+}
+
+function devicePollingLabel(device) {
+    if (!device) return 'DR164';
+    const isKva = device.controller === 'kva' || device.controller === 'kvar';
+    const isDse = device.controller === 'dse';
+    return isKva ? 'KVA' : (isDse ? 'DSE' : controllerProfileLabel(device.controller));
+}
+
+function restartDR164DevicePolling(device) {
+    stopDR164DevicePolling(device.id);
+    startDR164DevicePolling(device);
 }
 
 /**
@@ -556,7 +567,12 @@ function stopDR164DevicePolling(deviceId) {
  * Poll a single device (called by its own independent timer).
  * Has a per-device guard to prevent overlapping if previous cycle is still running.
  */
-async function pollSingleDR164Device(device) {
+async function pollSingleDR164Device(deviceOrId) {
+    const device = typeof deviceOrId === 'string'
+        ? dr164Devices.find(d => d.id === deviceOrId)
+        : deviceOrId;
+    if (!device) return;
+
     if (dr164DevicePollingActive.get(device.id)) {
         return; // Previous poll cycle for THIS device is still running
     }
@@ -568,9 +584,7 @@ async function pollSingleDR164Device(device) {
     try {
         await pollDR164Device(device);
     } catch (err) {
-        const isKva = device.controller === 'kva' || device.controller === 'kvar';
-        const isDse = device.controller === 'dse';
-        const label = isKva ? 'KVA' : (isDse ? 'DSE' : 'DR164');
+        const label = devicePollingLabel(device);
         console.error(`[${label}] Polling error for ${device.id}:`, err.message);
     } finally {
         dr164DevicePollingActive.set(device.id, false);
@@ -1645,15 +1659,31 @@ export const initMqttService = (io) => {
             }));
 
             const prevDr164Ids = new Set(dr164Devices.map(d => d.id));
+            const prevDr164ById = new Map(dr164Devices.map(d => [d.id, d]));
             const newDr164Ids = new Set(newDR164List.map(d => d.id));
             const newDr164Added = newDR164List.filter(d => !prevDr164Ids.has(d.id));
             const removedDr164 = dr164Devices.filter(d => !newDr164Ids.has(d.id));
+            const configChangedDr164 = newDR164List.filter(d => {
+                const prev = prevDr164ById.get(d.id);
+                return prev && (prev.controller !== d.controller || prev.slaveId !== d.slaveId);
+            });
 
             dr164Devices = newDR164List;
 
             // Stop timers for removed devices
             for (const device of removedDr164) {
                 stopDR164DevicePolling(device.id);
+            }
+
+            // Restart polling when controller or slave ID changes (timer used to keep stale config)
+            if (client && client.connected) {
+                for (const device of configChangedDr164) {
+                    const prev = prevDr164ById.get(device.id);
+                    console.log(`[DR164] Config changed for ${device.id}: ${prev?.controller} -> ${device.controller} — restarting poll`);
+                    restartDR164DevicePolling(device);
+                    const topic = `devices/command/${device.id}`;
+                    restorePolling(client, topic, device.slaveId, device.id, device.controller);
+                }
             }
 
             // Start independent timers for any DR164 device not currently being polled
