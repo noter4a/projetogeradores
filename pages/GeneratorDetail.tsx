@@ -60,7 +60,12 @@ const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", s
 };
 
 const formatVoltage = (val: any) => (val === null || val === undefined || val === 65535 ? '-' : `${Number(val).toFixed(0)} V`);
-const formatCurrent = (val: any) => (val === null || val === undefined || val === 65535 ? '-' : `${Number(val).toFixed(0)} A`);
+const formatCurrent = (val: any) => {
+  if (val === null || val === undefined || val === 65535) return '-';
+  const n = Number(val);
+  if (!Number.isFinite(n) || n > 8000) return '-';
+  return `${n.toFixed(0)} A`;
+};
 const formatFrequency = (val: any) => (val === null || val === undefined || val === 6553.5 || val === 65535 ? '-' : `${Number(val).toFixed(1)} Hz`);
 const formatPowerFactor = (val: any) => (val === null || val === undefined || val === 655.35 || val === 6553.5 || val === 65535 ? '-' : `${Number(val).toFixed(2)}`);
 const formatPower = (val: any) => (val === null || val === undefined || val === 65535 ? '-' : `${Number(val).toFixed(1)} kW`);
@@ -830,6 +835,11 @@ const GeneratorDetail: React.FC = () => {
                 <span className="text-base font-normal text-gray-500">kW</span>
               )}
             </p>
+            {gen.apparentPower != null && gen.apparentPower > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Aparente: <span className="text-gray-300">{Number(gen.apparentPower).toFixed(1)} kVA</span>
+              </p>
+            )}
           </div>
           <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-blue-500">
             <p className="text-gray-400 text-xs uppercase font-bold">Fator de Potência</p>

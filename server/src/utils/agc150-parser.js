@@ -10,19 +10,16 @@ import { parseRtuRequestHex, parseRtuResponseHex, hexToBuf, verifyCrcRtu } from 
 /** Poll sequence — fn 04 = input registers, fn 02 = discrete inputs */
 export const AGC150_POLL_SEQUENCE = [
   { startAddress: 0, quantity: 32, fn: 2 },   // GB/MB, modes, running, mains failure (0-31)
-  { startAddress: 501, quantity: 38, fn: 4 }, // Bus A AC block (501-538): Gen or Mains depending on profile
+  { startAddress: 501, quantity: 38, fn: 4 }, // Bus A AC block (501-538)
   { startAddress: 539, quantity: 13, fn: 4 }, // Bus B AC block (539-551)
-  { startAddress: 554, quantity: 13, fn: 4 }, // Run hours, alarms, start attempts (554-566)
+  { startAddress: 554, quantity: 14, fn: 4 }, // Hours, alarms, starts, DC supply (554-567)
   { startAddress: 576, quantity: 45, fn: 4 }, // Engine measurements (576-620)
 ];
 
 /** How Bus A / Bus B map to generator vs mains in the UI */
 export const AGC150_BUS_PROFILES = {
-  /** Typical standalone generator (501 = Generator measurements) */
   gen: { busA: 'generator', busB: 'mains' },
-  /** Bus-tie: Bus A = utility, Bus B = generator */
   btb: { busA: 'mains', busB: 'generator' },
-  /** Mains monitoring unit (501 = Mains) */
   mains: { busA: 'mains', busB: 'generator' },
 };
 
@@ -38,6 +35,10 @@ export function resolveAgc150Profile(rawProfile) {
 }
 
 const u16 = (regs, i) => (regs[i] ?? 0);
+const s16 = (regs, i) => {
+  const v = u16(regs, i);
+  return v & 0x8000 ? v - 0x10000 : v;
+};
 const s32 = (regs, i) => {
   const hi = u16(regs, i);
   const lo = u16(regs, i + 1);
@@ -46,7 +47,36 @@ const s32 = (regs, i) => {
   return v;
 };
 const scale01 = (x) => Math.round(x * 10) / 10;
-const scalePow10 = (raw, exp) => (exp > 0 ? scale01(raw / Math.pow(10, exp)) : raw);
+const scalePow10 = (raw, exp) => {
+  const n = typeof raw === 'number' ? raw : s16Val(raw);
+  if (exp > 0) return scale01(n / Math.pow(10, exp));
+  return n;
+};
+
+/** Excel INT16s fields — signed; treat DEIF invalid/sentinel raw values as zero. */
+function s16Val(raw) {
+  const v = s16([raw], 0);
+  const u = u16([raw], 0);
+  if (u === 65535 || u >= 65000) return 0;
+  return v;
+}
+
+function sanitizeAmps(raw) {
+  const u = u16([raw], 0);
+  // DEIF sends 0xFxxx when CT input is invalid / not wired
+  if (u === 65535 || u >= 60000) return 0;
+  const v = s16Val(raw);
+  if (!Number.isFinite(v) || Math.abs(v) > 8000) return 0;
+  return Math.abs(v);
+}
+
+function sanitizeKw(raw) {
+  const u = u16([raw], 0);
+  if (u === 65535 || u >= 65000) return 0;
+  const v = s16Val(raw);
+  if (!Number.isFinite(v) || Math.abs(v) > 50000) return 0;
+  return v;
+}
 
 function regAt(startAddress, regs, addr) {
   const idx = addr - startAddress;
@@ -54,8 +84,12 @@ function regAt(startAddress, regs, addr) {
   return u16(regs, idx);
 }
 
+function regS16At(startAddress, regs, addr) {
+  return s16Val(regAt(startAddress, regs, addr));
+}
+
 function busHasVoltage(m) {
-  return Math.max(m.l1n_v, m.l2n_v, m.l3n_v, m.l1l2_v) > 50;
+  return Math.max(m.l1n_v, m.l2n_v, m.l3n_v, m.l1l2_v, m.l2l3_v, m.l3l1_v) > 50;
 }
 
 export function parseDiscreteInputResponseHex(respHex) {
@@ -112,27 +146,35 @@ function decodeDiscreteStatus(startAddress, bits) {
   };
 }
 
-/** Read AC measurements for a contiguous bus block (baseAddr = 501 or 539). */
+/** Read AC measurements for Bus A (501) or Bus B (539). */
 function readAcMeasurements(startAddress, regs, baseAddr) {
-  const r = (addr) => regAt(startAddress, regs, addr);
+  const raw = (addr) => regAt(startAddress, regs, addr);
+  const l1l2 = raw(baseAddr);
+  const l2l3 = raw(baseAddr + 1);
+  const l3l1 = raw(baseAddr + 2);
+  const l1n = raw(baseAddr + 3);
+  const l2n = raw(baseAddr + 4);
+  const l3n = raw(baseAddr + 5);
+
   return {
-    l1l2_v: r(baseAddr),
-    l2l3_v: r(baseAddr + 1),
-    l3l1_v: r(baseAddr + 2),
-    l1n_v: r(baseAddr + 3),
-    l2n_v: r(baseAddr + 4),
-    l3n_v: r(baseAddr + 5),
-    freq_r_hz: scalePow10(r(baseAddr + 6), 2),
-    curr_l1: r(baseAddr + 12),
-    curr_l2: r(baseAddr + 13),
-    curr_l3: r(baseAddr + 14),
-    power_l1: r(baseAddr + 15),
-    power_l2: r(baseAddr + 16),
-    power_l3: r(baseAddr + 17),
-    power_total: r(baseAddr + 18),
-    reactive_total: r(baseAddr + 22),
-    apparent_total: r(baseAddr + 26),
-    power_factor: baseAddr === 501 ? scalePow10(r(538), 2) : null,
+    l1l2_v: l1l2,
+    l2l3_v: l2l3,
+    l3l1_v: l3l1,
+    // When L-N is zero but L-L has value, derive approximate L-N (400V system)
+    l1n_v: l1n > 50 ? l1n : (l1l2 > 50 ? Math.round(l1l2 / 1.732) : 0),
+    l2n_v: l2n > 50 ? l2n : (l2l3 > 50 ? Math.round(l2l3 / 1.732) : 0),
+    l3n_v: l3n > 50 ? l3n : (l3l1 > 50 ? Math.round(l3l1 / 1.732) : 0),
+    freq_r_hz: scalePow10(raw(baseAddr + 6), 2),
+    curr_l1: sanitizeAmps(raw(baseAddr + 12)),
+    curr_l2: sanitizeAmps(raw(baseAddr + 13)),
+    curr_l3: sanitizeAmps(raw(baseAddr + 14)),
+    power_l1: sanitizeKw(raw(baseAddr + 15)),
+    power_l2: sanitizeKw(raw(baseAddr + 16)),
+    power_l3: sanitizeKw(raw(baseAddr + 17)),
+    power_total: sanitizeKw(raw(baseAddr + 18)),
+    reactive_total: sanitizeKw(raw(baseAddr + 22)),
+    apparent_total: sanitizeKw(raw(baseAddr + 26)),
+    power_factor: baseAddr === 501 ? scalePow10(raw(538), 2) : null,
     startAddress,
     baseAddr,
   };
@@ -166,9 +208,10 @@ function toMainsBlock(m) {
   };
 }
 
-function toCurrentBlock(m) {
+function toCurrentBlock(m, busRole) {
   return {
     block: 'LOAD_CURRENT_23',
+    busRole,
     loadCurr_l1: m.curr_l1,
     loadCurr_l2: m.curr_l2,
     loadCurr_l3: m.curr_l3,
@@ -176,9 +219,10 @@ function toCurrentBlock(m) {
   };
 }
 
-function toPowerBlock(m) {
+function toPowerBlock(m, busRole) {
   return {
     block: 'ACTIVE_POWER_29_31',
+    busRole,
     activePowerL1: m.power_l1,
     activePowerL2: m.power_l2,
     activePowerL3: m.power_l3,
@@ -192,32 +236,30 @@ function toPowerBlock(m) {
 
 function decodeAcBlocks(profile, busAStart, busARegs, busBStart, busBRegs) {
   const roles = AGC150_BUS_PROFILES[profile] || AGC150_BUS_PROFILES.gen;
-  const busA = readAcMeasurements(busAStart, busARegs, 501);
-  const busB = busBRegs?.length
-    ? readAcMeasurements(busBStart, busBRegs, 539)
-    : null;
+  const busA = busARegs?.length ? readAcMeasurements(busAStart, busARegs, 501) : null;
+  const busB = busBRegs?.length ? readAcMeasurements(busBStart, busBRegs, 539) : null;
 
   const out = [];
   const assignBus = (measurements, role) => {
     if (!measurements || !busHasVoltage(measurements)) return;
+    const busRole = role === 'generator' ? 'generator' : 'mains';
     if (role === 'generator') {
       out.push(toGenBlock(measurements));
-      out.push(toCurrentBlock(measurements));
-      out.push(toPowerBlock(measurements));
     } else {
       out.push(toMainsBlock(measurements));
     }
+    out.push(toCurrentBlock(measurements, busRole));
+    out.push(toPowerBlock(measurements, busRole));
   };
 
-  assignBus(busA, roles.busA);
+  if (busA) assignBus(busA, roles.busA);
   if (busB) assignBus(busB, roles.busB);
 
-  // If generator bus had no voltage yet, try the other bus (mixed wiring / wrong profile hint)
   const hasGen = out.some(b => b.block === 'GEN_VOLT_FREQ_1_9');
   if (!hasGen && busB && busHasVoltage(busB)) {
     out.push(toGenBlock(busB));
-    out.push(toCurrentBlock(busB));
-    out.push(toPowerBlock(busB));
+    out.push(toCurrentBlock(busB, 'generator'));
+    out.push(toPowerBlock(busB, 'generator'));
   }
 
   return out;
@@ -228,55 +270,76 @@ function decodeHoursAlarms(startAddress, regs) {
   const hours = idx(554) >= 0 && idx(555) < regs.length ? s32(regs, idx(554)) : 0;
   const alarmCount = idx(558) >= 0 ? u16(regs, idx(558)) : 0;
   const unacked = idx(559) >= 0 ? u16(regs, idx(559)) : 0;
-  const engineFaults = idx(596) >= 0 ? u16(regs, idx(596)) : 0;
   const startAttempts = idx(566) >= 0 ? u16(regs, idx(566)) : 0;
+  const dcSupply = idx(567) >= 0 ? scalePow10(u16(regs, idx(567)), 1) : 0;
 
-  const totalAlarms = Math.max(alarmCount, engineFaults);
   let alarmMessage = 'Normal (Sem Alarme)';
-  if (totalAlarms > 0) {
-    alarmMessage = `${totalAlarms} alarme(s)/falha(s) no AGC 150`;
+  if (alarmCount > 0) {
+    alarmMessage = `${alarmCount} alarme(s) ativo(s) no AGC 150`;
     if (unacked > 0) alarmMessage += ` (${unacked} não reconhecido(s))`;
   }
 
-  return [
+  const blocks = [
     {
       block: 'RUNHOURS_60',
       runHours: hours,
       runMinutes: idx(561) >= 0 ? u16(regs, idx(561)) : 0,
       runHoursTotal: hours,
-      totalHours: parseFloat(hours.toFixed(2)),
+      totalHours: parseFloat(Math.max(0, hours).toFixed(2)),
       startAddress,
     },
     {
       block: 'ALARM_65_76',
-      alarmCode: totalAlarms > 0 ? 15000 + totalAlarms : 0,
+      alarmCode: alarmCount > 0 ? 15000 + alarmCount : 0,
       alarmMessage,
-      startFailure: startAttempts > 3,
-      startAddress,
-    },
-    {
-      block: 'ENGINE_51_59',
-      starts: startAttempts,
+      startFailure: alarmCount > 0 && startAttempts > 5,
       startAddress,
     },
   ];
+
+  if (dcSupply > 0) {
+    blocks.push({
+      block: 'ENGINE_51_59',
+      batteryVoltage_v: dcSupply,
+      startAddress,
+    });
+  }
+
+  return blocks;
 }
 
 function decodeEngineBlock(startAddress, regs) {
   const r = (addr) => regAt(startAddress, regs, addr);
+  const rs = (addr) => regS16At(startAddress, regs, addr);
+
+  const multi20 = rs(583);
+  const multi21 = rs(584);
+  const multi22 = rs(585);
+  const multi23 = rs(587);
+
+  const oilBar = scalePow10(r(595), 2);
+  const coolantC = scalePow10(r(594), 1);
+  const battery = scalePow10(r(613), 1);
+  const rpm = r(576) || r(593);
+  const engineLoad = r(608);
+  const fuelRate = scalePow10(r(602), 1);
+  const faultCount = r(596);
+
+  // Multi-inputs are site-configured; use the first plausible 0-100% reading as fuel fallback
+  const fuelCandidates = [multi20, multi21, multi22, multi23, scalePow10(r(601), 1)]
+    .filter(v => v > 0 && v <= 100);
 
   return {
     block: 'ENGINE_51_59',
-    oilPressure_bar: scalePow10(r(595), 2),
-    coolantTemp_c: scalePow10(r(594), 1),
+    oilPressure_bar: oilBar,
+    coolantTemp_c: coolantC,
     oilTemp_c: scalePow10(r(597), 1),
-    fuelLevel_pct: scalePow10(r(601), 1), // Coolant level / multi-input — closest analog level in block
-    batteryVoltage_v: scalePow10(r(613), 1),
-    rpm: r(576) || r(593),
-    engineLoad: r(608),
-    fuelRate_lph: scalePow10(r(602), 1),
-    engineFaultCount: r(596),
-    starts: null,
+    fuelLevel_pct: fuelCandidates[0] ?? 0,
+    batteryVoltage_v: battery,
+    rpm,
+    engineLoad: engineLoad <= 100 ? engineLoad : 0,
+    fuelRate_lph: fuelRate,
+    engineFaultCount: faultCount,
     startAddress,
   };
 }
@@ -289,7 +352,6 @@ export function decodeAgc150ByBlock(slaveId, fn, startAddress, data, options = {
   }
 
   const regs = data;
-  // Legacy single-read 501-551 (restorePolling / old gateway batches)
   if (fn === 4 && startAddress === 501 && regs.length >= 51) {
     return decodeAcBlocks(profile, 501, regs.slice(0, 38), 539, regs.slice(38));
   }
@@ -315,19 +377,12 @@ export function decodeAgc150Payload(payload, options = {}) {
   const out = [];
   const profile = resolveAgc150Profile(options.profile);
 
-  // Merge Bus A + Bus B partial results from separate reads
   let pendingBusA = null;
   let pendingBusB = null;
 
   const flushAcBlocks = () => {
     if (!pendingBusA && !pendingBusB) return;
-    const blocks = decodeAcBlocks(
-      profile,
-      501,
-      pendingBusA || [],
-      539,
-      pendingBusB || []
-    );
+    const blocks = decodeAcBlocks(profile, 501, pendingBusA || [], 539, pendingBusB || []);
     for (const block of blocks) {
       out.push({ ok: true, decoded: block });
     }
@@ -370,7 +425,6 @@ export function decodeAgc150Payload(payload, options = {}) {
       payloadData = resp.registers;
     }
 
-    // Defer AC bus reads so 501 + 539 combine under the selected profile
     if (fn === 4 && req.startAddress === 501 && payloadData.length < 51) {
       pendingBusA = payloadData;
       continue;
@@ -395,12 +449,18 @@ export function decodeAgc150Payload(payload, options = {}) {
 
 /** Prefer discrete GB/MB feedback; fall back to voltage/RPM heuristic. */
 export function reconcileAgc150BreakerState(data) {
-  const mainsV = Math.max(data.mainsVoltageL1 || 0, data.mainsVoltageL2 || 0, data.mainsVoltageL3 || 0);
-  const genV = Math.max(data.voltageL1 || 0, data.voltageL2 || 0, data.voltageL3 || 0);
+  const mainsV = Math.max(
+    data.mainsVoltageL1 || 0, data.mainsVoltageL2 || 0, data.mainsVoltageL3 || 0,
+    data.mainsVoltageL12 || 0, data.mainsVoltageL23 || 0, data.mainsVoltageL31 || 0
+  );
+  const genV = Math.max(
+    data.voltageL1 || 0, data.voltageL2 || 0, data.voltageL3 || 0,
+    data.voltageL12 || 0, data.voltageL23 || 0, data.voltageL31 || 0
+  );
   const rpm = data.rpm ?? 0;
 
   const genEnergized = rpm > 100 || genV > 80;
-  const mainsEnergized = mainsV > 100 || data.mainsFailure === true;
+  const mainsEnergized = mainsV > 100;
 
   if (data.genBreakerClosed == null && data.mainsBreakerClosed == null) {
     if (!genEnergized && mainsEnergized) {

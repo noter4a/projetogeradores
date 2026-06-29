@@ -781,13 +781,9 @@ export const initMqttService = (io) => {
                             unifiedData.engineTemp = d.coolantTemp_c || 0;
                             unifiedData.fuelLevel = d.fuelLevel_pct || 0;
                             unifiedData.rpm = d.rpm || 0;
-                            unifiedData.batteryVoltage = d.batteryVoltage_v || 0;
+                            if (d.batteryVoltage_v > 0) unifiedData.batteryVoltage = d.batteryVoltage_v;
                             if (d.engineLoad != null) unifiedData.engineLoad = d.engineLoad;
-
-                            // FIX: Capture Run Hours if present in extended Block 51
-                            if (d.runHours !== undefined) {
-                                global.mqttDeviceCache[deviceId].runHours = d.runHours;
-                            }
+                            if (d.starts != null && d.starts > 0) unifiedData.startAttempts = d.starts;
                         }
 
                         // Map RUNHOURS_60 (Hours Only)
@@ -871,20 +867,21 @@ export const initMqttService = (io) => {
 
                         // Map LOAD_CURRENT_23 (New Authority for Current)
                         if (d.block === 'LOAD_CURRENT_23') {
-                            unifiedData.currentL1 = d.loadCurr_l1 || 0;
-                            unifiedData.currentL2 = d.loadCurr_l2 || 0;
-                            unifiedData.currentL3 = d.loadCurr_l3 || 0;
-
-                            // User Request: Use same current for Mains (Load Current applies to both)
-                            unifiedData.mainsCurrentL1 = unifiedData.currentL1;
-                            unifiedData.mainsCurrentL2 = unifiedData.currentL2;
-                            unifiedData.mainsCurrentL3 = unifiedData.currentL3;
-
-                            // console.log(`[MQTT-DEBUG] Mapping LOAD_CURRENT_23 -> unifiedData: ${d.loadCurr_l1}A`);
-
-                            // Also map to reg23/24 for debug view
-                            unifiedData.reg23 = d.reg23;
-                            unifiedData.reg24 = d.reg24;
+                            const isMainsBus = isAgc150Device && d.busRole === 'mains';
+                            if (isMainsBus) {
+                                unifiedData.mainsCurrentL1 = d.loadCurr_l1 || 0;
+                                unifiedData.mainsCurrentL2 = d.loadCurr_l2 || 0;
+                                unifiedData.mainsCurrentL3 = d.loadCurr_l3 || 0;
+                            } else {
+                                unifiedData.currentL1 = d.loadCurr_l1 || 0;
+                                unifiedData.currentL2 = d.loadCurr_l2 || 0;
+                                unifiedData.currentL3 = d.loadCurr_l3 || 0;
+                                if (!isAgc150Device) {
+                                    unifiedData.mainsCurrentL1 = unifiedData.currentL1;
+                                    unifiedData.mainsCurrentL2 = unifiedData.currentL2;
+                                    unifiedData.mainsCurrentL3 = unifiedData.currentL3;
+                                }
+                            }
                         }
 
                         // Map STATUS_COMBINED_77_78 (New Consolidated Block)
@@ -979,16 +976,20 @@ export const initMqttService = (io) => {
 
                         // Map ACTIVE POWER (29-31)
                         if (d.block === 'ACTIVE_POWER_29_31') {
-                            unifiedData.activePowerL1 = d.activePowerL1;
-                            unifiedData.activePowerL2 = d.activePowerL2;
-                            unifiedData.activePowerL3 = d.activePowerL3;
-                            unifiedData.activePowerTotal = d.activePowerTotal;
-                            // Alias for DB Storage and Legacy Compatibility
-                            unifiedData.activePower = d.activePowerTotal;
-                            if (d.reactivePowerTotal != null) unifiedData.reactivePower = d.reactivePowerTotal;
-                            if (d.apparentPowerTotal != null) unifiedData.apparentPower = d.apparentPowerTotal;
-                            if (d.powerFactor != null) unifiedData.powerFactor = d.powerFactor;
-                            if (d.engineLoad !== undefined) unifiedData.engineLoad = d.engineLoad;
+                            const isMainsBus = isAgc150Device && d.busRole === 'mains';
+                            if (isMainsBus) {
+                                if (d.activePowerTotal != null) unifiedData.mainsActivePower = d.activePowerTotal;
+                            } else {
+                                unifiedData.activePowerL1 = d.activePowerL1;
+                                unifiedData.activePowerL2 = d.activePowerL2;
+                                unifiedData.activePowerL3 = d.activePowerL3;
+                                unifiedData.activePowerTotal = d.activePowerTotal;
+                                unifiedData.activePower = d.activePowerTotal;
+                                if (d.reactivePowerTotal != null) unifiedData.reactivePower = d.reactivePowerTotal;
+                                if (d.apparentPowerTotal != null) unifiedData.apparentPower = d.apparentPowerTotal;
+                                if (d.powerFactor != null && d.powerFactor > 0) unifiedData.powerFactor = d.powerFactor;
+                                if (d.engineLoad !== undefined) unifiedData.engineLoad = d.engineLoad;
+                            }
                         }
 
                         // Map STATUS_32 (Debug Only)
