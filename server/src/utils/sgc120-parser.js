@@ -52,10 +52,10 @@ export function parseRtuRequestHex(reqHex) {
  * Creates a Modbus RTU Read Request (Function 03)
  * Returns a BUFFER (Raw Bytes)
  */
-export function createModbusReadRequest(slaveId, startAddress, quantity) {
+export function createModbusReadRequest(slaveId, startAddress, quantity, fn = 3) {
   const buf = Buffer.alloc(8);
   buf.writeUInt8(slaveId, 0);
-  buf.writeUInt8(3, 1); // Function 03 (Read Holding Registers)
+  buf.writeUInt8(fn, 1);
   buf.writeUInt16BE(startAddress, 2);
   buf.writeUInt16BE(quantity, 4);
 

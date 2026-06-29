@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
 import { decodeSgc420Payload, SGC420_POLL_SEQUENCE, isSgc420Controller, reconcileSgc420BreakerState } from '../utils/sgc420-parser.js';
+import { decodeAgc150Payload, AGC150_POLL_SEQUENCE, isAgc150Controller, reconcileAgc150BreakerState } from '../utils/agc150-parser.js';
 import { decodeKvaPayload } from '../utils/kva-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
 import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
@@ -179,13 +180,21 @@ const DR164_POLL_SEQUENCE = [
 ];
 
 function getPollSequenceForController(controller) {
-    return isSgc420Controller(controller) ? SGC420_POLL_SEQUENCE : DR164_POLL_SEQUENCE;
+    if (isAgc150Controller(controller)) return AGC150_POLL_SEQUENCE;
+    if (isSgc420Controller(controller)) return SGC420_POLL_SEQUENCE;
+    return DR164_POLL_SEQUENCE;
 }
 
 function buildPollRequestHexList(slaveId, controller) {
     return getPollSequenceForController(controller).map(req =>
-        createModbusReadRequest(slaveId, req.startAddress, req.quantity).toString('hex').toUpperCase()
+        createModbusReadRequest(slaveId, req.startAddress, req.quantity, req.fn ?? 3).toString('hex').toUpperCase()
     );
+}
+
+function controllerProfileLabel(controller) {
+    if (isAgc150Controller(controller)) return 'AGC150';
+    if (isSgc420Controller(controller)) return 'SGC420';
+    return 'DR164';
 }
 
 function resolveDeviceController(deviceId) {
@@ -276,9 +285,10 @@ async function pollDR164Device(device) {
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
     const isDse = device.controller === 'dse';
     const isSgc420 = isSgc420Controller(device.controller);
+    const isAgc150 = isAgc150Controller(device.controller);
     const pollSequence = isKva ? KVA_POLL_SEQUENCE
         : (isDse ? DSE_POLL_SEQUENCE : getPollSequenceForController(device.controller));
-    const controllerLabel = isKva ? 'KVA' : (isDse ? 'DSE' : (isSgc420 ? 'SGC420' : 'DR164'));
+    const controllerLabel = isKva ? 'KVA' : (isDse ? 'DSE' : controllerProfileLabel(device.controller));
 
     const topic = `devices/command/${device.id}`;
     console.log(`[${controllerLabel}] Starting poll cycle for ${device.id} (Slave ${device.slaveId}) — ${pollSequence.length} steps`);
@@ -315,14 +325,14 @@ async function pollDR164Device(device) {
         }
 
         try {
-            console.log(`[${controllerLabel}] [${device.id}] Step ${stepIndex}/${pollSequence.length}: Addr ${req.startAddress}, Qty ${req.quantity}`);
-            const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity);
+            console.log(`[${controllerLabel}] [${device.id}] Step ${stepIndex}/${pollSequence.length}: Fn ${req.fn ?? 3} Addr ${req.startAddress}, Qty ${req.quantity}`);
+            const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity, req.fn ?? 3);
 
             // Store pending request info for response correlation
             dr164PendingRequests.set(device.id, {
                 requestHex: frame.toString('hex').toUpperCase(),
                 slaveId: device.slaveId,
-                fn: 3,
+                fn: req.fn ?? 3,
                 startAddress: req.startAddress,
                 quantity: req.quantity,
                 sentAt: Date.now()
@@ -388,7 +398,7 @@ function startDR164DevicePolling(device) {
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
     const isDse = device.controller === 'dse';
     const isSgc420 = isSgc420Controller(device.controller);
-    const label = isKva ? 'KVA' : (isDse ? 'DSE' : (isSgc420 ? 'SGC420' : 'DR164'));
+    const label = isKva ? 'KVA' : (isDse ? 'DSE' : controllerProfileLabel(device.controller));
     console.log(`[${label}] Starting independent polling timer for ${device.id} (interval: ${DR164_POLL_INTERVAL_MS}ms)`);
 
     // Clear stale state before starting
@@ -694,14 +704,17 @@ export const initMqttService = (io) => {
 
             const deviceController = resolveDeviceController(deviceId);
             const isSgc420Device = isSgc420Controller(deviceController);
-            const results = isSgc420Device ? decodeSgc420Payload(payload) : decodeSgc120Payload(payload);
+            const isAgc150Device = isAgc150Controller(deviceController);
+            const results = isAgc150Device ? decodeAgc150Payload(payload)
+                : isSgc420Device ? decodeSgc420Payload(payload)
+                : decodeSgc120Payload(payload);
 
             // Check if this device uses a KVA or DSE controller
             const isKvaDevice = dr164Devices.some(d => d.id === deviceId && (d.controller === 'kva' || d.controller === 'kvar'));
             const isDseDevice = dr164Devices.some(d => d.id === deviceId && d.controller === 'dse');
             const isDr164Device = dr164Devices.some(d => d.id === deviceId);
-            const isDeifDr164Device = isDr164Device && !isKvaDevice && !isDseDevice;
-            const isDeifDevice = !isKvaDevice && !isDseDevice && (isDeifDr164Device || isSgc420Device);
+            const isDeifDr164Device = isDr164Device && !isKvaDevice && !isDseDevice && !isAgc150Device && !isSgc420Device;
+            const isDeifDevice = !isKvaDevice && !isDseDevice && (isDeifDr164Device || isSgc420Device || isAgc150Device);
             const kvaResults = isKvaDevice ? decodeKvaPayload(payload) : [];
             const dseResults = isDseDevice ? decodeDsePayload(payload) : [];
 
@@ -749,6 +762,7 @@ export const initMqttService = (io) => {
                             unifiedData.fuelLevel = d.fuelLevel_pct || 0;
                             unifiedData.rpm = d.rpm || 0;
                             unifiedData.batteryVoltage = d.batteryVoltage_v || 0;
+                            if (d.engineLoad != null) unifiedData.engineLoad = d.engineLoad;
 
                             // FIX: Capture Run Hours if present in extended Block 51
                             if (d.runHours !== undefined) {
@@ -875,7 +889,16 @@ export const initMqttService = (io) => {
                             //     cannot tell them apart, so we fall back to the last commanded mode.
                             // Only pure DR164 DEIF devices use this; modem SGC120, KVA and DSE keep their logic.
                             // SGC 420: modo no byte alto do Reg 91 (0x4A80=Auto, 0x4280=Manual); ambíguo → último comando
-                            if (isSgc420Device) {
+                            if (isAgc150Device) {
+                                const resolvedMode = d.opMode
+                                    || dr164CommandedMode.get(deviceId)
+                                    || currentGeneratorsState[deviceId]?.data?.operationMode
+                                    || 'AUTO';
+                                unifiedData.operationMode = resolvedMode;
+                                if (d.opMode) dr164CommandedMode.set(deviceId, d.opMode);
+                                if (d.genBreakerClosed != null) unifiedData.genBreakerClosed = d.genBreakerClosed;
+                                console.log(`[AGC150-MODE] ${deviceId} discrete -> ${resolvedMode}${d.running ? ' (running)' : ''}`);
+                            } else if (isSgc420Device) {
                                 let resolvedMode = d.opMode || null;
                                 if (!resolvedMode) {
                                     resolvedMode = dr164CommandedMode.get(deviceId)
@@ -913,7 +936,7 @@ export const initMqttService = (io) => {
                                 console.log(`[DR164-MODE] ${deviceId} Reg78=0x${d.reg78_hex} (Hi=${highByte}) | commanded=${dr164CommandedMode.get(deviceId) || 'none'} -> mode=${resolvedMode || 'hold'}`);
                             }
 
-                            if (!isSgc420Device) {
+                            if (!isSgc420Device && !isAgc150Device) {
                                 unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                                 unifiedData.genBreakerClosed = d.genBreakerClosed;
                             }
@@ -1270,7 +1293,8 @@ export const initMqttService = (io) => {
                         data: unifiedData
                     };
 
-                    console.log(`[MQTT] Decoded ${isSgc420Device ? 'SGC-420' : 'SGC-120'} data for ${deviceId}:`, JSON.stringify(unifiedData));
+                    const decodeLabel = isAgc150Device ? 'AGC-150' : (isSgc420Device ? 'SGC-420' : 'SGC-120');
+                    console.log(`[MQTT] Decoded ${decodeLabel} data for ${deviceId}:`, JSON.stringify(unifiedData));
 
                     // 1. Append valid data to History Log
                     try {
@@ -1311,6 +1335,10 @@ export const initMqttService = (io) => {
 
                         if (isSgc420Device) {
                             reconcileSgc420BreakerState(mergedData);
+                            unifiedData.mainsBreakerClosed = mergedData.mainsBreakerClosed;
+                            unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
+                        } else if (isAgc150Device) {
+                            reconcileAgc150BreakerState(mergedData);
                             unifiedData.mainsBreakerClosed = mergedData.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
                         }
@@ -1857,7 +1885,7 @@ const restorePolling = (client, topic, slaveId, deviceId, controller = 'deif') =
     // with the Gateway's JSON-based internal polling.
     pausedDevices.add(deviceId);
     modemLastDataReceived.set(deviceId, Date.now()); // Reset watchdog timer to prevent re-trigger
-    const profileLabel = isSgc420Controller(controller) ? 'SGC-420' : 'SGC-120';
+    const profileLabel = isAgc150Controller(controller) ? 'AGC-150' : (isSgc420Controller(controller) ? 'SGC-420' : 'SGC-120');
     console.log(`[MQTT-RESTORE] Aguardando 10s para restaurar lista de polling (${profileLabel})... (Polling ativo Node.js pausado para ${deviceId})`);
 
     setTimeout(() => {
