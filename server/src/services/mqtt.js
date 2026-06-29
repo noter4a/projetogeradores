@@ -916,6 +916,7 @@ export const initMqttService = (io) => {
                                 if (d.genBreakerClosed != null) unifiedData.genBreakerClosed = d.genBreakerClosed;
                                 if (d.mainsBreakerClosed != null) unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                                 if (d.mainsFailure != null) unifiedData.mainsFailure = d.mainsFailure;
+                                if (d.running !== undefined) unifiedData.running = d.running;
                                 console.log(`[AGC150-MODE] ${deviceId} discrete -> ${resolvedMode}${d.running ? ' (running)' : ''}`);
                             } else if (isSgc420Device) {
                                 let resolvedMode = d.opMode || null;
@@ -1289,26 +1290,23 @@ export const initMqttService = (io) => {
                 if (Object.keys(unifiedData).length > 0) {
 
                     // DERIVE STATUS for Real-Time UI (and DB)
-                    // If we have RPM, use it. If not, preserve previous? 
-                    // For now, if RPM is 0 or undefined, effectively STOPPED unless we have other logic.
-                    // But if it's a MAINS packet (no RPM), we shouldn't overwrite status to STOPPED if it was RUNNING.
-                    // Safest: Only set status if RPM is present in this packet.
-                    // AGENT FIX: Also check Voltage. If Gen Voltage > 50V, it is definitely RUNNING.
-                    if (unifiedData.rpm !== undefined || unifiedData.voltageL1 !== undefined) {
+                    if (isAgc150Device) {
+                        // AGC150: never infer RUNNING from mains/gen voltage alone (causes flicker).
+                        // Priority: RPM > discrete "Running" bit (addr 3) > explicit RPM=0.
+                        if (unifiedData.rpm !== undefined && unifiedData.rpm > 100) {
+                            unifiedData.status = 'RUNNING';
+                        } else if (unifiedData.running !== undefined) {
+                            unifiedData.status = unifiedData.running ? 'RUNNING' : 'STOPPED';
+                        } else if (unifiedData.rpm !== undefined) {
+                            unifiedData.status = 'STOPPED';
+                        }
+                    } else if (unifiedData.rpm !== undefined || unifiedData.voltageL1 !== undefined) {
                         const isRpmRunning = (unifiedData.rpm && unifiedData.rpm > 100);
                         const isVoltageRunning = (unifiedData.voltageL1 && unifiedData.voltageL1 > 50);
-
-                        // IF either RPM or Voltage indicates running, set RUNNING.
-                        // But be careful: If Voltage is 0 and RPM is undefined, we shouldn't force STOPPED if we don't know RPM.
-                        // Logic:
-                        // If RPM is known: trust RPM.
-                        // If RPM is unknown (undefined) but Voltage > 50: trust Voltage.
-                        // If RPM is 0 and Voltage > 50: Trust Voltage (Sensor fail?).
 
                         if (isRpmRunning || isVoltageRunning) {
                             unifiedData.status = 'RUNNING';
                         } else if (unifiedData.rpm !== undefined && unifiedData.rpm < 100) {
-                            // Only set STOPPED if RPM explicitly says so (and Voltage is low)
                             if (!isVoltageRunning) unifiedData.status = 'STOPPED';
                         }
                     }
@@ -1365,8 +1363,17 @@ export const initMqttService = (io) => {
                             unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
                         } else if (isAgc150Device) {
                             reconcileAgc150BreakerState(mergedData);
+                            // Reconcile status from full merged state (partial MQTT steps must not flicker UI)
+                            if (mergedData.rpm > 100) {
+                                mergedData.status = 'RUNNING';
+                            } else if (mergedData.running !== undefined) {
+                                mergedData.status = mergedData.running ? 'RUNNING' : 'STOPPED';
+                            } else if (mergedData.rpm !== undefined) {
+                                mergedData.status = 'STOPPED';
+                            }
                             unifiedData.mainsBreakerClosed = mergedData.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
+                            unifiedData.status = mergedData.status;
                         }
 
                         currentGeneratorsState[deviceId] = {
