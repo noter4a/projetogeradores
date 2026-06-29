@@ -19,6 +19,7 @@ type GeneratorFormData = {
   slaveId: string;
   deviceType: string;
   companyId: string;
+  agc150Profile: string;
 };
 
 const AddGenerator: React.FC = () => {
@@ -43,7 +44,8 @@ const AddGenerator: React.FC = () => {
     port: '',
     slaveId: '1',
     deviceType: 'modem',
-    companyId: ''
+    companyId: '',
+    agc150Profile: 'gen',
   });
 
   // Snapshot of the originally loaded values (for change detection)
@@ -88,7 +90,8 @@ const AddGenerator: React.FC = () => {
           port: existingGen.port || '',
           slaveId: existingGen.slaveId || '1',
           deviceType: existingGen.deviceType || 'modem',
-          companyId: existingGen.companyId ? existingGen.companyId.toString() : ''
+          companyId: existingGen.companyId ? existingGen.companyId.toString() : '',
+          agc150Profile: existingGen.agc150Profile || 'gen',
         };
         setFormData(loaded);
         initialDataRef.current = loaded;
@@ -155,7 +158,8 @@ const AddGenerator: React.FC = () => {
           port: formData.port,
           slaveId: formData.slaveId,
           deviceType: formData.deviceType,
-          companyId: formData.companyId ? Number(formData.companyId) : undefined
+          companyId: formData.companyId ? Number(formData.companyId) : undefined,
+          agc150Profile: formData.controller === 'agc150' ? formData.agc150Profile : undefined,
         };
         updateGenerator(updatedGen);
       }
@@ -191,7 +195,8 @@ const AddGenerator: React.FC = () => {
         port: formData.port,
         slaveId: formData.slaveId,
         deviceType: formData.deviceType,
-        companyId: formData.companyId ? Number(formData.companyId) : undefined
+        companyId: formData.companyId ? Number(formData.companyId) : undefined,
+        agc150Profile: formData.controller === 'agc150' ? formData.agc150Profile : undefined,
       };
       addGenerator(newGen);
     }
@@ -339,6 +344,25 @@ const AddGenerator: React.FC = () => {
               <option value="kvar">KVA</option>
             </select>
           </div>
+
+          {formData.controller === 'agc150' && (
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Perfil de barramento AGC 150</label>
+              <select
+                name="agc150Profile"
+                value={formData.agc150Profile}
+                onChange={handleChange}
+                className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
+              >
+                <option value="gen">Gerador (501 = GMG — padrão)</option>
+                <option value="btb">BTB (501 = Rede, 539 = GMG)</option>
+                <option value="mains">Rede (501 = Rede)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                No AGC 150 os endereços Modbus 501–519 representam Gerador ou Rede conforme a aplicação do controlador.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm text-gray-400 mb-1">Protocolo de Comunicação</label>

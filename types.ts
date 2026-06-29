@@ -106,6 +106,8 @@ export interface Generator {
   port?: string;
   slaveId?: string;
   deviceType?: string;
+  /** AGC 150 bus mapping: gen | btb | mains */
+  agc150Profile?: string;
 
   // New Control Fields
   operationMode?: 'AUTO' | 'MANUAL' | 'INHIBITED';

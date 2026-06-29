@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
 import { decodeSgc420Payload, SGC420_POLL_SEQUENCE, isSgc420Controller, reconcileSgc420BreakerState } from '../utils/sgc420-parser.js';
-import { decodeAgc150Payload, AGC150_POLL_SEQUENCE, isAgc150Controller, reconcileAgc150BreakerState } from '../utils/agc150-parser.js';
+import { decodeAgc150Payload, AGC150_POLL_SEQUENCE, isAgc150Controller, reconcileAgc150BreakerState, resolveAgc150Profile } from '../utils/agc150-parser.js';
 import { decodeKvaPayload } from '../utils/kva-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
 import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
@@ -201,6 +201,11 @@ function resolveDeviceController(deviceId) {
     const device = dr164Devices.find(d => d.id === deviceId)
         || devicesToPoll.find(d => d.id === deviceId);
     return (device?.controller || 'deif').toLowerCase();
+}
+
+function resolveDeviceAgc150Profile(deviceId) {
+    const device = dr164Devices.find(d => d.id === deviceId);
+    return resolveAgc150Profile(device?.agc150Profile);
 }
 
 const dr164Sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -719,7 +724,8 @@ export const initMqttService = (io) => {
             const deviceController = resolveDeviceController(deviceId);
             const isSgc420Device = isSgc420Controller(deviceController);
             const isAgc150Device = isAgc150Controller(deviceController);
-            const results = isAgc150Device ? decodeAgc150Payload(payload)
+            const agc150Profile = isAgc150Device ? resolveDeviceAgc150Profile(deviceId) : null;
+            const results = isAgc150Device ? decodeAgc150Payload(payload, { profile: agc150Profile })
                 : isSgc420Device ? decodeSgc420Payload(payload)
                 : decodeSgc120Payload(payload);
 
@@ -911,6 +917,8 @@ export const initMqttService = (io) => {
                                 unifiedData.operationMode = resolvedMode;
                                 if (d.opMode) dr164CommandedMode.set(deviceId, d.opMode);
                                 if (d.genBreakerClosed != null) unifiedData.genBreakerClosed = d.genBreakerClosed;
+                                if (d.mainsBreakerClosed != null) unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                                if (d.mainsFailure != null) unifiedData.mainsFailure = d.mainsFailure;
                                 console.log(`[AGC150-MODE] ${deviceId} discrete -> ${resolvedMode}${d.running ? ' (running)' : ''}`);
                             } else if (isSgc420Device) {
                                 let resolvedMode = d.opMode || null;
@@ -977,6 +985,9 @@ export const initMqttService = (io) => {
                             unifiedData.activePowerTotal = d.activePowerTotal;
                             // Alias for DB Storage and Legacy Compatibility
                             unifiedData.activePower = d.activePowerTotal;
+                            if (d.reactivePowerTotal != null) unifiedData.reactivePower = d.reactivePowerTotal;
+                            if (d.apparentPowerTotal != null) unifiedData.apparentPower = d.apparentPowerTotal;
+                            if (d.powerFactor != null) unifiedData.powerFactor = d.powerFactor;
                             if (d.engineLoad !== undefined) unifiedData.engineLoad = d.engineLoad;
                         }
 
@@ -1655,7 +1666,8 @@ export const initMqttService = (io) => {
             const newDR164List = dr164Rows.map(row => ({
                 id: row.connection_info.ip,
                 slaveId: parseInt(row.connection_info.slaveId) || 1,
-                controller: (row.connection_info.controller || '').toLowerCase()
+                controller: (row.connection_info.controller || '').toLowerCase(),
+                agc150Profile: row.connection_info.agc150Profile || 'gen',
             }));
 
             const prevDr164Ids = new Set(dr164Devices.map(d => d.id));
@@ -1665,7 +1677,11 @@ export const initMqttService = (io) => {
             const removedDr164 = dr164Devices.filter(d => !newDr164Ids.has(d.id));
             const configChangedDr164 = newDR164List.filter(d => {
                 const prev = prevDr164ById.get(d.id);
-                return prev && (prev.controller !== d.controller || prev.slaveId !== d.slaveId);
+                return prev && (
+                    prev.controller !== d.controller
+                    || prev.slaveId !== d.slaveId
+                    || prev.agc150Profile !== d.agc150Profile
+                );
             });
 
             dr164Devices = newDR164List;

@@ -942,6 +942,7 @@ router.get('/generators', authenticateToken, async (req, res) => {
             port: row.connection_info?.port || null,
             slaveId: row.connection_info?.slaveId || null,
             deviceType: row.connection_info?.deviceType || 'modem',
+            agc150Profile: row.connection_info?.agc150Profile || 'gen',
             companyId: row.company_id,
             companyName: row.company_name,
             lastDataReceived: row.last_connected ? new Date(row.last_connected).getTime() : null,
@@ -995,7 +996,8 @@ router.post('/generators', authenticateToken, requireRole('ADMIN'), async (req, 
             ip: gen.ip,
             port: gen.port,
             slaveId: gen.slaveId,
-            deviceType: gen.deviceType || 'modem'
+            deviceType: gen.deviceType || 'modem',
+            ...(gen.agc150Profile ? { agc150Profile: gen.agc150Profile } : {}),
         };
 
         await pool.query(
@@ -1030,7 +1032,8 @@ router.put('/generators/:id', authenticateToken, requireRole('ADMIN'), async (re
             ip: gen.ip,
             port: gen.port,
             slaveId: gen.slaveId,
-            deviceType: gen.deviceType || 'modem'
+            deviceType: gen.deviceType || 'modem',
+            ...(gen.agc150Profile ? { agc150Profile: gen.agc150Profile } : {}),
         };
 
         await pool.query(
