@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
 import { decodeSgc420Payload, SGC420_POLL_SEQUENCE, isSgc420Controller, reconcileSgc420BreakerState } from '../utils/sgc420-parser.js';
-import { decodeAgc150Payload, AGC150_POLL_SEQUENCE, isAgc150Controller, reconcileAgc150BreakerState, resolveAgc150Profile } from '../utils/agc150-parser.js';
+import { decodeAgc150Payload, AGC150_POLL_SEQUENCE, AGC150_COILS, isAgc150Controller, reconcileAgc150BreakerState, resolveAgc150Profile } from '../utils/agc150-parser.js';
 import { decodeKvaPayload } from '../utils/kva-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
 import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
@@ -1924,6 +1924,20 @@ function createModbusWriteRequest(slaveId, address, value) {
     return buffer;
 }
 
+// Helper for Function 05 (Write Single Coil)
+function createModbusWriteCoilRequest(slaveId, coilAddress, on) {
+    const buffer = Buffer.alloc(8);
+    buffer.writeUInt8(slaveId, 0);
+    buffer.writeUInt8(5, 1);
+    buffer.writeUInt16BE(coilAddress, 2);
+    buffer.writeUInt16BE(on ? 0xff00 : 0x0000, 4);
+
+    const crc = crc16Modbus(buffer.slice(0, 6));
+    buffer.writeUInt16LE(crc, 6);
+
+    return buffer;
+}
+
 // Helper for Function 16 (Write Multiple Registers)
 function createModbusWriteMultipleRequest(slaveId, startAddress, values) {
     const quantity = values.length;
@@ -2134,7 +2148,77 @@ export const sendControlCommand = (deviceId, action) => {
                 return { success: true };
             }
 
-            // DEIF DR164: existing command logic
+            if (isAgc150Controller(device.controller)) {
+                let coilAddress;
+                switch (action) {
+                    case 'auto':
+                        coilAddress = AGC150_COILS.AUTO_MODE;
+                        dr164CommandedMode.set(deviceId, 'AUTO');
+                        break;
+                    case 'manual':
+                        coilAddress = AGC150_COILS.MANUAL_MODE;
+                        dr164CommandedMode.set(deviceId, 'MANUAL');
+                        break;
+                    case 'start': {
+                        const mode = dr164CommandedMode.get(deviceId)
+                            || currentGeneratorsState[deviceId]?.data?.operationMode;
+                        coilAddress = (mode === 'MANUAL')
+                            ? AGC150_COILS.START_SYNC_MANUAL
+                            : AGC150_COILS.REMOTE_START;
+                        break;
+                    }
+                    case 'stop': {
+                        const mode = dr164CommandedMode.get(deviceId)
+                            || currentGeneratorsState[deviceId]?.data?.operationMode;
+                        coilAddress = (mode === 'MANUAL')
+                            ? AGC150_COILS.DELOAD_STOP_MANUAL
+                            : AGC150_COILS.REMOTE_STOP;
+                        break;
+                    }
+                    case 'reset':
+                    case 'ack':
+                        coilAddress = AGC150_COILS.ALARM_ACK;
+                        break;
+                    case 'toggleGen': {
+                        const genClosed = currentGeneratorsState[deviceId]?.data?.genBreakerClosed || false;
+                        coilAddress = genClosed ? AGC150_COILS.REMOTE_GB_OFF : AGC150_COILS.REMOTE_GB_ON;
+                        console.log(`[AGC150-CMD] toggleGen: currentState=${genClosed ? 'CLOSED' : 'OPEN'}, coil ${coilAddress}`);
+                        break;
+                    }
+                    case 'toggleMains': {
+                        const mainsClosed = currentGeneratorsState[deviceId]?.data?.mainsBreakerClosed || false;
+                        coilAddress = mainsClosed ? AGC150_COILS.MB_OFF : AGC150_COILS.MB_ON;
+                        console.log(`[AGC150-CMD] toggleMains: currentState=${mainsClosed ? 'CLOSED' : 'OPEN'}, coil ${coilAddress}`);
+                        break;
+                    }
+                    case 'genBreakerOn':   coilAddress = AGC150_COILS.REMOTE_GB_ON; break;
+                    case 'genBreakerOff':  coilAddress = AGC150_COILS.REMOTE_GB_OFF; break;
+                    case 'mainsBreakerOn': coilAddress = AGC150_COILS.MB_ON; break;
+                    case 'mainsBreakerOff': coilAddress = AGC150_COILS.MB_OFF; break;
+                    default:
+                        return { success: false, error: `Unknown AGC150 action '${action}'` };
+                }
+
+                pausedDevices.add(deviceId);
+                const onBuf = createModbusWriteCoilRequest(slaveId, coilAddress, true);
+                client.publish(topic, onBuf);
+                console.log(`[AGC150-CMD] ${action.toUpperCase()}: Coil ${coilAddress} ON -> ${deviceId}. Hex: ${onBuf.toString('hex').toUpperCase()}`);
+
+                setTimeout(() => {
+                    const offBuf = createModbusWriteCoilRequest(slaveId, coilAddress, false);
+                    client.publish(topic, offBuf);
+                    console.log(`[AGC150-CMD] ${action.toUpperCase()}: Coil ${coilAddress} OFF. Hex: ${offBuf.toString('hex').toUpperCase()}`);
+                }, 500);
+
+                setTimeout(() => {
+                    pausedDevices.delete(deviceId);
+                    console.log(`[AGC150-CMD] Resumed polling for ${deviceId}`);
+                }, 2000);
+
+                return { success: true };
+            }
+
+            // DEIF DR164 (SGC120 / SGC420): existing command logic
             let commandValue;
             switch (action) {
                 case 'start':  commandValue = 2;  break;

@@ -28,6 +28,22 @@ export function isAgc150Controller(controller) {
   return c === 'agc150' || c === 'agc-150' || c === 'deif150' || c === 'deif_agc150';
 }
 
+/** Discrete output coils (Modbus fn 05/15) — DEIF AGC 150 command flags */
+export const AGC150_COILS = {
+  REMOTE_START: 0,
+  REMOTE_GB_ON: 1,
+  REMOTE_GB_OFF: 2,
+  REMOTE_STOP: 3,
+  ALARM_ACK: 9,
+  START_SYNC_MANUAL: 14,
+  DELOAD_STOP_MANUAL: 15,
+  MB_ON: 24,
+  MB_OFF: 25,
+  MANUAL_MODE: 28,
+  AUTO_MODE: 29,
+  TEST_MODE: 30,
+};
+
 export function resolveAgc150Profile(rawProfile) {
   const p = (rawProfile || 'gen').toLowerCase();
   if (p === 'auto') return 'gen';
