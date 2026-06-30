@@ -325,21 +325,21 @@ function decodeEngineBlock(startAddress, regs) {
   const fuelRate = scalePow10(r(602), 1);
   const faultCount = r(596);
 
-  // Multi-inputs are site-configured; use the first plausible 0-100% reading as fuel fallback
-  const fuelCandidates = [multi20, multi21, multi22, multi23, scalePow10(r(601), 1)]
+  // Multi-inputs (583-587) are site-configured analog channels — often fuel level
+  const fuelCandidates = [multi20, multi21, multi22, multi23]
     .filter(v => v > 0 && v <= 100);
 
   return {
     block: 'ENGINE_51_59',
-    oilPressure_bar: oilBar,
-    coolantTemp_c: coolantC,
-    oilTemp_c: scalePow10(r(597), 1),
-    fuelLevel_pct: fuelCandidates[0] ?? 0,
-    batteryVoltage_v: battery,
+    oilPressure_bar: oilBar > 0 ? oilBar : undefined,
+    coolantTemp_c: coolantC > 0 ? coolantC : undefined,
+    oilTemp_c: scalePow10(r(597), 1) || undefined,
+    fuelLevel_pct: fuelCandidates.length ? Math.max(...fuelCandidates) : undefined,
+    batteryVoltage_v: battery > 0 ? battery : undefined,
     rpm,
-    engineLoad: engineLoad <= 100 ? engineLoad : 0,
-    fuelRate_lph: fuelRate,
-    engineFaultCount: faultCount,
+    engineLoad: engineLoad > 0 && engineLoad <= 100 ? engineLoad : undefined,
+    fuelRate_lph: fuelRate > 0 ? fuelRate : undefined,
+    engineFaultCount: faultCount > 0 ? faultCount : undefined,
     startAddress,
   };
 }

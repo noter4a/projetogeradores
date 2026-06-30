@@ -243,7 +243,8 @@ function waitForDR164Response(deviceId, timeoutMs) {
 function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
     const pending = dr164PendingRequests.get(deviceId);
     if (!pending) {
-        // Ghost response — arrived after timeout. Track it to avoid sending next command too fast.
+        // Ghost response — arrived after timeout. Link is alive; refresh watchdog timestamp.
+        modemLastDataReceived.set(deviceId, Date.now());
         dr164LastGhostResponse.set(deviceId, Date.now());
         console.log(`[DR164] ⚠ Ghost response for ${deviceId} (no pending request) — marking for drain.`);
         return;
@@ -777,12 +778,15 @@ export const initMqttService = (io) => {
                         // Map ENGINE_51_59
                         // Map ENGINE_51_59
                         if (d.block === 'ENGINE_51_59') {
-                            unifiedData.oilPressure = d.oilPressure_bar || 0;
-                            unifiedData.engineTemp = d.coolantTemp_c || 0;
-                            unifiedData.fuelLevel = d.fuelLevel_pct || 0;
-                            unifiedData.rpm = d.rpm || 0;
+                            if (d.oilPressure_bar > 0) unifiedData.oilPressure = d.oilPressure_bar;
+                            else if (!isAgc150Device) unifiedData.oilPressure = d.oilPressure_bar || 0;
+                            if (d.coolantTemp_c > 0) unifiedData.engineTemp = d.coolantTemp_c;
+                            else if (!isAgc150Device) unifiedData.engineTemp = d.coolantTemp_c || 0;
+                            if (d.fuelLevel_pct > 0) unifiedData.fuelLevel = d.fuelLevel_pct;
+                            else if (!isAgc150Device) unifiedData.fuelLevel = d.fuelLevel_pct || 0;
+                            if (d.rpm !== undefined) unifiedData.rpm = d.rpm;
                             if (d.batteryVoltage_v > 0) unifiedData.batteryVoltage = d.batteryVoltage_v;
-                            if (d.engineLoad != null) unifiedData.engineLoad = d.engineLoad;
+                            if (d.engineLoad != null && d.engineLoad > 0) unifiedData.engineLoad = d.engineLoad;
                             if (d.starts != null && d.starts > 0) unifiedData.startAttempts = d.starts;
                         }
 
@@ -1371,9 +1375,18 @@ export const initMqttService = (io) => {
                             } else if (mergedData.rpm !== undefined) {
                                 mergedData.status = 'STOPPED';
                             }
+                            // Hold last good engine readings when a partial poll step sends zeros
+                            for (const key of ['fuelLevel', 'batteryVoltage', 'oilPressure', 'engineTemp']) {
+                                const prev = existingDeviceData[key];
+                                const cur = mergedData[key];
+                                if ((cur === 0 || cur == null) && prev > 0) {
+                                    mergedData[key] = prev;
+                                }
+                            }
                             unifiedData.mainsBreakerClosed = mergedData.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
                             unifiedData.status = mergedData.status;
+                            if (mergedData.fuelLevel > 0) unifiedData.fuelLevel = mergedData.fuelLevel;
                         }
 
                         currentGeneratorsState[deviceId] = {
