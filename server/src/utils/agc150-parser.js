@@ -271,13 +271,6 @@ function decodeAcBlocks(profile, busAStart, busARegs, busBStart, busBRegs) {
   if (busA) assignBus(busA, roles.busA);
   if (busB) assignBus(busB, roles.busB);
 
-  const hasGen = out.some(b => b.block === 'GEN_VOLT_FREQ_1_9');
-  if (!hasGen && busB && busHasVoltage(busB)) {
-    out.push(toGenBlock(busB));
-    out.push(toCurrentBlock(busB, 'generator'));
-    out.push(toPowerBlock(busB, 'generator'));
-  }
-
   return out;
 }
 
@@ -500,6 +493,21 @@ export function reconcileAgc150BreakerState(data) {
   } else {
     if (data.mainsBreakerClosed == null) data.mainsBreakerClosed = mainsEnergized;
     if (data.genBreakerClosed == null) data.genBreakerClosed = genEnergized;
+  }
+
+  const running = data.running === true || rpm > 100;
+  if (data.genBreakerClosed === false && !running) {
+    data.voltageL1 = 0;
+    data.voltageL2 = 0;
+    data.voltageL3 = 0;
+    data.voltageL12 = 0;
+    data.voltageL23 = 0;
+    data.voltageL31 = 0;
+    data.avgVoltage = 0;
+    data.frequency = 0;
+    data.currentL1 = 0;
+    data.currentL2 = 0;
+    data.currentL3 = 0;
   }
 
   return data;
