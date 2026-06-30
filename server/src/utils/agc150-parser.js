@@ -162,8 +162,8 @@ function decodeDiscreteStatus(startAddress, bits) {
   };
 }
 
-/** Read AC measurements for Bus A (501) or Bus B (539). */
-function readAcMeasurements(startAddress, regs, baseAddr) {
+/** Read AC measurements for Bus A (501–538): voltage, current, power, PF. */
+function readBusAMeasurements(startAddress, regs, baseAddr = 501) {
   const raw = (addr) => regAt(startAddress, regs, addr);
   const l1l2 = raw(baseAddr);
   const l2l3 = raw(baseAddr + 1);
@@ -176,7 +176,6 @@ function readAcMeasurements(startAddress, regs, baseAddr) {
     l1l2_v: l1l2,
     l2l3_v: l2l3,
     l3l1_v: l3l1,
-    // When L-N is zero but L-L has value, derive approximate L-N (400V system)
     l1n_v: l1n > 50 ? l1n : (l1l2 > 50 ? Math.round(l1l2 / 1.732) : 0),
     l2n_v: l2n > 50 ? l2n : (l2l3 > 50 ? Math.round(l2l3 / 1.732) : 0),
     l3n_v: l3n > 50 ? l3n : (l3l1 > 50 ? Math.round(l3l1 / 1.732) : 0),
@@ -190,7 +189,33 @@ function readAcMeasurements(startAddress, regs, baseAddr) {
     power_total: sanitizeKw(raw(baseAddr + 18)),
     reactive_total: sanitizeKw(raw(baseAddr + 22)),
     apparent_total: sanitizeKw(raw(baseAddr + 26)),
-    power_factor: baseAddr === 501 ? scalePow10(raw(538), 2) : null,
+    power_factor: scalePow10(raw(538), 2),
+    startAddress,
+    baseAddr,
+  };
+}
+
+/**
+ * Bus B (539–551): DEIF only exposes voltage + frequency here.
+ * 548–553 are phase/sync angles — not current or power.
+ */
+function readBusBMeasurements(startAddress, regs, baseAddr = 539) {
+  const raw = (addr) => regAt(startAddress, regs, addr);
+  const l1l2 = raw(baseAddr);
+  const l2l3 = raw(baseAddr + 1);
+  const l3l1 = raw(baseAddr + 2);
+  const l1n = raw(baseAddr + 3);
+  const l2n = raw(baseAddr + 4);
+  const l3n = raw(baseAddr + 5);
+
+  return {
+    l1l2_v: l1l2,
+    l2l3_v: l2l3,
+    l3l1_v: l3l1,
+    l1n_v: l1n > 50 ? l1n : (l1l2 > 50 ? Math.round(l1l2 / 1.732) : 0),
+    l2n_v: l2n > 50 ? l2n : (l2l3 > 50 ? Math.round(l2l3 / 1.732) : 0),
+    l3n_v: l3n > 50 ? l3n : (l3l1 > 50 ? Math.round(l3l1 / 1.732) : 0),
+    freq_r_hz: scalePow10(raw(baseAddr + 6), 2),
     startAddress,
     baseAddr,
   };
@@ -252,11 +277,11 @@ function toPowerBlock(m, busRole) {
 
 function decodeAcBlocks(profile, busAStart, busARegs, busBStart, busBRegs) {
   const roles = AGC150_BUS_PROFILES[profile] || AGC150_BUS_PROFILES.gen;
-  const busA = busARegs?.length ? readAcMeasurements(busAStart, busARegs, 501) : null;
-  const busB = busBRegs?.length ? readAcMeasurements(busBStart, busBRegs, 539) : null;
+  const busA = busARegs?.length ? readBusAMeasurements(busAStart, busARegs, 501) : null;
+  const busB = busBRegs?.length ? readBusBMeasurements(busBStart, busBRegs, 539) : null;
 
   const out = [];
-  const assignBus = (measurements, role) => {
+  const assignBusA = (measurements, role) => {
     if (!measurements || !busHasVoltage(measurements)) return;
     const busRole = role === 'generator' ? 'generator' : 'mains';
     if (role === 'generator') {
@@ -268,8 +293,17 @@ function decodeAcBlocks(profile, busAStart, busARegs, busBStart, busBRegs) {
     out.push(toPowerBlock(measurements, busRole));
   };
 
-  if (busA) assignBus(busA, roles.busA);
-  if (busB) assignBus(busB, roles.busB);
+  const assignBusB = (measurements, role) => {
+    if (!measurements || !busHasVoltage(measurements)) return;
+    if (role === 'generator') {
+      out.push(toGenBlock(measurements));
+    } else {
+      out.push(toMainsBlock(measurements));
+    }
+  };
+
+  if (busA) assignBusA(busA, roles.busA);
+  if (busB) assignBusB(busB, roles.busB);
 
   return out;
 }
