@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Generator, GeneratorStatus } from '../types';
 import { AlertTriangle } from 'lucide-react';
-import { cardStatusGlow, computeHealthScore, healthColor } from '../utils/generatorHealth';
+import { cardStatusGlow } from '../utils/generatorHealth';
 
 interface OperatorDashboardCardProps {
   gen: Generator;
@@ -17,7 +17,6 @@ const statusLabel: Record<GeneratorStatus, string> = {
 
 const OperatorDashboardCard: React.FC<OperatorDashboardCardProps> = ({ gen }) => {
   const navigate = useNavigate();
-  const health = computeHealthScore(gen);
   const avgVoltage =
     gen.status === GeneratorStatus.RUNNING
       ? Math.round(((gen.voltageL1 || 0) + (gen.voltageL2 || 0) + (gen.voltageL3 || 0)) / 3)
@@ -47,8 +46,10 @@ const OperatorDashboardCard: React.FC<OperatorDashboardCardProps> = ({ gen }) =>
           <p className="text-sm font-mono font-bold text-white">{avgVoltage || '—'}<span className="text-[10px] text-gray-500"> V</span></p>
         </div>
         <div className="rounded-lg bg-ciklo-dark border border-gray-800 py-2">
-          <p className="text-[9px] text-gray-500 uppercase font-bold">Saúde</p>
-          <p className={`text-sm font-mono font-bold ${healthColor(health)}`}>{health}%</p>
+          <p className="text-[9px] text-gray-500 uppercase font-bold">Combustível</p>
+          <p className="text-sm font-mono font-bold text-white">
+            {gen.fuelLevel == null || gen.fuelLevel === 65535 ? '—' : `${gen.fuelLevel}%`}
+          </p>
         </div>
       </div>
       {gen.alarmCode && gen.alarmCode > 0 && (

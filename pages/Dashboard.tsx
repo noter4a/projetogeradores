@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +7,6 @@ import { useOperatorMode } from '../context/OperatorModeContext';
 import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio } from 'lucide-react';
 import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorDashboardCard from '../components/OperatorDashboardCard';
-import { computeHealthScore } from '../utils/generatorHealth';
 
 const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
   const styles = {
@@ -49,13 +48,6 @@ const Dashboard: React.FC = () => {
   const alarmGens = generators.filter(g => g.alarmCode && g.alarmCode > 0).length;
   const offlineGens = generators.filter(g => g.status === GeneratorStatus.OFFLINE).length;
 
-  const avgHealth = useMemo(() => {
-    if (!generators.length) return 0;
-    return Math.round(
-      generators.reduce((sum, g) => sum + computeHealthScore(g), 0) / generators.length
-    );
-  }, [generators]);
-
   const showOperatorUi = operatorMode;
 
   return (
@@ -93,10 +85,6 @@ const Dashboard: React.FC = () => {
               <div className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 min-w-[100px]">
                 <p className="text-[10px] text-gray-500 uppercase font-bold">Offline</p>
                 <p className="text-xl font-mono font-bold text-gray-400">{offlineGens}</p>
-              </div>
-              <div className="px-3 py-2 rounded-lg bg-ciklo-orange/10 border border-ciklo-orange/25 min-w-[100px]">
-                <p className="text-[10px] text-ciklo-orange/80 uppercase font-bold">Saúde média</p>
-                <p className="text-xl font-mono font-bold text-ciklo-yellow">{avgHealth}%</p>
               </div>
             </div>
           </div>

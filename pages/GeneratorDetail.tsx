@@ -10,7 +10,7 @@ import { useOperatorMode } from '../context/OperatorModeContext';
 import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorGeneratorPanel from '../components/OperatorGeneratorPanel';
 import MobileControlBar from '../components/ui/MobileControlBar';
-import { computeHealthScore, formatLastUpdate, healthColor } from '../utils/generatorHealth';
+import { formatLastUpdate } from '../utils/generatorHealth';
 import {
   Power, AlertOctagon, RotateCcw, Settings, Gauge,
   Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, ChevronDown, ChevronUp, Lock,
@@ -480,7 +480,6 @@ const GeneratorDetail: React.FC = () => {
 
   if (!gen) return <div className="text-white p-6">Gerador não encontrado ou foi removido.</div>;
 
-  const healthScore = computeHealthScore(gen);
   const canStartMobile =
     gen.status !== GeneratorStatus.RUNNING &&
     gen.operationMode !== 'AUTO' &&
@@ -1343,16 +1342,10 @@ const GeneratorDetail: React.FC = () => {
       {isMobile && (
         <div className="rounded-2xl border border-gray-800 bg-ciklo-card p-4 space-y-3">
           <OperatorModeToggle />
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-lg font-bold text-white font-mono leading-tight">{gen.name}</h1>
-              <p className="text-xs text-gray-400 mt-1">{gen.model} • {gen.operationMode || 'AUTO'}</p>
-              <p className="text-[10px] text-gray-500 mt-2">{formatLastUpdate(gen.lastDataReceived)}</p>
-            </div>
-            <div className="text-right shrink-0">
-              <p className={`text-2xl font-mono font-bold ${healthColor(healthScore)}`}>{healthScore}%</p>
-              <p className="text-[10px] text-gray-500 uppercase font-bold">Saúde</p>
-            </div>
+          <div>
+            <h1 className="text-lg font-bold text-white font-mono leading-tight">{gen.name}</h1>
+            <p className="text-xs text-gray-400 mt-1">{gen.model} • {gen.operationMode || 'AUTO'}</p>
+            <p className="text-[10px] text-gray-500 mt-2">{formatLastUpdate(gen.lastDataReceived)}</p>
           </div>
         </div>
       )}

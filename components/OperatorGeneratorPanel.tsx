@@ -1,7 +1,7 @@
 import React from 'react';
 import { Generator, GeneratorStatus } from '../types';
 import { Zap, Activity, Fuel, Gauge, Radio } from 'lucide-react';
-import { computeHealthScore, formatLastUpdate, healthColor } from '../utils/generatorHealth';
+import { formatLastUpdate } from '../utils/generatorHealth';
 
 interface OperatorGeneratorPanelProps {
   gen: Generator;
@@ -22,7 +22,6 @@ const statusColor: Record<GeneratorStatus, string> = {
 };
 
 const OperatorGeneratorPanel: React.FC<OperatorGeneratorPanelProps> = ({ gen }) => {
-  const healthScore = computeHealthScore(gen);
   const avgV =
     gen.status === GeneratorStatus.RUNNING
       ? Math.round(((gen.voltageL1 || 0) + (gen.voltageL2 || 0) + (gen.voltageL3 || 0)) / 3)
@@ -76,11 +75,7 @@ const OperatorGeneratorPanel: React.FC<OperatorGeneratorPanelProps> = ({ gen }) 
         </div>
       </div>
 
-      <div className="rounded-xl bg-ciklo-card border border-gray-800 p-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">Saúde</p>
-          <p className={`text-lg font-mono font-bold ${healthColor(healthScore)}`}>{healthScore}%</p>
-        </div>
+      <div className="rounded-xl bg-ciklo-card border border-gray-800 p-3 flex items-center justify-end">
         <span className="inline-flex items-center gap-1.5 text-[10px] font-mono text-gray-500">
           <Radio size={10} className={isLive ? 'text-green-400' : 'text-gray-500'} />
           <span className={isLive ? 'text-green-400/90' : 'text-gray-500'}>
