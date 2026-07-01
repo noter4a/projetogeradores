@@ -118,37 +118,6 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {!showOperatorUi && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-ciklo-card p-4 rounded-xl border border-gray-800 flex items-center justify-between shadow-lg">
-            <div>
-              <p className="text-gray-400 text-sm font-medium">Geradores Ativos</p>
-              <h2 className="text-3xl font-bold text-white mt-1">{runningGens} <span className="text-lg font-normal text-gray-500">/ {generators.length}</span></h2>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20">
-              <Activity size={24} />
-            </div>
-          </div>
-
-          {user?.role === UserRole.ADMIN && (
-            <div
-              onClick={() => navigate('/users')}
-              className="bg-ciklo-card p-4 rounded-xl border border-gray-800 flex items-center justify-between shadow-lg cursor-pointer hover:border-ciklo-orange transition-all group"
-            >
-              <div>
-                <p className="text-gray-400 text-sm font-medium group-hover:text-ciklo-orange transition-colors">Acesso Root</p>
-                <h2 className="text-xl font-bold text-white mt-2 flex items-center gap-2">
-                  Gerenciar Usuários <ChevronRight size={20} />
-                </h2>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 border border-purple-500/20 group-hover:bg-purple-500/20 transition-colors">
-                <Activity size={24} />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-white flex items-center gap-2 pl-1">
           <div className="w-1 h-5 bg-ciklo-orange rounded-full"></div>
