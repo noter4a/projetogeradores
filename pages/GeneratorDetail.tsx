@@ -6,6 +6,11 @@ import { useAuth } from '../context/AuthContext';
 import { useGenerators, getSocket } from '../context/GeneratorContext';
 
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useOperatorMode } from '../context/OperatorModeContext';
+import OperatorModeToggle from '../components/ui/OperatorModeToggle';
+import OperatorGeneratorPanel from '../components/OperatorGeneratorPanel';
+import MobileControlBar from '../components/ui/MobileControlBar';
+import { computeHealthScore, formatLastUpdate, healthColor } from '../utils/generatorHealth';
 import {
   Power, AlertOctagon, RotateCcw, Settings, Gauge,
   Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, ChevronDown, ChevronUp, Lock,
@@ -133,6 +138,8 @@ const GeneratorDetail: React.FC = () => {
 
   // Mobile responsive state
   const isMobile = useIsMobile();
+  const { operatorMode } = useOperatorMode();
+  const showOperatorUi = operatorMode && isMobile;
 
   // Mobile accordion state - which sections are expanded (persisted per generator)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() =>
@@ -472,6 +479,16 @@ const GeneratorDetail: React.FC = () => {
   }
 
   if (!gen) return <div className="text-white p-6">Gerador não encontrado ou foi removido.</div>;
+
+  const healthScore = computeHealthScore(gen);
+  const canStartMobile =
+    gen.status !== GeneratorStatus.RUNNING &&
+    gen.operationMode !== 'AUTO' &&
+    gen.operationMode !== 'INHIBITED';
+  const canStopMobile =
+    gen.status !== GeneratorStatus.STOPPED &&
+    gen.operationMode !== 'AUTO' &&
+    gen.operationMode !== 'INHIBITED';
 
   // Permissions are declared at the component scope level
 
@@ -1280,7 +1297,7 @@ const GeneratorDetail: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 relative pb-10">
+    <div className={`space-y-6 relative ${showOperatorUi && canControl ? 'pb-28' : 'pb-10'}`}>
       {/* Full Screen Loading Overlay */}
       {controlLoading && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
@@ -1320,6 +1337,23 @@ const GeneratorDetail: React.FC = () => {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {isMobile && (
+        <div className="rounded-2xl border border-gray-800 bg-ciklo-card p-4 space-y-3">
+          <OperatorModeToggle />
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-lg font-bold text-white font-mono leading-tight">{gen.name}</h1>
+              <p className="text-xs text-gray-400 mt-1">{gen.model} • {gen.operationMode || 'AUTO'}</p>
+              <p className="text-[10px] text-gray-500 mt-2">{formatLastUpdate(gen.lastDataReceived)}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className={`text-2xl font-mono font-bold ${healthColor(healthScore)}`}>{healthScore}%</p>
+              <p className="text-[10px] text-gray-500 uppercase font-bold">Saúde</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1378,6 +1412,11 @@ const GeneratorDetail: React.FC = () => {
                   </div>
                 </button>
               )}
+
+              {showOperatorUi ? (
+                <OperatorGeneratorPanel gen={gen} />
+              ) : (
+                <>
               {/* Accordion: Controle Remoto */}
               {canControl && (
                 <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
@@ -1484,6 +1523,8 @@ const GeneratorDetail: React.FC = () => {
                   </div>
                 )}
               </div>
+                </>
+              )}
             </div>
           ) : (
             <>
@@ -1684,7 +1725,18 @@ const GeneratorDetail: React.FC = () => {
           </div>
         )
       }
-    </div >
+
+      {isMobile && canControl && activeTab === 'operational' && showOperatorUi && (
+        <MobileControlBar
+          status={gen.status}
+          operationMode={gen.operationMode}
+          controlLoading={controlLoading}
+          canStart={canStartMobile}
+          canStop={canStopMobile}
+          onControl={handleControl}
+        />
+      )}
+    </div>
   );
 };
 

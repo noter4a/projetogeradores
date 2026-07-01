@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
-import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle } from 'lucide-react';
-
+import { useOperatorMode } from '../context/OperatorModeContext';
+import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio } from 'lucide-react';
+import OperatorModeToggle from '../components/ui/OperatorModeToggle';
+import OperatorDashboardCard from '../components/OperatorDashboardCard';
+import { computeHealthScore } from '../utils/generatorHealth';
 
 const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
   const styles = {
@@ -22,7 +25,7 @@ const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
   };
 
   return (
-    <span 
+    <span
       title={labels[status]}
       className={`px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs font-bold border ${styles[status]} flex items-center gap-1.5 shadow-sm whitespace-nowrap`}
     >
@@ -36,52 +39,122 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { generators: allGenerators } = useGenerators();
+  const { operatorMode } = useOperatorMode();
 
-  // Filter generators based on user assignment (Admins see all, others see their company's generators)
   const generators = user?.role === UserRole.ADMIN
     ? allGenerators
     : allGenerators.filter(g => g.companyId === user?.companyId);
 
   const runningGens = generators.filter(g => g.status === GeneratorStatus.RUNNING).length;
+  const alarmGens = generators.filter(g => g.alarmCode && g.alarmCode > 0).length;
+  const offlineGens = generators.filter(g => g.status === GeneratorStatus.OFFLINE).length;
+
+  const avgHealth = useMemo(() => {
+    if (!generators.length) return 0;
+    return Math.round(
+      generators.reduce((sum, g) => sum + computeHealthScore(g), 0) / generators.length
+    );
+  }, [generators]);
+
+  const showOperatorUi = operatorMode;
 
   return (
     <div className="space-y-6">
-      {/* Header Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-ciklo-card p-4 rounded-xl border border-gray-800 flex items-center justify-between shadow-lg">
-          <div>
-            <p className="text-gray-400 text-sm font-medium">Geradores Ativos</p>
-            <h2 className="text-3xl font-bold text-white mt-1">{runningGens} <span className="text-lg font-normal text-gray-500">/ {generators.length}</span></h2>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20">
-            <Activity size={24} />
-          </div>
-        </div>
-
-        {/* Admin Quick Actions */}
-        {user?.role === UserRole.ADMIN && (
-          <div
-            onClick={() => navigate('/users')}
-            className="bg-ciklo-card p-4 rounded-xl border border-gray-800 flex items-center justify-between shadow-lg cursor-pointer hover:border-ciklo-orange transition-all group"
-          >
-            <div>
-              <p className="text-gray-400 text-sm font-medium group-hover:text-ciklo-orange transition-colors">Acesso Root</p>
-              <h2 className="text-xl font-bold text-white mt-2 flex items-center gap-2">
-                Gerenciar Usuários <ChevronRight size={20} />
-              </h2>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 border border-purple-500/20 group-hover:bg-purple-500/20 transition-colors">
-              <Activity size={24} />
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <OperatorModeToggle />
+        {showOperatorUi && (
+          <span className="text-[10px] uppercase tracking-wider text-ciklo-orange font-bold bg-ciklo-orange/10 border border-ciklo-orange/30 px-2 py-1 rounded-lg">
+            Interface de Visualização Simplificada
+          </span>
         )}
       </div>
 
-      {/* Main Grid */}
+      {!showOperatorUi && (
+        <div className="relative overflow-hidden rounded-xl border border-gray-800 bg-gradient-to-r from-ciklo-card via-gray-900 to-ciklo-card p-4 shadow-lg">
+          <div className="relative flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-ciklo-orange/20 border border-ciklo-orange/30 flex items-center justify-center">
+                <Radio size={20} className="text-ciklo-orange" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold">Centro de Operações</p>
+                <h2 className="text-lg font-bold text-white">Monitoramento em tempo real</h2>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <div className="px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/25 min-w-[100px]">
+                <p className="text-[10px] text-green-400/80 uppercase font-bold">Rodando</p>
+                <p className="text-xl font-mono font-bold text-green-400">{runningGens}</p>
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/25 min-w-[100px]">
+                <p className="text-[10px] text-red-400/80 uppercase font-bold">Alarmes</p>
+                <p className="text-xl font-mono font-bold text-red-400">{alarmGens}</p>
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 min-w-[100px]">
+                <p className="text-[10px] text-gray-500 uppercase font-bold">Offline</p>
+                <p className="text-xl font-mono font-bold text-gray-400">{offlineGens}</p>
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-ciklo-orange/10 border border-ciklo-orange/25 min-w-[100px]">
+                <p className="text-[10px] text-ciklo-orange/80 uppercase font-bold">Saúde média</p>
+                <p className="text-xl font-mono font-bold text-ciklo-yellow">{avgHealth}%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOperatorUi && (
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-green-500/10 border border-green-500/30 p-3 text-center">
+            <p className="text-2xl font-mono font-bold text-green-400">{runningGens}</p>
+            <p className="text-[10px] text-green-400/80 uppercase font-bold">Rodando</p>
+          </div>
+          <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-3 text-center">
+            <p className="text-2xl font-mono font-bold text-red-400">{alarmGens}</p>
+            <p className="text-[10px] text-red-400/80 uppercase font-bold">Alarmes</p>
+          </div>
+          <div className="rounded-xl bg-gray-800 border border-gray-700 p-3 text-center">
+            <p className="text-2xl font-mono font-bold text-gray-300">{generators.length}</p>
+            <p className="text-[10px] text-gray-500 uppercase font-bold">Total</p>
+          </div>
+        </div>
+      )}
+
+      {!showOperatorUi && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-ciklo-card p-4 rounded-xl border border-gray-800 flex items-center justify-between shadow-lg">
+            <div>
+              <p className="text-gray-400 text-sm font-medium">Geradores Ativos</p>
+              <h2 className="text-3xl font-bold text-white mt-1">{runningGens} <span className="text-lg font-normal text-gray-500">/ {generators.length}</span></h2>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20">
+              <Activity size={24} />
+            </div>
+          </div>
+
+          {user?.role === UserRole.ADMIN && (
+            <div
+              onClick={() => navigate('/users')}
+              className="bg-ciklo-card p-4 rounded-xl border border-gray-800 flex items-center justify-between shadow-lg cursor-pointer hover:border-ciklo-orange transition-all group"
+            >
+              <div>
+                <p className="text-gray-400 text-sm font-medium group-hover:text-ciklo-orange transition-colors">Acesso Root</p>
+                <h2 className="text-xl font-bold text-white mt-2 flex items-center gap-2">
+                  Gerenciar Usuários <ChevronRight size={20} />
+                </h2>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 border border-purple-500/20 group-hover:bg-purple-500/20 transition-colors">
+                <Activity size={24} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-white flex items-center gap-2 pl-1">
           <div className="w-1 h-5 bg-ciklo-orange rounded-full"></div>
-          Visão Geral do Painel
+          {showOperatorUi ? 'Painel de Visualização Simplificada' : 'Visão Geral do Painel'}
         </h3>
 
         {generators.length === 0 ? (
@@ -95,6 +168,12 @@ const Dashboard: React.FC = () => {
                 Adicionar primeiro gerador
               </button>
             )}
+          </div>
+        ) : showOperatorUi ? (
+          <div className="grid grid-cols-1 gap-4">
+            {generators.map((gen) => (
+              <OperatorDashboardCard key={gen.id} gen={gen} />
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -137,7 +216,7 @@ const Dashboard: React.FC = () => {
                           const isConnected = gen.lastDataReceived && (Date.now() - gen.lastDataReceived) < 60_000;
                           const label = isConnected ? 'CONECTADO' : 'DESCONECTADO';
                           return (
-                            <span 
+                            <span
                               title={label}
                               className={`px-2 py-1 rounded-full text-[10px] font-bold border flex items-center gap-1 whitespace-nowrap ${
                                 isConnected
@@ -164,7 +243,6 @@ const Dashboard: React.FC = () => {
                           {gen.fuelLevel === 65535 || gen.fuelLevel === null || gen.fuelLevel === undefined ? '-' : `${gen.fuelLevel}%`}
                         </span>
                       </div>
-                      {/* Fuel Bar */}
                       <div className="w-full bg-gray-800 h-1.5 rounded-full mt-2 overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all duration-500 ${gen.fuelLevel === 65535 || gen.fuelLevel === null || gen.fuelLevel === undefined ? 'bg-gray-700' : gen.fuelLevel < 20 ? 'bg-red-500' : 'bg-ciklo-yellow'}`}
@@ -212,6 +290,22 @@ const Dashboard: React.FC = () => {
               </div>
             ))}
           </div>
+        )}
+
+        {alarmGens > 0 && (
+          <button
+            onClick={() => navigate('/alarms')}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-bold transition-colors ${
+              showOperatorUi
+                ? 'py-4 rounded-2xl bg-red-600 text-white border-red-600 active:bg-red-500'
+                : 'border-red-500/30 bg-red-500/5 text-red-400 hover:bg-red-500/10'
+            }`}
+          >
+            <AlertTriangle size={16} />
+            {showOperatorUi
+              ? `⚠ ${alarmGens} ALARME(S) ATIVO(S) — ABRIR`
+              : `${alarmGens} gerador(es) com alarme — abrir Central de Alarmes`}
+          </button>
         )}
       </div>
     </div>

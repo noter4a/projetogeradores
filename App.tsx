@@ -30,6 +30,7 @@ import { UserProvider } from './context/UserContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 import { ThemeProvider } from './context/ThemeContext';
+import { OperatorModeProvider } from './context/OperatorModeContext';
 import { useIsMobile } from './hooks/useIsMobile';
 
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
@@ -314,7 +315,9 @@ const App: React.FC = () => {
       <AuthProvider>
         <UserProvider>
           <GeneratorProvider>
+            <OperatorModeProvider>
               <AppContent />
+            </OperatorModeProvider>
           </GeneratorProvider>
         </UserProvider>
       </AuthProvider>
