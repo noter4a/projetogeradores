@@ -14,6 +14,47 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
 
+const GENERATOR_SECTION_IDS = ['remote_control', 'mechanical', 'electrical', 'load_curve'] as const;
+type GeneratorSectionId = typeof GENERATOR_SECTION_IDS[number];
+
+const generatorSectionsStorageKey = (generatorId: string) => `ciklo_gen_sections_${generatorId}`;
+
+function loadExpandedSections(generatorId: string | undefined, canControl: boolean): Set<string> {
+  const defaultExpanded = (): Set<string> => {
+    const initial = new Set<string>();
+    if (canControl) initial.add('remote_control');
+    initial.add('mechanical');
+    initial.add('electrical');
+    initial.add('load_curve');
+    return initial;
+  };
+
+  if (!generatorId) return defaultExpanded();
+
+  try {
+    const raw = localStorage.getItem(generatorSectionsStorageKey(generatorId));
+    if (raw != null) {
+      const parsed = JSON.parse(raw) as string[];
+      const next = new Set<string>();
+      for (const sectionId of parsed) {
+        if (!GENERATOR_SECTION_IDS.includes(sectionId as GeneratorSectionId)) continue;
+        if (sectionId === 'remote_control' && !canControl) continue;
+        next.add(sectionId);
+      }
+      return next;
+    }
+  } catch {
+    // ignore corrupt storage
+  }
+
+  return defaultExpanded();
+}
+
+function saveExpandedSections(generatorId: string | undefined, sections: Set<string>) {
+  if (!generatorId) return;
+  localStorage.setItem(generatorSectionsStorageKey(generatorId), JSON.stringify([...sections]));
+}
+
 const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", size = 120 }: any) => {
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
@@ -93,15 +134,14 @@ const GeneratorDetail: React.FC = () => {
   // Mobile responsive state
   const isMobile = useIsMobile();
 
-  // Mobile accordion state - which sections are expanded
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    if (canControl) initial.add('remote_control');
-    initial.add('mechanical');
-    initial.add('electrical');
-    initial.add('load_curve');
-    return initial;
-  });
+  // Mobile accordion state - which sections are expanded (persisted per generator)
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() =>
+    loadExpandedSections(id, canControl)
+  );
+
+  useEffect(() => {
+    setExpandedSections(loadExpandedSections(id, canControl));
+  }, [id, canControl]);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {
@@ -111,6 +151,7 @@ const GeneratorDetail: React.FC = () => {
       } else {
         next.add(sectionId);
       }
+      saveExpandedSections(id, next);
       return next;
     });
   };
