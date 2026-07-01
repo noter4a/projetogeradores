@@ -1,5 +1,11 @@
 import { GeneratorStatus } from '../types';
 
+const CONNECTION_THRESHOLD_MS = 60_000;
+
+export function isGeneratorConnected(lastDataReceived?: number): boolean {
+  return !!lastDataReceived && Date.now() - lastDataReceived < CONNECTION_THRESHOLD_MS;
+}
+
 export function cardStatusGlow(status: GeneratorStatus): string {
   switch (status) {
     case GeneratorStatus.RUNNING:

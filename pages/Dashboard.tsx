@@ -7,6 +7,7 @@ import { useOperatorMode } from '../context/OperatorModeContext';
 import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio } from 'lucide-react';
 import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorDashboardCard from '../components/OperatorDashboardCard';
+import { isGeneratorConnected } from '../utils/generatorHealth';
 
 const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
   const styles = {
@@ -46,7 +47,8 @@ const Dashboard: React.FC = () => {
 
   const runningGens = generators.filter(g => g.status === GeneratorStatus.RUNNING).length;
   const alarmGens = generators.filter(g => g.alarmCode && g.alarmCode > 0).length;
-  const offlineGens = generators.filter(g => g.status === GeneratorStatus.OFFLINE).length;
+  const connectedGens = generators.filter(g => isGeneratorConnected(g.lastDataReceived)).length;
+  const offlineGens = generators.filter(g => !isGeneratorConnected(g.lastDataReceived)).length;
 
   const showOperatorUi = operatorMode;
 
@@ -82,6 +84,10 @@ const Dashboard: React.FC = () => {
                 <p className="text-[10px] text-red-400/80 uppercase font-bold">Alarmes</p>
                 <p className="text-xl font-mono font-bold text-red-400">{alarmGens}</p>
               </div>
+              <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/25 min-w-[100px]">
+                <p className="text-[10px] text-blue-400/80 uppercase font-bold">Conectados</p>
+                <p className="text-xl font-mono font-bold text-blue-400">{connectedGens}</p>
+              </div>
               <div className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 min-w-[100px]">
                 <p className="text-[10px] text-gray-500 uppercase font-bold">Offline</p>
                 <p className="text-xl font-mono font-bold text-gray-400">{offlineGens}</p>
@@ -92,7 +98,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {showOperatorUi && (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="rounded-xl bg-green-500/10 border border-green-500/30 p-3 text-center">
             <p className="text-2xl font-mono font-bold text-green-400">{runningGens}</p>
             <p className="text-[10px] text-green-400/80 uppercase font-bold">Rodando</p>
@@ -101,9 +107,13 @@ const Dashboard: React.FC = () => {
             <p className="text-2xl font-mono font-bold text-red-400">{alarmGens}</p>
             <p className="text-[10px] text-red-400/80 uppercase font-bold">Alarmes</p>
           </div>
+          <div className="rounded-xl bg-blue-500/10 border border-blue-500/30 p-3 text-center">
+            <p className="text-2xl font-mono font-bold text-blue-400">{connectedGens}</p>
+            <p className="text-[10px] text-blue-400/80 uppercase font-bold">Conectados</p>
+          </div>
           <div className="rounded-xl bg-gray-800 border border-gray-700 p-3 text-center">
-            <p className="text-2xl font-mono font-bold text-gray-300">{generators.length}</p>
-            <p className="text-[10px] text-gray-500 uppercase font-bold">Total</p>
+            <p className="text-2xl font-mono font-bold text-gray-300">{offlineGens}</p>
+            <p className="text-[10px] text-gray-500 uppercase font-bold">Offline</p>
           </div>
         </div>
       )}
@@ -201,7 +211,7 @@ const Dashboard: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <StatusBadge status={gen.status} />
                         {(() => {
-                          const isConnected = gen.lastDataReceived && (Date.now() - gen.lastDataReceived) < 60_000;
+                          const isConnected = isGeneratorConnected(gen.lastDataReceived);
                           const label = isConnected ? 'CONECTADO' : 'DESCONECTADO';
                           return (
                             <span
