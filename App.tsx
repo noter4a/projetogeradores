@@ -127,6 +127,10 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
       );
     }
 
+    const isGeneratorDetail = location.pathname.startsWith('/generator/');
+    const mobileBackTo = isGeneratorDetail ? '/dashboard' : '/';
+    const mobileBackLabel = isGeneratorDetail ? 'Meus Geradores' : 'Voltar ao Menu';
+
     return (
       <div className="flex h-screen bg-ciklo-black overflow-hidden flex-col w-full">
         {loadingOverlay}
@@ -134,9 +138,9 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
         
         {/* Mobile Header with Back Button */}
         <header className="flex items-center justify-between p-4 bg-ciklo-card border-b border-gray-800 print:hidden">
-          <Link to="/" className="flex items-center gap-2 text-white hover:text-ciklo-orange transition-colors">
+          <Link to={mobileBackTo} className="flex items-center gap-2 text-white hover:text-ciklo-orange transition-colors">
             <ArrowLeft size={20} className="text-ciklo-orange" />
-            <span className="font-bold text-sm">Voltar ao Menu</span>
+            <span className="font-bold text-sm">{mobileBackLabel}</span>
           </Link>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-ciklo-yellow to-ciklo-orange flex items-center justify-center font-bold text-[11px] text-black">
