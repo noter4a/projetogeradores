@@ -189,17 +189,6 @@ const initDb = async (retries = 15, delay = 5000) => {
                 console.log("Migration users.phone/whatsapp_alerts/email_alerts already applied or failed:", e.message);
             }
 
-            // Seed default company if none exists
-            let defaultCompanyId = null;
-            const companyCheck = await client.query("SELECT id FROM companies WHERE name = 'Ciklo Energia'");
-            if (companyCheck.rows.length === 0) {
-                console.log('Seeding default company...');
-                const newCompany = await client.query("INSERT INTO companies (name) VALUES ('Ciklo Energia') RETURNING id");
-                defaultCompanyId = newCompany.rows[0].id;
-            } else {
-                defaultCompanyId = companyCheck.rows[0].id;
-            }
-
             // Check if admin exists, if not seed default users
             const adminCheck = await client.query("SELECT * FROM users WHERE email = 'admin@ciklo.com'");
             if (adminCheck.rows.length === 0) {
@@ -211,19 +200,19 @@ const initDb = async (retries = 15, delay = 5000) => {
                 // Admin
                 await client.query(
                     "INSERT INTO users (name, email, password, role, assigned_generators, company_id) VALUES ($1, $2, $3, $4, $5, $6)",
-                    ['Administrador Ciklo', 'admin@ciklo.com', hashedPassword, 'ADMIN', [], defaultCompanyId]
+                    ['Administrador Ciklo', 'admin@ciklo.com', hashedPassword, 'ADMIN', [], null]
                 );
 
                 // Technician
                 await client.query(
                     "INSERT INTO users (name, email, password, role, assigned_generators, company_id) VALUES ($1, $2, $3, $4, $5, $6)",
-                    ['Técnico Operacional', 'tech@ciklo.com', hashedPassword, 'TECHNICIAN', ['GEN-001', 'GEN-003'], defaultCompanyId]
+                    ['Técnico Operacional', 'tech@ciklo.com', hashedPassword, 'TECHNICIAN', ['GEN-001', 'GEN-003'], null]
                 );
 
                 // Client
                 await client.query(
                     "INSERT INTO users (name, email, password, role, assigned_generators, company_id) VALUES ($1, $2, $3, $4, $5, $6)",
-                    ['Cliente Final', 'client@company.com', hashedPassword, 'CLIENT', ['GEN-002'], defaultCompanyId]
+                    ['Cliente Final', 'client@company.com', hashedPassword, 'CLIENT', ['GEN-002'], null]
                 );
 
                 console.log('Default users created.');
