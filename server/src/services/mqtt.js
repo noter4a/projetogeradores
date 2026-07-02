@@ -177,7 +177,7 @@ const MODBUS_SCAN_TIMEOUT_MS = 5000;
 const MODBUS_SCAN_REPORT_DIR = path.join(__dirname, '../../logs');
 
 // Resilience constants
-const DR164_POLL_INTERVAL_MS = 30000;      // 30s between poll cycles (was 15s — too aggressive for RS485)
+const DR164_POLL_INTERVAL_MS = 15000;      // 15s between poll cycles (was 30s — faster mode/breaker feedback)
 const DR164_STEP_GAP_MS = 1500;            // 1.5s gap between Modbus steps (was 1s)
 const DR164_TIMEOUT_MS = 5000;             // 5s timeout per step
 const DR164_POST_TIMEOUT_DRAIN_MS = 2500;  // 2.5s drain after timeout to flush late responses
@@ -185,6 +185,8 @@ const DR164_POST_ERROR_DRAIN_MS = 3000;    // 3s drain after errors
 const DR164_MAX_CONSECUTIVE_TIMEOUTS = 3;  // Abort cycle after 3 consecutive timeouts
 const DR164_MAX_CYCLE_MS = 90000;          // Force-release stuck poll cycles
 const DR164_LINK_HEARTBEAT_MAX_AGE_MS = 45000; // Emit link heartbeat if device responded recently
+const DR164_COMMAND_COIL_PULSE_MS = 500;   // AGC150 momentary coil ON duration before OFF
+const DR164_COMMAND_PAUSE_MS = 1500;       // Pause polling after command, then immediate poll
 const DR164_WATCHDOG_INTERVAL_MS = 60000;  // 60s watchdog check interval
 const DR164_STALE_THRESHOLD_MS = 180000;   // 3 minutes — mark device as stale
 const DR164_DEAD_THRESHOLD_MS = 600000;    // 10 minutes — mark device as dead/offline
@@ -657,6 +659,19 @@ async function pollSingleDR164Device(deviceOrId) {
         }
     }
 }
+
+/** After a control command, unpause and run one poll cycle immediately (physical feedback). */
+function resumeDr164PollingAfterCommand(deviceId, label = 'DR164-CMD') {
+    pausedDevices.delete(deviceId);
+    if (!dr164Devices.some(d => d.id === deviceId)) return;
+    console.log(`[${label}] Resumed polling for ${deviceId} — immediate poll`);
+    pollSingleDR164Device(deviceId);
+}
+
+function scheduleDr164PollResume(deviceId, label, delayMs = DR164_COMMAND_PAUSE_MS) {
+    setTimeout(() => resumeDr164PollingAfterCommand(deviceId, label), delayMs);
+}
+
 function isModbusScanRunning(deviceId) {
     return modbusScanSessions.get(deviceId)?.status === 'running';
 }
@@ -2350,13 +2365,8 @@ export const sendControlCommand = (deviceId, action) => {
                 client.publish(topic, buf); // Raw binary frame
                 console.log(`[KVA-CMD] ${action.toUpperCase()}: Sent Func 06 (Reg 19108, Val ${commandValue}) to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
 
-                // Mode will update naturally when the next poll cycle reads the register
-
-                // Resume polling after 2s (enough for controller to process, faster UI feedback)
-                setTimeout(() => {
-                    pausedDevices.delete(deviceId);
-                    console.log(`[KVA-CMD] Resumed polling for ${deviceId}`);
-                }, 2000);
+                // Resume polling then read discrete/status from hardware (no optimistic UI)
+                scheduleDr164PollResume(deviceId, 'KVA-CMD');
 
                 return { success: true };
             }
@@ -2398,10 +2408,7 @@ export const sendControlCommand = (deviceId, action) => {
                 client.publish(topic, buf);
                 console.log(`[DSE-CMD] ${action.toUpperCase()}: Sent SCF command to ${deviceId}. Key: ${key}, Compl: ${onesComplement}. Hex: ${buf.toString('hex').toUpperCase()}`);
 
-                setTimeout(() => {
-                    pausedDevices.delete(deviceId);
-                    console.log(`[DSE-CMD] Resumed polling for ${deviceId}`);
-                }, 2000);
+                scheduleDr164PollResume(deviceId, 'DSE-CMD');
 
                 return { success: true };
             }
@@ -2466,12 +2473,9 @@ export const sendControlCommand = (deviceId, action) => {
                     const offBuf = createModbusWriteCoilRequest(slaveId, coilAddress, false);
                     client.publish(topic, offBuf);
                     console.log(`[AGC150-CMD] ${action.toUpperCase()}: Coil ${coilAddress} OFF. Hex: ${offBuf.toString('hex').toUpperCase()}`);
-                }, 500);
+                }, DR164_COMMAND_COIL_PULSE_MS);
 
-                setTimeout(() => {
-                    pausedDevices.delete(deviceId);
-                    console.log(`[AGC150-CMD] Resumed polling for ${deviceId}`);
-                }, 2000);
+                scheduleDr164PollResume(deviceId, 'AGC150-CMD');
 
                 return { success: true };
             }
@@ -2501,13 +2505,7 @@ export const sendControlCommand = (deviceId, action) => {
             client.publish(topic, buf); // Raw binary frame
             console.log(`[DR164-CMD] ${action.toUpperCase()}: Sent raw Modbus to ${deviceId}. Hex: ${buf.toString('hex').toUpperCase()}`);
 
-            // Mode will update naturally when the next poll cycle reads the register
-
-            // Resume polling after 2s (enough for controller to process, faster UI feedback)
-            setTimeout(() => {
-                pausedDevices.delete(deviceId);
-                console.log(`[DR164-CMD] Resumed polling for ${deviceId}`);
-            }, 2000);
+            scheduleDr164PollResume(deviceId, 'DR164-CMD');
 
             return { success: true };
         }
@@ -2624,7 +2622,7 @@ export const sendControlCommand = (deviceId, action) => {
     } catch (err) {
         console.error('[MQTT-CMD] Critical Error:', err);
         if (deviceId) {
-            pausedDevices.delete(deviceId); // Ensure cleanup on crash
+            resumeDr164PollingAfterCommand(deviceId, 'DR164-CMD-ERR');
         }
         return { success: false, error: `Backend Crash: ${err.message || String(err)}` };
     }
