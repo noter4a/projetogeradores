@@ -5,7 +5,16 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
 import { decodeSgc420Payload, SGC420_POLL_SEQUENCE, isSgc420Controller, reconcileSgc420BreakerState } from '../utils/sgc420-parser.js';
-import { decodeAgc150Payload, AGC150_POLL_SEQUENCE, AGC150_COILS, isAgc150Controller, reconcileAgc150BreakerState, resolveAgc150Profile } from '../utils/agc150-parser.js';
+import {
+    decodeAgc150Payload,
+    AGC150_POLL_SEQUENCE,
+    AGC150_COILS,
+    isAgc150Controller,
+    isAgc150EngineRunning,
+    mergeAgc150LiveTelemetry,
+    reconcileAgc150BreakerState,
+    resolveAgc150Profile,
+} from '../utils/agc150-parser.js';
 import { decodeKvaPayload } from '../utils/kva-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
 import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
@@ -1004,7 +1013,8 @@ export const initMqttService = (io) => {
                         // Map ENGINE_51_59
                         if (d.block === 'ENGINE_51_59') {
                             if (d.oilPressure_bar > 0) unifiedData.oilPressure = d.oilPressure_bar;
-                            else if (!isAgc150Device) unifiedData.oilPressure = d.oilPressure_bar || 0;
+                            else if (isAgc150Device) unifiedData.oilPressure = 0;
+                            else unifiedData.oilPressure = d.oilPressure_bar || 0;
                             if (d.coolantTemp_c > 0) unifiedData.engineTemp = d.coolantTemp_c;
                             else if (!isAgc150Device) unifiedData.engineTemp = d.coolantTemp_c || 0;
                             if (d.fuelLevel_pct > 0) unifiedData.fuelLevel = d.fuelLevel_pct;
@@ -1146,7 +1156,8 @@ export const initMqttService = (io) => {
                                 if (d.mainsBreakerClosed != null) unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                                 if (d.mainsFailure != null) unifiedData.mainsFailure = d.mainsFailure;
                                 if (d.running !== undefined) unifiedData.running = d.running;
-                                console.log(`[AGC150-MODE] ${deviceId} discrete -> ${resolvedMode}${d.running ? ' (running)' : ''}`);
+                                unifiedData._agc150DiscreteFresh = true;
+                                console.log(`[AGC150-MODE] ${deviceId} discrete -> ${resolvedMode}${d.running ? ' (running)' : ''} GB=${d.genBreakerClosed} MB=${d.mainsBreakerClosed}`);
                             } else if (isSgc420Device) {
                                 let resolvedMode = d.opMode || null;
                                 if (!resolvedMode) {
@@ -1584,34 +1595,30 @@ export const initMqttService = (io) => {
 
                         // Merge logic: Defaults <- Existing from memory <- New Unified Data
                         existingDeviceData = currentGeneratorsState[deviceId]?.data || {}; // Assignment only
-                        let mergedData = { ...existingDeviceData, ...unifiedData };
+                        const agc150DiscreteFresh = isAgc150Device && unifiedData._agc150DiscreteFresh === true;
+                        if (unifiedData._agc150DiscreteFresh) delete unifiedData._agc150DiscreteFresh;
+
+                        let mergedData = isAgc150Device
+                            ? mergeAgc150LiveTelemetry(existingDeviceData, unifiedData)
+                            : { ...existingDeviceData, ...unifiedData };
 
                         if (isSgc420Device) {
                             reconcileSgc420BreakerState(mergedData);
                             unifiedData.mainsBreakerClosed = mergedData.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
                         } else if (isAgc150Device) {
-                            reconcileAgc150BreakerState(mergedData);
-                            // Reconcile status from full merged state (partial MQTT steps must not flicker UI)
-                            if (mergedData.rpm > 100) {
+                            reconcileAgc150BreakerState(mergedData, { discreteUpdated: agc150DiscreteFresh });
+                            if (isAgc150EngineRunning(mergedData)) {
                                 mergedData.status = 'RUNNING';
-                            } else if (mergedData.running !== undefined) {
-                                mergedData.status = mergedData.running ? 'RUNNING' : 'STOPPED';
-                            } else if (mergedData.rpm !== undefined) {
+                            } else if (mergedData.running !== undefined || mergedData.rpm !== undefined) {
                                 mergedData.status = 'STOPPED';
-                            }
-                            // Hold last good engine readings when a partial poll step sends zeros
-                            for (const key of ['fuelLevel', 'batteryVoltage', 'oilPressure', 'engineTemp']) {
-                                const prev = existingDeviceData[key];
-                                const cur = mergedData[key];
-                                if ((cur === 0 || cur == null) && prev > 0) {
-                                    mergedData[key] = prev;
-                                }
                             }
                             unifiedData.mainsBreakerClosed = mergedData.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
                             unifiedData.status = mergedData.status;
+                            unifiedData.oilPressure = mergedData.oilPressure;
                             if (mergedData.fuelLevel > 0) unifiedData.fuelLevel = mergedData.fuelLevel;
+                            if (mergedData.engineTemp > 0) unifiedData.engineTemp = mergedData.engineTemp;
                         }
 
                         currentGeneratorsState[deviceId] = {

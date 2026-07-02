@@ -490,58 +490,94 @@ export function decodeAgc150Payload(payload, options = {}) {
   return out;
 }
 
-/** Prefer discrete GB/MB feedback; fall back to voltage/RPM heuristic. */
-export function reconcileAgc150BreakerState(data) {
-  const mainsV = Math.max(
+function maxMainsVoltage(data) {
+  return Math.max(
     data.mainsVoltageL1 || 0, data.mainsVoltageL2 || 0, data.mainsVoltageL3 || 0,
     data.mainsVoltageL12 || 0, data.mainsVoltageL23 || 0, data.mainsVoltageL31 || 0
   );
-  const genV = Math.max(
+}
+
+function maxGenVoltage(data) {
+  return Math.max(
     data.voltageL1 || 0, data.voltageL2 || 0, data.voltageL3 || 0,
     data.voltageL12 || 0, data.voltageL23 || 0, data.voltageL31 || 0
   );
-  const rpm = data.rpm ?? 0;
+}
 
-  const genEnergized = rpm > 100 || genV > 80;
-  const mainsEnergized = mainsV > 100;
+/** Running state: discrete "Running" bit overrides RPM when present. */
+export function isAgc150EngineRunning(data) {
+  if (data.running === true) return true;
+  if (data.running === false) return false;
+  return (data.rpm ?? 0) > 100;
+}
 
-  if (data.genBreakerClosed == null && data.mainsBreakerClosed == null) {
-    if (!genEnergized && mainsEnergized) {
-      data.mainsBreakerClosed = true;
-      data.genBreakerClosed = false;
-    } else if (genEnergized && !mainsEnergized) {
-      data.genBreakerClosed = true;
-      data.mainsBreakerClosed = false;
-    } else if (genEnergized && mainsEnergized) {
-      if (genV > mainsV + 20) {
-        data.genBreakerClosed = true;
-        data.mainsBreakerClosed = false;
-      } else {
-        data.mainsBreakerClosed = true;
-        data.genBreakerClosed = false;
+function clearGenBusReadings(data) {
+  data.voltageL1 = 0;
+  data.voltageL2 = 0;
+  data.voltageL3 = 0;
+  data.voltageL12 = 0;
+  data.voltageL23 = 0;
+  data.voltageL31 = 0;
+  data.avgVoltage = 0;
+  data.frequency = 0;
+  data.currentL1 = 0;
+  data.currentL2 = 0;
+  data.currentL3 = 0;
+  data.activePower = 0;
+}
+
+/**
+ * Merge AGC150 telemetry across sequential poll steps.
+ * - While running: hold last good engine readings when a partial step omits them.
+ * - When stopped: oil pressure must read 0 (no stale values from the previous run).
+ */
+export function mergeAgc150LiveTelemetry(existing, incoming) {
+  const merged = { ...existing, ...incoming };
+  const running = isAgc150EngineRunning(merged);
+
+  if (running) {
+    for (const key of ['fuelLevel', 'batteryVoltage', 'oilPressure', 'engineTemp']) {
+      const cur = merged[key];
+      const prev = existing[key];
+      if ((cur === 0 || cur == null) && prev > 0) {
+        merged[key] = prev;
       }
-    } else {
-      data.mainsBreakerClosed = false;
-      data.genBreakerClosed = false;
     }
   } else {
-    if (data.mainsBreakerClosed == null) data.mainsBreakerClosed = mainsEnergized;
-    if (data.genBreakerClosed == null) data.genBreakerClosed = genEnergized;
+    merged.oilPressure = 0;
   }
 
-  const running = data.running === true || rpm > 100;
+  return merged;
+}
+
+/**
+ * Breaker state for all AGC150 units.
+ * - Discrete GB/MB feedback (fn 02) is the only source of truth when refreshed.
+ * - Line voltage alone never means "breaker closed" (utility is energized with breaker open).
+ * - Partial poll steps without discrete data must not rewrite breaker flags.
+ */
+export function reconcileAgc150BreakerState(data, options = {}) {
+  const { discreteUpdated = false } = options;
+  const running = isAgc150EngineRunning(data);
+
+  if (discreteUpdated) {
+    if (data.genBreakerClosed == null) data.genBreakerClosed = false;
+    if (data.mainsBreakerClosed == null) data.mainsBreakerClosed = false;
+
+    if (data.genBreakerClosed && data.mainsBreakerClosed) {
+      const genV = maxGenVoltage(data);
+      const mainsV = maxMainsVoltage(data);
+      const onGen = running && (genV > mainsV + 20 || (data.activePower ?? 0) > 1);
+      if (onGen) {
+        data.mainsBreakerClosed = false;
+      } else {
+        data.genBreakerClosed = false;
+      }
+    }
+  }
+
   if (data.genBreakerClosed === false && !running) {
-    data.voltageL1 = 0;
-    data.voltageL2 = 0;
-    data.voltageL3 = 0;
-    data.voltageL12 = 0;
-    data.voltageL23 = 0;
-    data.voltageL31 = 0;
-    data.avgVoltage = 0;
-    data.frequency = 0;
-    data.currentL1 = 0;
-    data.currentL2 = 0;
-    data.currentL3 = 0;
+    clearGenBusReadings(data);
   }
 
   return data;
