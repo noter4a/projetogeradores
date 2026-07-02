@@ -511,6 +511,16 @@ export function isAgc150EngineRunning(data) {
   return (data.rpm ?? 0) > 100;
 }
 
+function clearMainsBusReadings(data) {
+  data.mainsVoltageL1 = 0;
+  data.mainsVoltageL2 = 0;
+  data.mainsVoltageL3 = 0;
+  data.mainsVoltageL12 = 0;
+  data.mainsVoltageL23 = 0;
+  data.mainsVoltageL31 = 0;
+  data.mainsFrequency = 0;
+}
+
 function clearGenBusReadings(data) {
   data.voltageL1 = 0;
   data.voltageL2 = 0;
@@ -523,7 +533,29 @@ function clearGenBusReadings(data) {
   data.currentL1 = 0;
   data.currentL2 = 0;
   data.currentL3 = 0;
-  data.activePower = 0;
+}
+
+/**
+ * UI bus readings reflect what feeds the load, not raw utility-side measurements.
+ * Open breaker or mains failure => zero network electrical table.
+ */
+function applyAgc150BusDisplay(data) {
+  const mainsFeedsLoad = data.mainsBreakerClosed === true && data.mainsFailure !== true;
+  const genFeedsLoad = data.genBreakerClosed === true;
+
+  data.mainsFeedingLoad = mainsFeedsLoad;
+  data.genFeedingLoad = genFeedsLoad;
+
+  if (!mainsFeedsLoad) {
+    clearMainsBusReadings(data);
+  }
+  if (!genFeedsLoad) {
+    clearGenBusReadings(data);
+  }
+  if (!mainsFeedsLoad && !genFeedsLoad) {
+    data.activePower = 0;
+    data.powerFactor = 0;
+  }
 }
 
 /**
@@ -576,9 +608,7 @@ export function reconcileAgc150BreakerState(data, options = {}) {
     }
   }
 
-  if (data.genBreakerClosed === false && !running) {
-    clearGenBusReadings(data);
-  }
+  applyAgc150BusDisplay(data);
 
   return data;
 }

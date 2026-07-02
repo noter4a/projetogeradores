@@ -746,7 +746,11 @@ const GeneratorDetail: React.FC = () => {
 
                   {/* --- ICONS --- */}
                   {(() => {
-                    const isMainsPresent = (gen.mainsVoltageL1 && gen.mainsVoltageL1 > 10) || (gen.avgVoltage && gen.avgVoltage > 10);
+                    const mainsFeedsLoad = gen.mainsFeedingLoad ?? gen.mainsBreakerClosed === true;
+                    const isMainsPresent = mainsFeedsLoad && (
+                      (gen.mainsVoltageL1 && gen.mainsVoltageL1 > 10)
+                      || (gen.mainsVoltageL12 && gen.mainsVoltageL12 > 10)
+                    );
                     return (
                       <g transform="translate(10, 50)" className={isMainsPresent ? "text-green-500" : "text-gray-500"}>
                         <circle cx="20" cy="20" r="22" fill="none" stroke={isMainsPresent ? "#22c55e" : "#6b7280"} strokeWidth="3" />
@@ -995,6 +999,11 @@ const GeneratorDetail: React.FC = () => {
               <div className="flex items-center gap-2 text-gray-400">
                 <UtilityPole size={18} />
                 <span className="font-bold uppercase tracking-wider text-sm">Rede</span>
+                {(gen.mainsFailure || gen.mainsFeedingLoad === false || gen.mainsBreakerClosed === false) && (
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-900/40 text-red-400 border border-red-800">
+                    {gen.mainsFailure ? 'Falha de rede' : 'Sem alimentação'}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 {/* Toggle Phase-Neutral / Phase-Phase */}

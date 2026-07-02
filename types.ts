@@ -92,6 +92,10 @@ export interface Generator {
 
   mainsBreakerClosed?: boolean;
   genBreakerClosed?: boolean;
+  /** AGC150: true when mains breaker closed and no mains failure — load-side feed active */
+  mainsFeedingLoad?: boolean;
+  genFeedingLoad?: boolean;
+  mainsFailure?: boolean;
 
   reg23?: number; // Debug Status 1
   reg24?: number; // Debug Status 2
