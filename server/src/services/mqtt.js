@@ -127,6 +127,7 @@ async function rotateLogIfNeeded() {
 }
 
 let client;
+let mqttIo = null;
 let lastConnectionError = null;
 let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands
@@ -182,6 +183,8 @@ const DR164_TIMEOUT_MS = 5000;             // 5s timeout per step
 const DR164_POST_TIMEOUT_DRAIN_MS = 2500;  // 2.5s drain after timeout to flush late responses
 const DR164_POST_ERROR_DRAIN_MS = 3000;    // 3s drain after errors
 const DR164_MAX_CONSECUTIVE_TIMEOUTS = 3;  // Abort cycle after 3 consecutive timeouts
+const DR164_MAX_CYCLE_MS = 90000;          // Force-release stuck poll cycles
+const DR164_LINK_HEARTBEAT_MAX_AGE_MS = 45000; // Emit link heartbeat if device responded recently
 const DR164_WATCHDOG_INTERVAL_MS = 60000;  // 60s watchdog check interval
 const DR164_STALE_THRESHOLD_MS = 180000;   // 3 minutes — mark device as stale
 const DR164_DEAD_THRESHOLD_MS = 600000;    // 10 minutes — mark device as dead/offline
@@ -627,12 +630,31 @@ async function pollSingleDR164Device(deviceOrId) {
     }
     dr164DevicePollingActive.set(device.id, true);
     try {
-        await pollDR164Device(device);
+        await Promise.race([
+            pollDR164Device(device),
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('DR164 poll cycle wall-clock timeout')), DR164_MAX_CYCLE_MS);
+            }),
+        ]);
     } catch (err) {
         const label = devicePollingLabel(device);
-        console.error(`[${label}] Polling error for ${device.id}:`, err.message);
+        if (err.message === 'DR164 poll cycle wall-clock timeout') {
+            console.warn(`[DR164] ⏱ ${device.id}: poll cycle exceeded ${DR164_MAX_CYCLE_MS}ms — forcing reset`);
+        } else {
+            console.error(`[${label}] Polling error for ${device.id}:`, err.message);
+        }
     } finally {
         dr164DevicePollingActive.set(device.id, false);
+        dr164PendingRequests.delete(device.id);
+        const resolver = dr164ResponseResolvers.get(device.id);
+        if (resolver) {
+            dr164ResponseResolvers.delete(device.id);
+            resolver('cycle-end');
+        }
+        const lastSeen = modemLastDataReceived.get(device.id);
+        if (mqttIo && lastSeen && (Date.now() - lastSeen) < DR164_LINK_HEARTBEAT_MAX_AGE_MS) {
+            emitDr164LinkHeartbeat(device.id, mqttIo);
+        }
     }
 }
 function isModbusScanRunning(deviceId) {
@@ -843,6 +865,7 @@ const TOPIC = 'devices/data/#';
 global.mqttDeviceCache = {};
 
 export const initMqttService = (io) => {
+    mqttIo = io;
     // io is used for real-time updates via the message handler below
     console.log(`[MQTT] Connecting to ${BROKER_URL}...`);
     lastConnectionError = null;
@@ -1623,7 +1646,10 @@ export const initMqttService = (io) => {
 
                         currentGeneratorsState[deviceId] = {
                             ...updatePayload,
-                            data: mergedData
+                            data: {
+                                ...mergedData,
+                                lastDataReceived: Date.now(),
+                            },
                         };
 
                         // Non-blocking disk write

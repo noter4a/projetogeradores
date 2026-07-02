@@ -1,7 +1,7 @@
 import React from 'react';
 import { Generator, GeneratorStatus } from '../types';
 import { Zap, Activity, Fuel, Gauge, Radio } from 'lucide-react';
-import { formatLastUpdate } from '../utils/generatorHealth';
+import { formatLastUpdate, CONNECTION_THRESHOLD_MS } from '../utils/generatorHealth';
 
 interface OperatorGeneratorPanelProps {
   gen: Generator;
@@ -26,7 +26,7 @@ const OperatorGeneratorPanel: React.FC<OperatorGeneratorPanelProps> = ({ gen }) 
     gen.status === GeneratorStatus.RUNNING
       ? Math.round(((gen.voltageL1 || 0) + (gen.voltageL2 || 0) + (gen.voltageL3 || 0)) / 3)
       : 0;
-  const isLive = gen.lastDataReceived && Date.now() - gen.lastDataReceived < 60_000;
+  const isLive = gen.lastDataReceived && Date.now() - gen.lastDataReceived < CONNECTION_THRESHOLD_MS;
 
   return (
     <div className="space-y-3">

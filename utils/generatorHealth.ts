@@ -1,6 +1,6 @@
 import { GeneratorStatus } from '../types';
 
-const CONNECTION_THRESHOLD_MS = 60_000;
+export const CONNECTION_THRESHOLD_MS = 120_000; // 2× DR164 poll interval (30s) + full cycle margin
 
 export function isGeneratorConnected(lastDataReceived?: number): boolean {
   return !!lastDataReceived && Date.now() - lastDataReceived < CONNECTION_THRESHOLD_MS;

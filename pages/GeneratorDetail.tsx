@@ -10,7 +10,7 @@ import { useOperatorMode } from '../context/OperatorModeContext';
 import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorGeneratorPanel from '../components/OperatorGeneratorPanel';
 import MobileControlBar from '../components/ui/MobileControlBar';
-import { formatLastUpdate } from '../utils/generatorHealth';
+import { formatLastUpdate, CONNECTION_THRESHOLD_MS } from '../utils/generatorHealth';
 import {
   Power, AlertOctagon, RotateCcw, Settings, Gauge,
   Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, ChevronDown, ChevronUp, Lock,
@@ -175,7 +175,7 @@ const GeneratorDetail: React.FC = () => {
     const checkConnection = () => {
       if (gen?.lastDataReceived) {
         const elapsed = Date.now() - gen.lastDataReceived;
-        setIsConnected(elapsed < 60_000); // 60 seconds threshold
+        setIsConnected(elapsed < CONNECTION_THRESHOLD_MS);
       } else {
         setIsConnected(false);
       }
