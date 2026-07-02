@@ -9,7 +9,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { initMqttService, updatePollingList } from './services/mqtt.js';
+import { initMqttService, updatePollingList, runModbusScan, getModbusScanStatus } from './services/mqtt.js';
 import alarmRoutes from './routes/alarms.js';
 import crmRoutes from './routes/crm.js';
 import catalogRoutes from './routes/catalog.js';
@@ -1064,6 +1064,34 @@ router.delete('/generators/:id', authenticateToken, requireRole('ADMIN'), async 
         console.error('Delete generator error:', err);
         res.status(500).json({ message: 'Erro ao remover gerador' });
     }
+});
+
+// POST /api/generators/:id/modbus-scan — K30XL direct RS232 register discovery (Admin)
+router.post('/generators/:id/modbus-scan', authenticateToken, requireRole('ADMIN'), async (req, res) => {
+    const { id } = req.params;
+    const status = getModbusScanStatus(id);
+    if (status.running) {
+        return res.status(409).json({
+            message: 'Varredura Modbus já em andamento para este gerador.',
+            ...status,
+        });
+    }
+
+    res.status(202).json({
+        message: `Varredura Modbus iniciada para ${id}. Acompanhe com: docker logs ciklo-api -f | grep MODBUS-SCAN`,
+        deviceId: id,
+    });
+
+    runModbusScan(id, req.body ?? {}).then((result) => {
+        console.log(`[MODBUS-SCAN] API scan finished for ${id}:`, JSON.stringify(result.summary ?? result));
+    }).catch((err) => {
+        console.error(`[MODBUS-SCAN] API scan failed for ${id}:`, err.message);
+    });
+});
+
+// GET /api/generators/:id/modbus-scan — scan progress (Admin)
+router.get('/generators/:id/modbus-scan', authenticateToken, requireRole('ADMIN'), (req, res) => {
+    res.json(getModbusScanStatus(req.params.id));
 });
 
 

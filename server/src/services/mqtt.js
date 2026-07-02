@@ -9,6 +9,12 @@ import { decodeAgc150Payload, AGC150_POLL_SEQUENCE, AGC150_COILS, isAgc150Contro
 import { decodeKvaPayload } from '../utils/kva-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
 import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
+import {
+    buildK30XlDirectScanPlan,
+    buildFineScanAround,
+    classifyModbusResponse,
+    summarizeScanSession,
+} from '../utils/modbus-scan.js';
 import pool from '../db.js';
 import { sendAlarmEmail } from './email.js';
 import { sendAlarmWhatsApp, sendAlarmResolvedWhatsApp } from './whatsapp.js';
@@ -154,6 +160,12 @@ const dr164ConsecutiveTimeouts = new Map(); // deviceId -> number — tracks con
 const dr164LastGhostResponse = new Map();   // deviceId -> Date.now() — tracks when a ghost response was received
 let watchdogTimerId = null;                 // Global watchdog timer ID
 
+// Modbus register discovery (K30XL direct RS232)
+const modbusScanSessions = new Map(); // deviceId -> session
+const MODBUS_SCAN_STEP_GAP_MS = 2000;
+const MODBUS_SCAN_TIMEOUT_MS = 5000;
+const MODBUS_SCAN_REPORT_DIR = path.join(__dirname, '../../logs');
+
 // Resilience constants
 const DR164_POLL_INTERVAL_MS = 30000;      // 30s between poll cycles (was 15s — too aggressive for RS485)
 const DR164_STEP_GAP_MS = 1500;            // 1.5s gap between Modbus steps (was 1s)
@@ -251,10 +263,20 @@ function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
     }
 
     const respHex = rawBuffer.toString('hex');
-    console.log(`[DR164] Response for ${deviceId}: ${respHex} (Req: Addr ${pending.startAddress}, Qty ${pending.quantity})`);
+    const scanSession = modbusScanSessions.get(deviceId);
+    if (scanSession?.status === 'running') {
+        scanSession.lastCapture = classifyModbusResponse(rawBuffer, {
+            startAddress: pending.startAddress,
+            quantity: pending.quantity,
+            fn: pending.fn,
+            slaveId: pending.slaveId,
+        });
+    } else {
+        console.log(`[DR164] Response for ${deviceId}: ${respHex} (Req: Addr ${pending.startAddress}, Qty ${pending.quantity})`);
+    }
 
     // Modbus exception (fn >= 0x80): link is OK but register map/slave may be wrong
-    if (rawBuffer.length >= 3 && (rawBuffer[1] & 0x80)) {
+    if (!scanSession && rawBuffer.length >= 3 && (rawBuffer[1] & 0x80)) {
         console.warn(`[DR164] Modbus EXCEPTION for ${deviceId}: code ${rawBuffer[2]} at Addr ${pending.startAddress} — no telemetry decoded`);
     }
 
@@ -400,6 +422,9 @@ function startDR164DevicePolling(device) {
     if (dr164DeviceTimers.has(device.id)) {
         return; // Already polling this device
     }
+    if (isModbusScanRunning(device.id)) {
+        return;
+    }
 
     const label = devicePollingLabel(device);
     console.log(`[${label}] Starting independent polling timer for ${device.id} (interval: ${DR164_POLL_INTERVAL_MS}ms)`);
@@ -456,6 +481,8 @@ function startDeviceWatchdog() {
         let healthyCount = 0;
 
         for (const device of dr164Devices) {
+            if (isModbusScanRunning(device.id)) continue;
+
             const lastSeen = modemLastDataReceived.get(device.id);
             const hasTimer = dr164DeviceTimers.has(device.id);
             const isActive = dr164DevicePollingActive.get(device.id);
@@ -586,6 +613,9 @@ async function pollSingleDR164Device(deviceOrId) {
         console.log(`[DR164] Skipping poll cycle for ${device.id} because device is paused for command.`);
         return;
     }
+    if (isModbusScanRunning(device.id)) {
+        return;
+    }
     dr164DevicePollingActive.set(device.id, true);
     try {
         await pollDR164Device(device);
@@ -596,6 +626,183 @@ async function pollSingleDR164Device(deviceOrId) {
         dr164DevicePollingActive.set(device.id, false);
     }
 }
+function isModbusScanRunning(deviceId) {
+    return modbusScanSessions.get(deviceId)?.status === 'running';
+}
+
+async function modbusScanStep(device, step) {
+    const topic = `devices/command/${device.id}`;
+    const fn = step.fn ?? 3;
+    const frame = createModbusReadRequest(device.slaveId, step.startAddress, step.quantity, fn);
+
+    dr164PendingRequests.set(device.id, {
+        requestHex: frame.toString('hex').toUpperCase(),
+        slaveId: device.slaveId,
+        fn,
+        startAddress: step.startAddress,
+        quantity: step.quantity,
+        sentAt: Date.now(),
+    });
+
+    const session = modbusScanSessions.get(device.id);
+    if (session) session.lastCapture = null;
+
+    client.publish(topic, frame);
+    const waitResult = await waitForDR164Response(device.id, MODBUS_SCAN_TIMEOUT_MS);
+
+    if (waitResult === 'timeout') {
+        return {
+            step: { fn, startAddress: step.startAddress, quantity: step.quantity },
+            classification: { kind: 'timeout', note: 'No response within timeout' },
+        };
+    }
+
+    const capture = session?.lastCapture ?? { kind: 'unknown', note: 'Response received but not captured' };
+    return { step: { fn, startAddress: step.startAddress, quantity: step.quantity }, classification: capture };
+}
+
+function logModbusScanHit(deviceId, result) {
+    const c = result.classification;
+    const addr = result.step.startAddress;
+    const fn = result.step.fn;
+    if (c.kind === 'data') {
+        console.log(`[MODBUS-SCAN] ✅ ${deviceId} FC${fn} @${addr} qty=${result.step.quantity} → DATA slave=${c.slaveId} regs=[${(c.registerPreview || []).join(', ')}]`);
+    } else if (c.kind === 'exception') {
+        console.log(`[MODBUS-SCAN] ⚠ ${deviceId} FC${fn} @${addr} → EXCEPTION ${c.exceptionCode} (${c.exceptionName}) slave=${c.slaveId}`);
+    } else if (c.kind === 'timeout') {
+        console.log(`[MODBUS-SCAN] ⏱ ${deviceId} FC${fn} @${addr} → timeout`);
+    }
+}
+
+async function writeModbusScanReport(session) {
+    if (!fs.existsSync(MODBUS_SCAN_REPORT_DIR)) {
+        fs.mkdirSync(MODBUS_SCAN_REPORT_DIR, { recursive: true });
+    }
+    const stamp = session.startedAt.replace(/[:.]/g, '-');
+    const fileName = `modbus-scan-${session.deviceId}-${stamp}.json`;
+    const filePath = path.join(MODBUS_SCAN_REPORT_DIR, fileName);
+    const payload = {
+        ...summarizeScanSession(session),
+        results: session.results,
+    };
+    await fs.promises.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
+    session.reportFile = fileName;
+    console.log(`[MODBUS-SCAN] Report saved: logs/${fileName}`);
+    return filePath;
+}
+
+/**
+ * Pause normal polling and scan Modbus register ranges (K30XL direct RS232 discovery).
+ */
+export async function runModbusScan(deviceId, options = {}) {
+    if (modbusScanSessions.get(deviceId)?.status === 'running') {
+        return { success: false, error: 'Scan already running for this device' };
+    }
+
+    const device = dr164Devices.find(d => d.id === deviceId);
+    if (!device) {
+        return { success: false, error: `Device '${deviceId}' not found in DR164 polling list` };
+    }
+
+    if (!client || !client.connected) {
+        return { success: false, error: 'MQTT client not connected' };
+    }
+
+    const coarseSteps = options.steps ?? buildK30XlDirectScanPlan(options);
+    const session = {
+        deviceId,
+        slaveId: device.slaveId,
+        status: 'running',
+        startedAt: new Date().toISOString(),
+        finishedAt: null,
+        totalSteps: coarseSteps.length,
+        completedSteps: 0,
+        results: [],
+        phases: ['coarse'],
+    };
+    modbusScanSessions.set(deviceId, session);
+
+    console.log(`[MODBUS-SCAN] ▶ Starting scan for ${deviceId} (slave ${device.slaveId}) — ${coarseSteps.length} coarse steps, 19200 8N1 assumed on field`);
+
+    pausedDevices.add(deviceId);
+    stopDR164DevicePolling(deviceId);
+    dr164ConsecutiveTimeouts.set(deviceId, 0);
+
+    try {
+        for (const step of coarseSteps) {
+            if (!client?.connected) break;
+            session.completedSteps++;
+            const result = await modbusScanStep(device, step);
+            session.results.push(result);
+            if (result.classification.kind === 'data' || result.classification.kind === 'exception') {
+                logModbusScanHit(deviceId, result);
+            }
+            await dr164Sleep(MODBUS_SCAN_STEP_GAP_MS);
+        }
+
+        const promising = session.results.filter(r =>
+            r.classification.kind === 'data' || r.classification.kind === 'exception'
+        );
+
+        if (promising.length > 0 && options.fineScan !== false) {
+            const fineSteps = buildFineScanAround(
+                promising.map(r => ({ startAddress: r.step.startAddress })),
+                { fn: options.fineFn ?? 3, quantity: options.fineQuantity ?? 7 }
+            );
+            session.phases.push('fine');
+            session.totalSteps += fineSteps.length;
+            console.log(`[MODBUS-SCAN] Fine scan around ${promising.length} hit(s) — ${fineSteps.length} extra steps`);
+
+            for (const step of fineSteps) {
+                if (!client?.connected) break;
+                session.completedSteps++;
+                const result = await modbusScanStep(device, step);
+                session.results.push(result);
+                if (result.classification.kind === 'data' || result.classification.kind === 'exception') {
+                    logModbusScanHit(deviceId, result);
+                }
+                await dr164Sleep(MODBUS_SCAN_STEP_GAP_MS);
+            }
+        }
+
+        session.status = 'complete';
+        session.finishedAt = new Date().toISOString();
+        await writeModbusScanReport(session);
+
+        const summary = summarizeScanSession(session);
+        console.log(`[MODBUS-SCAN] ✓ Done ${deviceId}: ${summary.summary.data} data, ${summary.summary.exceptions} exceptions, ${summary.summary.garbage} garbage, ${summary.summary.timeouts} timeouts`);
+        return { success: true, ...summary };
+    } catch (err) {
+        session.status = 'error';
+        session.finishedAt = new Date().toISOString();
+        session.error = err.message;
+        console.error(`[MODBUS-SCAN] Failed for ${deviceId}:`, err.message);
+        return { success: false, error: err.message, ...summarizeScanSession(session) };
+    } finally {
+        pausedDevices.delete(deviceId);
+        modbusScanSessions.delete(deviceId);
+        dr164PendingRequests.delete(deviceId);
+        const resolver = dr164ResponseResolvers.get(deviceId);
+        if (resolver) {
+            dr164ResponseResolvers.delete(deviceId);
+            resolver('scan-done');
+        }
+        if (client?.connected) {
+            startDR164DevicePolling(device);
+        }
+    }
+}
+
+export function getModbusScanStatus(deviceId) {
+    const session = modbusScanSessions.get(deviceId);
+    if (!session) return { running: false };
+    return {
+        running: session.status === 'running',
+        ...summarizeScanSession(session),
+        progress: `${session.completedSteps}/${session.totalSteps}`,
+    };
+}
+
 // ==========================================
 // END DR164 SUPPORT
 // ==========================================
@@ -666,6 +873,18 @@ export const initMqttService = (io) => {
 
             // START WATCHDOG — monitors all DR164 devices for staleness and auto-recovers
             startDeviceWatchdog();
+
+            const scanTarget = process.env.KVA_MODBUS_SCAN?.trim();
+            if (scanTarget) {
+                console.log(`[MODBUS-SCAN] KVA_MODBUS_SCAN=${scanTarget} — auto scan in 15s`);
+                setTimeout(() => {
+                    runModbusScan(scanTarget).then((result) => {
+                        console.log('[MODBUS-SCAN] Auto-scan finished:', JSON.stringify(result.summary ?? result));
+                    }).catch((err) => {
+                        console.error('[MODBUS-SCAN] Auto-scan error:', err.message);
+                    });
+                }, 15000);
+            }
         }, 5000); // Wait 5s for DB fetch and Connection Stability
         client.subscribe(TOPIC, (err) => {
             if (!err) console.log(`[MQTT] Subscribed to ${TOPIC}`);
@@ -694,6 +913,12 @@ export const initMqttService = (io) => {
             } catch (jsonErr) {
                 // Not JSON — DR164 transparent binary mode
                 const deviceId = topic.split('/').pop();
+
+                if (isModbusScanRunning(deviceId)) {
+                    handleDR164BinaryResponse(deviceId, message, io);
+                    modemLastDataReceived.set(deviceId, Date.now());
+                    return;
+                }
 
                 // AUTO-RECOVERY: Device is alive and sending data — ensure polling is running
                 autoRecoverDR164Device(deviceId);
