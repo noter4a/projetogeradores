@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Generator, GeneratorStatus } from '../types';
 import { AlertTriangle } from 'lucide-react';
-import { cardStatusGlow } from '../utils/generatorHealth';
+import { cardStatusGlow, formatLastUpdate } from '../utils/generatorHealth';
 
 interface OperatorDashboardCardProps {
   gen: Generator;
@@ -57,6 +57,9 @@ const OperatorDashboardCard: React.FC<OperatorDashboardCardProps> = ({ gen }) =>
           <AlertTriangle size={12} /> Alarme ativo — toque para abrir
         </p>
       )}
+      <p className="mt-2 text-[10px] text-gray-500 font-mono">
+        Atualizado {formatLastUpdate(gen.lastDataReceived)}
+      </p>
     </div>
   );
 };

@@ -5,7 +5,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isSyncing: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
   updateProfile: (data: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) => Promise<void>;
 }
@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
       setToken(token);
       localStorage.setItem('ciklo_auth_user', JSON.stringify(user));
       localStorage.setItem('ciklo_auth_token', token);
+      return user;
 
     } catch (error) {
       console.error("Login failed", error);

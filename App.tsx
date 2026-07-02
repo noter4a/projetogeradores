@@ -32,6 +32,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { OperatorModeProvider } from './context/OperatorModeContext';
 import { useIsMobile } from './hooks/useIsMobile';
+import SocketConnectionBanner from './components/ui/SocketConnectionBanner';
 
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const { user } = useAuth();
@@ -119,6 +120,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
       return (
         <div className="flex h-screen bg-ciklo-black overflow-hidden w-full">
           {loadingOverlay}
+          <SocketConnectionBanner />
           {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
           <div className="w-full h-full">
             <Sidebar />
@@ -134,8 +136,9 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
     return (
       <div className="flex h-screen bg-ciklo-black overflow-hidden flex-col w-full">
         {loadingOverlay}
+        <SocketConnectionBanner />
         {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
-        
+
         {/* Mobile Header with Back Button */}
         <header className="flex items-center justify-between p-4 bg-ciklo-card border-b border-gray-800 print:hidden">
           <Link to={mobileBackTo} className="flex items-center gap-2 text-white hover:text-ciklo-orange transition-colors">
@@ -161,6 +164,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
   return (
     <div className="flex h-screen print:h-auto bg-ciklo-black print:bg-white overflow-hidden print:overflow-visible">
       {loadingOverlay}
+      <SocketConnectionBanner />
       {user?.role !== UserRole.ORCAMENTOS && <AlarmPopup />}
 
       {/* Desktop Sidebar */}
@@ -186,6 +190,14 @@ const DashboardRedirect: React.FC = () => {
   return <Dashboard />;
 };
 
+const HomeRoute: React.FC = () => {
+  const isMobile = useIsMobile();
+  if (!isMobile) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return null;
+};
+
 const AppContent: React.FC = () => {
   return (
     <HashRouter>
@@ -197,11 +209,7 @@ const AppContent: React.FC = () => {
         <Route path="/" element={
           <ProtectedRoute>
             <Layout>
-              {window.innerWidth < 768 ? (
-                <></>
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )}
+              <HomeRoute />
             </Layout>
           </ProtectedRoute>
         } />

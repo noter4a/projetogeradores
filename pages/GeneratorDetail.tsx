@@ -10,9 +10,11 @@ import { useOperatorMode } from '../context/OperatorModeContext';
 import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorGeneratorPanel from '../components/OperatorGeneratorPanel';
 import MobileControlBar from '../components/ui/MobileControlBar';
+import PullToRefreshIndicator from '../components/ui/PullToRefreshIndicator';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { formatLastUpdate, CONNECTION_THRESHOLD_MS } from '../utils/generatorHealth';
 import {
-  Power, AlertOctagon, RotateCcw, Settings, Gauge,
+  Power, RotateCcw, Settings, Gauge,
   Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, ChevronDown, ChevronUp, Lock,
   RefreshCw, UtilityPole, Cable, TrendingUp, BarChart3, Play, Square,
   Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban, AlertTriangle
@@ -129,7 +131,7 @@ const GeneratorDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { generators, updateGenerator } = useGenerators();
+  const { generators, updateGenerator, fetchGenerators } = useGenerators();
 
 
   // Permissions checks
@@ -357,6 +359,13 @@ const GeneratorDetail: React.FC = () => {
       setChartLoading(false);
     }
   }, [id, chartRange]);
+
+  const onRefresh = useCallback(async () => {
+    await fetchGenerators();
+    await fetchReadings();
+  }, [fetchGenerators, fetchReadings]);
+
+  const { pullDistance, refreshing, statusText } = usePullToRefresh(onRefresh, !isMobile);
 
   // Fetch on mount, range change, and periodically
   useEffect(() => {
@@ -1306,6 +1315,7 @@ const GeneratorDetail: React.FC = () => {
 
   return (
     <div className={`space-y-6 relative ${showOperatorUi && canControl ? 'pb-28' : 'pb-10'}`}>
+      <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} statusText={statusText} />
       {/* Full Screen Loading Overlay */}
       {controlLoading && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
@@ -1335,16 +1345,6 @@ const GeneratorDetail: React.FC = () => {
               </p>
             </div>
           </div>
-
-          {canControl && (
-            <div className="flex items-center gap-2">
-              {user?.role === UserRole.ADMIN && (
-                <button className="p-2 bg-red-900/50 hover:bg-red-900 text-red-500 border border-red-900 rounded-lg" title="Parada de Emergência">
-                  <AlertOctagon size={20} />
-                </button>
-              )}
-            </div>
-          )}
         </div>
       )}
 

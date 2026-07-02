@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { useOperatorMode } from '../context/OperatorModeContext';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio } from 'lucide-react';
 import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorDashboardCard from '../components/OperatorDashboardCard';
-import { isGeneratorConnected } from '../utils/generatorHealth';
+import PullToRefreshIndicator from '../components/ui/PullToRefreshIndicator';
+import GeneratorCardSkeleton from '../components/ui/GeneratorCardSkeleton';
+import { isGeneratorConnected, cardStatusGlow, formatLastUpdate } from '../utils/generatorHealth';
 
 const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
   const styles = {
@@ -38,8 +42,15 @@ const StatusBadge = ({ status }: { status: GeneratorStatus }) => {
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { generators: allGenerators } = useGenerators();
+  const { generators: allGenerators, isLoading, fetchGenerators } = useGenerators();
   const { operatorMode } = useOperatorMode();
+  const isMobile = useIsMobile();
+
+  const onRefresh = useCallback(async () => {
+    await fetchGenerators();
+  }, [fetchGenerators]);
+
+  const { pullDistance, refreshing, statusText } = usePullToRefresh(onRefresh, !isMobile);
 
   const generators = user?.role === UserRole.ADMIN
     ? allGenerators
@@ -54,6 +65,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} statusText={statusText} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <OperatorModeToggle />
         {showOperatorUi && (
@@ -124,7 +136,21 @@ const Dashboard: React.FC = () => {
           {showOperatorUi ? 'Painel de Visualização Simplificada' : 'Visão Geral do Painel'}
         </h3>
 
-        {generators.length === 0 ? (
+        {isLoading ? (
+          showOperatorUi ? (
+            <div className="grid grid-cols-1 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <GeneratorCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <GeneratorCardSkeleton key={i} />
+              ))}
+            </div>
+          )
+        ) : generators.length === 0 ? (
           <div className="text-center py-16 bg-ciklo-card rounded-xl border border-gray-800 border-dashed">
             <p className="text-gray-400 text-lg">Nenhum gerador monitorado ou atribuído.</p>
             {user?.role === UserRole.ADMIN && (
@@ -148,7 +174,7 @@ const Dashboard: React.FC = () => {
               <div
                 key={gen.id}
                 onClick={() => navigate(`/generator/${gen.id}`)}
-                className="bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden hover:border-ciklo-orange transition-all duration-300 cursor-pointer group hover:shadow-xl hover:shadow-orange-900/10 relative"
+                className={`bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden hover:border-ciklo-orange transition-all duration-300 cursor-pointer group hover:shadow-xl hover:shadow-orange-900/10 relative ${cardStatusGlow(gen.status)}`}
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-6 gap-4">
@@ -246,9 +272,14 @@ const Dashboard: React.FC = () => {
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-800">
-                    <span className="text-xs text-gray-500">
-                      Modelo: <span className="text-gray-300 font-medium">{gen.model}</span>
-                    </span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs text-gray-500">
+                        Modelo: <span className="text-gray-300 font-medium">{gen.model}</span>
+                      </span>
+                      <span className="text-[10px] text-gray-500">
+                        Atualizado: <span className="text-gray-400 font-mono">{formatLastUpdate(gen.lastDataReceived)}</span>
+                      </span>
+                    </div>
                     <span className="text-xs text-ciklo-orange font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                       Monitoramento Completo <ChevronRight size={14} />
                     </span>

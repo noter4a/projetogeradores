@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getPostLoginPath } from '../utils/navigation';
 import { Zap, Lock, Mail, MessageCircle } from 'lucide-react';
 
 const Login: React.FC = () => {
@@ -17,8 +18,8 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      await login(email, password);
-      navigate('/');
+      const loggedInUser = await login(email, password);
+      navigate(getPostLoginPath(loggedInUser.role));
     } catch (err: any) {
       setError(err.message || 'Erro ao realizar login');
     }
