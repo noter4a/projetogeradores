@@ -920,6 +920,14 @@ const GeneratorDetail: React.FC = () => {
               {gen.batteryVoltage === null || gen.batteryVoltage === undefined || gen.batteryVoltage === 6553.5 ? '-' : `${gen.batteryVoltage} V`}
             </span>
           </div>
+          <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+            <div className="flex items-center gap-2 text-gray-400">
+              <Timer size={18} /> Horímetro Total
+            </div>
+            <span className="text-xl font-bold text-white">
+              {Number(gen.totalHours || 0).toFixed(2)} h
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -1121,16 +1129,6 @@ const GeneratorDetail: React.FC = () => {
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-
-        <div className="mt-6 p-4 bg-gray-800/50 rounded-lg border border-dashed border-gray-700 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <Timer className="text-gray-400" />
-            <div>
-              <p className="text-xs text-gray-500">Horímetro Total</p>
-              <p className="text-xl font-mono text-white">{Number(gen.totalHours || 0).toFixed(2)} h</p>
-            </div>
           </div>
         </div>
       </div>
