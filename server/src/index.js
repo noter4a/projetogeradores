@@ -893,6 +893,49 @@ router.post('/control', authenticateToken, async (req, res) => {
     }
 });
 
+// PATCH /api/generators/:id/polling — pause/resume MQTT reads for a single generator
+// Lets operators stop polling a problematic unit so it doesn't occupy the shared RS485 bus.
+router.patch('/generators/:id/polling', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { paused } = req.body;
+
+    if (typeof paused !== 'boolean') {
+        return res.status(400).json({ success: false, message: 'Campo "paused" (boolean) é obrigatório.' });
+    }
+
+    try {
+        const access = await assertGeneratorControlAccess(req.user, id);
+        if (!access.allowed) {
+            return res.status(access.status).json({ success: false, message: access.message });
+        }
+
+        const result = await pool.query(
+            `UPDATE generators
+             SET connection_info = jsonb_set(COALESCE(connection_info, '{}'::jsonb), '{pollingPaused}', $1::jsonb, true)
+             WHERE id = $2
+                OR connection_info->>'ip' = $2
+                OR connection_info->>'connectionName' = $2
+             RETURNING id`,
+            [JSON.stringify(paused), id]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ success: false, message: 'Gerador não encontrado.' });
+        }
+
+        console.log(`[API] Polling ${paused ? 'PAUSED' : 'RESUMED'} for ${id} by ${req.user?.email}`);
+
+        // Apply the change to the live polling engine, then tell clients to refresh.
+        await updatePollingList();
+        io.emit('generator:list_changed');
+
+        res.json({ success: true, paused });
+    } catch (err) {
+        console.error('[API] Toggle polling error:', err);
+        res.status(500).json({ success: false, message: 'Erro ao alterar o estado de leitura.' });
+    }
+});
+
 // Generator Routes
 
 // GET /api/generators
@@ -932,6 +975,7 @@ router.get('/generators', authenticateToken, async (req, res) => {
             slaveId: row.connection_info?.slaveId || null,
             deviceType: row.connection_info?.deviceType || 'modem',
             agc150Profile: row.connection_info?.agc150Profile || 'gen',
+            pollingPaused: row.connection_info?.pollingPaused === true,
             companyId: row.company_id,
             companyName: row.company_name,
             lastDataReceived: row.last_connected ? new Date(row.last_connected).getTime() : null,
@@ -1014,6 +1058,12 @@ router.put('/generators/:id', authenticateToken, requireRole('ADMIN'), async (re
     const { id } = req.params;
     const gen = req.body;
     try {
+        // Preserve the polling pause flag (managed by the dedicated /polling endpoint)
+        // so editing a generator here doesn't accidentally re-enable reads.
+        const existing = await pool.query("SELECT connection_info FROM generators WHERE id=$1", [id]);
+        const existingPaused = existing.rows[0]?.connection_info?.pollingPaused === true;
+        const pollingPaused = typeof gen.pollingPaused === 'boolean' ? gen.pollingPaused : existingPaused;
+
         const connectionInfo = {
             connectionName: gen.connectionName,
             controller: gen.controller,
@@ -1023,6 +1073,7 @@ router.put('/generators/:id', authenticateToken, requireRole('ADMIN'), async (re
             slaveId: gen.slaveId,
             deviceType: gen.deviceType || 'modem',
             ...(gen.agc150Profile ? { agc150Profile: gen.agc150Profile } : {}),
+            ...(pollingPaused ? { pollingPaused: true } : {}),
         };
 
         await pool.query(

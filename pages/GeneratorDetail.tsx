@@ -169,6 +169,7 @@ const GeneratorDetail: React.FC = () => {
   const foundGen = generators.find(g => g.id === id);
   const [gen, setGen] = useState<Generator | undefined>(foundGen);
   const [controlLoading, setControlLoading] = useState<string | null>(null);
+  const [pauseLoading, setPauseLoading] = useState(false);
 
   // Connection status: check if data was received in the last 60 seconds
   const [isConnected, setIsConnected] = useState(false);
@@ -565,6 +566,42 @@ const GeneratorDetail: React.FC = () => {
         }, 500);
       });
   }
+
+  // Pause / resume MQTT reads for this generator (stops it occupying the shared bus)
+  const handleTogglePolling = async () => {
+    if (!gen || !canControl || pauseLoading) return;
+    const nextPaused = !gen.pollingPaused;
+
+    if (nextPaused && !window.confirm(
+      `Pausar as leituras de "${gen.name}"?\n\nO sistema deixará de buscar dados deste gerador até você retomar. Útil para geradores com problema que estejam travando a comunicação dos demais.`
+    )) return;
+
+    setPauseLoading(true);
+    // Optimistic UI update
+    setGen(prev => (prev ? { ...prev, pollingPaused: nextPaused } : prev));
+
+    const token = localStorage.getItem('ciklo_auth_token');
+    try {
+      const res = await fetch(`/api/generators/${encodeURIComponent(gen.id)}/polling`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ paused: nextPaused }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        // Revert on failure
+        setGen(prev => (prev ? { ...prev, pollingPaused: !nextPaused } : prev));
+        alert(`Falha ao alterar leituras: ${data.message || res.statusText}`);
+      } else {
+        fetchGenerators();
+      }
+    } catch (err) {
+      setGen(prev => (prev ? { ...prev, pollingPaused: !nextPaused } : prev));
+      alert('Erro de conexão ao alterar o estado de leitura.');
+    } finally {
+      setPauseLoading(false);
+    }
+  };
 
 
 
@@ -1345,6 +1382,32 @@ const GeneratorDetail: React.FC = () => {
               </p>
             </div>
           </div>
+          {canControl && (
+            <button
+              onClick={handleTogglePolling}
+              disabled={pauseLoading}
+              title={gen.pollingPaused ? 'Retomar a busca de dados deste gerador' : 'Parar de buscar dados deste gerador (libera o barramento)'}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 ${
+                gen.pollingPaused
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+                  : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700'
+              }`}
+            >
+              {gen.pollingPaused ? <Play size={16} /> : <Ban size={16} />}
+              {gen.pollingPaused ? 'Retomar leituras' : 'Pausar leituras'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Paused banner — reads are disabled for this unit */}
+      {gen.pollingPaused && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-300">
+          <Ban size={20} className="shrink-0" />
+          <div className="text-sm">
+            <span className="font-bold">Leituras pausadas.</span>{' '}
+            O sistema não está buscando dados deste gerador. Os valores exibidos podem estar desatualizados.
+          </div>
         </div>
       )}
 
@@ -1356,6 +1419,20 @@ const GeneratorDetail: React.FC = () => {
             <p className="text-xs text-gray-400 mt-1">{gen.model} • {gen.operationMode || 'AUTO'}</p>
             <p className="text-[10px] text-gray-500 mt-2">{formatLastUpdate(gen.lastDataReceived)}</p>
           </div>
+          {canControl && (
+            <button
+              onClick={handleTogglePolling}
+              disabled={pauseLoading}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 ${
+                gen.pollingPaused
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 active:bg-amber-500/30'
+                  : 'bg-gray-800 text-gray-300 border border-gray-700 active:bg-gray-700'
+              }`}
+            >
+              {gen.pollingPaused ? <Play size={16} /> : <Ban size={16} />}
+              {gen.pollingPaused ? 'Retomar leituras' : 'Pausar leituras'}
+            </button>
+          )}
         </div>
       )}
 

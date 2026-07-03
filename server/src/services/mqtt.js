@@ -130,7 +130,8 @@ let client;
 let mqttIo = null;
 let lastConnectionError = null;
 let devicesToPoll = [];
-let pausedDevices = new Set(); // Prevent polling collisions during commands
+let pausedDevices = new Set(); // Prevent polling collisions during commands (transient, per-command)
+const pollingDisabledDevices = new Set(); // Persistent per-device pause (operator disabled reads for a problematic unit)
 const modemLastDataReceived = new Map(); // deviceId -> Date.now() — Watchdog tracking
 const lastLinkHeartbeatDb = new Map(); // deviceId -> last DB heartbeat ms
 
@@ -187,6 +188,8 @@ const DR164_MAX_CYCLE_MS = 90000;          // Force-release stuck poll cycles
 const DR164_LINK_HEARTBEAT_MAX_AGE_MS = 45000; // Emit link heartbeat if device responded recently
 const DR164_COMMAND_COIL_PULSE_MS = 500;   // AGC150 momentary coil ON duration before OFF
 const DR164_COMMAND_PAUSE_MS = 1500;       // Pause polling after command, then immediate poll
+const DR164_FEEDBACK_PREEMPT_POLL_MS = 150; // Re-check interval while waiting for the bus to free before a priority feedback read
+const DR164_FEEDBACK_MAX_WAIT_MS = 6000;    // Give up preempting an in-flight cycle after this long, fall back to a normal poll
 const DR164_WATCHDOG_INTERVAL_MS = 60000;  // 60s watchdog check interval
 const DR164_STALE_THRESHOLD_MS = 180000;   // 3 minutes — mark device as stale
 const DR164_DEAD_THRESHOLD_MS = 600000;    // 10 minutes — mark device as dead/offline
@@ -436,6 +439,9 @@ function startDR164DevicePolling(device) {
     if (dr164DeviceTimers.has(device.id)) {
         return; // Already polling this device
     }
+    if (pollingDisabledDevices.has(device.id)) {
+        return; // Operator disabled reads for this device
+    }
     if (isModbusScanRunning(device.id)) {
         return;
     }
@@ -496,6 +502,7 @@ function startDeviceWatchdog() {
 
         for (const device of dr164Devices) {
             if (isModbusScanRunning(device.id)) continue;
+            if (pollingDisabledDevices.has(device.id)) continue; // reads disabled — don't restart/recover
 
             const lastSeen = modemLastDataReceived.get(device.id);
             const hasTimer = dr164DeviceTimers.has(device.id);
@@ -620,6 +627,9 @@ async function pollSingleDR164Device(deviceOrId) {
         : deviceOrId;
     if (!device) return;
 
+    if (pollingDisabledDevices.has(device.id)) {
+        return; // Operator disabled reads for this device — do not touch the bus
+    }
     if (dr164DevicePollingActive.get(device.id)) {
         return; // Previous poll cycle for THIS device is still running
     }
@@ -660,12 +670,90 @@ async function pollSingleDR164Device(deviceOrId) {
     }
 }
 
-/** After a control command, unpause and run one poll cycle immediately (physical feedback). */
+/**
+ * After a control command, read the breaker/mode status ASAP so the UI reflects
+ * the change in ~2s instead of waiting for a full poll cycle to come around.
+ *
+ * The command already added the device to `pausedDevices`, so any in-flight cycle
+ * aborts at its next step boundary. We wait for it to release the bus (bounded),
+ * then fire a single "status" read (the first poll step, which decodes GB/MB/mode).
+ */
 function resumeDr164PollingAfterCommand(deviceId, label = 'DR164-CMD') {
     pausedDevices.delete(deviceId);
+    if (pollingDisabledDevices.has(deviceId)) return; // reads disabled for this unit
     if (!dr164Devices.some(d => d.id === deviceId)) return;
-    console.log(`[${label}] Resumed polling for ${deviceId} — immediate poll`);
-    pollSingleDR164Device(deviceId);
+    console.log(`[${label}] Resumed polling for ${deviceId} — priority feedback read`);
+    runDr164PriorityFeedbackRead(deviceId, label);
+}
+
+/** Wait for the bus to free (bounded), then run a single status read for command feedback. */
+async function runDr164PriorityFeedbackRead(deviceId, label, startedAt = Date.now()) {
+    const device = dr164Devices.find(d => d.id === deviceId);
+    if (!device || pollingDisabledDevices.has(deviceId)) return;
+
+    // A previous cycle may still be draining a timeout; it aborts on `pausedDevices`,
+    // so give it a moment to release the bus rather than dropping our read.
+    if (dr164DevicePollingActive.get(deviceId)) {
+        if (Date.now() - startedAt > DR164_FEEDBACK_MAX_WAIT_MS) {
+            console.warn(`[${label}] ${deviceId}: bus busy ${DR164_FEEDBACK_MAX_WAIT_MS}ms — falling back to normal poll`);
+            pollSingleDR164Device(deviceId);
+            return;
+        }
+        setTimeout(() => runDr164PriorityFeedbackRead(deviceId, label, startedAt), DR164_FEEDBACK_PREEMPT_POLL_MS);
+        return;
+    }
+
+    dr164DevicePollingActive.set(deviceId, true);
+    try {
+        await pollDr164FeedbackStep(device, label);
+    } catch (err) {
+        console.warn(`[${label}] Priority feedback read failed for ${deviceId}: ${err.message}`);
+    } finally {
+        dr164DevicePollingActive.set(deviceId, false);
+        dr164PendingRequests.delete(deviceId);
+        const resolver = dr164ResponseResolvers.get(deviceId);
+        if (resolver) {
+            dr164ResponseResolvers.delete(deviceId);
+            resolver('cycle-end');
+        }
+        // Follow up with a full cycle so the rest of the telemetry catches up too.
+        if (!pollingDisabledDevices.has(deviceId)) {
+            setTimeout(() => pollSingleDR164Device(deviceId), DR164_STEP_GAP_MS);
+        }
+    }
+}
+
+/**
+ * Single Modbus "status" read used for fast command feedback. The first step of
+ * every controller's poll sequence carries the breaker/mode state (AGC150: Fn 2
+ * Addr 0 = GB/MB/modes). The MQTT message handler decodes and emits the update.
+ */
+async function pollDr164FeedbackStep(device, label) {
+    if (!client || !client.connected) return;
+
+    const isKva = device.controller === 'kva' || device.controller === 'kvar';
+    const isDse = device.controller === 'dse';
+    const pollSequence = isKva ? KVA_POLL_SEQUENCE
+        : (isDse ? DSE_POLL_SEQUENCE : getPollSequenceForController(device.controller));
+    const req = pollSequence[0];
+    if (!req) return;
+
+    const topic = `devices/command/${device.id}`;
+    const fn = req.fn ?? 3;
+    const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity, fn);
+
+    dr164PendingRequests.set(device.id, {
+        requestHex: frame.toString('hex').toUpperCase(),
+        slaveId: device.slaveId,
+        fn,
+        startAddress: req.startAddress,
+        quantity: req.quantity,
+        sentAt: Date.now(),
+    });
+
+    console.log(`[${label}] ⚡ ${device.id}: priority status read Fn ${fn} Addr ${req.startAddress}, Qty ${req.quantity}`);
+    client.publish(topic, frame);
+    await waitForDR164Response(device.id, DR164_TIMEOUT_MS);
 }
 
 function scheduleDr164PollResume(deviceId, label, delayMs = DR164_COMMAND_PAUSE_MS) {
@@ -1936,6 +2024,16 @@ export const initMqttService = (io) => {
             const modemRows = allRows.filter(row => (row.connection_info.deviceType || 'modem') !== 'dr164');
             const dr164Rows = allRows.filter(row => row.connection_info.deviceType === 'dr164');
 
+            // --- PERSISTENT PER-DEVICE PAUSE ---
+            // Operators can disable reads for a problematic unit so it stops occupying
+            // the shared bus. `pollingPaused` lives in connection_info (no schema change).
+            pollingDisabledDevices.clear();
+            for (const row of allRows) {
+                if (row.connection_info.pollingPaused === true && row.connection_info.ip) {
+                    pollingDisabledDevices.add(row.connection_info.ip);
+                }
+            }
+
             // --- MODEM DEVICES (existing logic, unchanged) ---
             const newModemDevices = modemRows.map(row => ({
                 id: row.connection_info.ip,
@@ -1962,6 +2060,7 @@ export const initMqttService = (io) => {
                 slaveId: parseInt(row.connection_info.slaveId) || 1,
                 controller: (row.connection_info.controller || '').toLowerCase(),
                 agc150Profile: row.connection_info.agc150Profile || 'gen',
+                pollingPaused: row.connection_info.pollingPaused === true,
             }));
 
             const prevDr164Ids = new Set(dr164Devices.map(d => d.id));
@@ -1985,9 +2084,18 @@ export const initMqttService = (io) => {
                 stopDR164DevicePolling(device.id);
             }
 
+            // Stop timers for any device the operator just paused
+            for (const device of dr164Devices) {
+                if (pollingDisabledDevices.has(device.id) && dr164DeviceTimers.has(device.id)) {
+                    console.log(`[DR164] Reads paused for ${device.id} — stopping polling timer`);
+                    stopDR164DevicePolling(device.id);
+                }
+            }
+
             // Restart polling when controller or slave ID changes (timer used to keep stale config)
             if (client && client.connected) {
                 for (const device of configChangedDr164) {
+                    if (pollingDisabledDevices.has(device.id)) continue; // stay paused
                     const prev = prevDr164ById.get(device.id);
                     console.log(`[DR164] Config changed for ${device.id}: ${prev?.controller} -> ${device.controller} — restarting poll`);
                     restartDR164DevicePolling(device);
@@ -1998,7 +2106,7 @@ export const initMqttService = (io) => {
 
             // Start independent timers for any DR164 device not currently being polled
             if (client && client.connected) {
-                const missingTimers = dr164Devices.filter(d => !dr164DeviceTimers.has(d.id));
+                const missingTimers = dr164Devices.filter(d => !dr164DeviceTimers.has(d.id) && !pollingDisabledDevices.has(d.id));
                 if (missingTimers.length > 0) {
                     console.log(`[DR164] Starting polling timers for ${missingTimers.length} generator(s): ${missingTimers.map(d => d.id).join(', ')}`);
                     for (const device of missingTimers) {
@@ -2026,6 +2134,9 @@ export const initMqttService = (io) => {
 
             devicesToPoll.forEach(device => {
                 const deviceId = device.id;
+
+                // Operator disabled reads for this unit — skip entirely (don't touch the bus)
+                if (pollingDisabledDevices.has(deviceId)) return;
 
                 // SELF-HEALING: Se este aparelho NÃO estiver na lista de pausados,
                 // significa que ele NUNCA recebeu a String de Configuração JSON (ou a conexão caiu e limpou a lista).
@@ -2160,6 +2271,7 @@ export const initMqttService = (io) => {
         const now = Date.now();
         devicesToPoll.forEach(device => {
             const deviceId = device.id;
+            if (pollingDisabledDevices.has(deviceId)) return; // reads disabled — leave it alone
             const lastReceived = modemLastDataReceived.get(deviceId);
 
             // If never received data OR stale for more than threshold

@@ -112,6 +112,8 @@ export interface Generator {
   deviceType?: string;
   /** AGC 150 bus mapping: gen | btb | mains */
   agc150Profile?: string;
+  /** When true, the backend has stopped polling this unit (operator disabled reads) */
+  pollingPaused?: boolean;
 
   // New Control Fields
   operationMode?: 'AUTO' | 'MANUAL' | 'INHIBITED';
