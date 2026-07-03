@@ -266,6 +266,41 @@ function waitForDR164Response(deviceId, timeoutMs) {
 }
 
 /**
+ * Does a received frame actually answer the request we currently have pending?
+ *
+ * Responses are correlated only by device id, so a late frame (a previous step's
+ * answer arriving after its 5s timeout) would otherwise be mis-paired with the
+ * current step — desyncing the whole cycle and dragging it to the 90s wall-clock
+ * reset. We reject frames whose slave id / function code / byte count don't match
+ * the pending request so the current step keeps waiting for its real answer and a
+ * genuine timeout is still counted toward the abort streak.
+ */
+function responseMatchesPending(rawBuffer, pending) {
+    if (!rawBuffer || rawBuffer.length < 3 || !pending) return false;
+
+    const slaveId = rawBuffer[0];
+    const fn = rawBuffer[1];
+
+    if (slaveId !== pending.slaveId) return false;
+
+    // A Modbus exception to OUR function is a legitimate reply (bad register map/slave).
+    if (fn === ((pending.fn | 0x80) & 0xff)) return true;
+
+    // Function code must match the request.
+    if (fn !== pending.fn) return false;
+
+    // Byte count must match the requested quantity (bits vs 16-bit registers).
+    const isBitRead = pending.fn === 1 || pending.fn === 2;
+    const expectedBytes = isBitRead ? Math.ceil(pending.quantity / 8) : pending.quantity * 2;
+    if (rawBuffer[2] !== expectedBytes) return false;
+
+    // Full RTU frame: slave + fn + byteCount + data + CRC(2).
+    if (rawBuffer.length < 3 + expectedBytes + 2) return false;
+
+    return true;
+}
+
+/**
  * Handle binary response from DR164 device.
  * Creates a synthetic JSON payload compatible with existing decodeSgc120Payload parser.
  */
@@ -289,6 +324,15 @@ function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
             slaveId: pending.slaveId,
         });
     } else {
+        // Reject stale/mismatched frames (e.g. a previous step's answer arriving after
+        // its timeout) so they don't get mis-paired with the current step and desync
+        // the cycle. The current step keeps waiting for its real response.
+        if (!responseMatchesPending(rawBuffer, pending)) {
+            modemLastDataReceived.set(deviceId, Date.now());   // link is alive
+            dr164LastGhostResponse.set(deviceId, Date.now());  // drain before next step
+            console.log(`[DR164] ⚠ Stale/mismatched response for ${deviceId} (expected Fn ${pending.fn} Addr ${pending.startAddress} Qty ${pending.quantity}, got ${respHex.slice(0, 12)}…) — dropping.`);
+            return;
+        }
         console.log(`[DR164] Response for ${deviceId}: ${respHex} (Req: Addr ${pending.startAddress}, Qty ${pending.quantity})`);
     }
 
