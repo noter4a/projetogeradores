@@ -132,6 +132,7 @@ let lastConnectionError = null;
 let devicesToPoll = [];
 let pausedDevices = new Set(); // Prevent polling collisions during commands (transient, per-command)
 const pollingDisabledDevices = new Set(); // Persistent per-device pause (operator disabled reads for a problematic unit)
+const dr164AbortRequested = new Set();    // Devices whose in-flight poll cycle must abort NOW (a command needs the bus)
 const modemLastDataReceived = new Map(); // deviceId -> Date.now() — Watchdog tracking
 const lastLinkHeartbeatDb = new Map(); // deviceId -> last DB heartbeat ms
 
@@ -184,10 +185,10 @@ const DR164_TIMEOUT_MS = 5000;             // 5s timeout per step
 const DR164_POST_TIMEOUT_DRAIN_MS = 2500;  // 2.5s drain after timeout to flush late responses
 const DR164_POST_ERROR_DRAIN_MS = 3000;    // 3s drain after errors
 const DR164_MAX_CONSECUTIVE_TIMEOUTS = 3;  // Abort cycle after 3 consecutive timeouts
-const DR164_MAX_CYCLE_MS = 90000;          // Force-release stuck poll cycles
+const DR164_MAX_CYCLE_MS = 45000;          // Force-release stuck poll cycles (safety net; the 3-timeout abort is primary)
 const DR164_LINK_HEARTBEAT_MAX_AGE_MS = 45000; // Emit link heartbeat if device responded recently
 const DR164_COMMAND_COIL_PULSE_MS = 500;   // AGC150 momentary coil ON duration before OFF
-const DR164_COMMAND_PAUSE_MS = 1500;       // Pause polling after command, then immediate poll
+const DR164_COMMAND_PAUSE_MS = 1000;       // Wait after command (coil pulse settles) before the priority feedback read
 const DR164_FEEDBACK_PREEMPT_POLL_MS = 150; // Re-check interval while waiting for the bus to free before a priority feedback read
 const DR164_FEEDBACK_MAX_WAIT_MS = 6000;    // Give up preempting an in-flight cycle after this long, fall back to a normal poll
 const DR164_WATCHDOG_INTERVAL_MS = 60000;  // 60s watchdog check interval
@@ -399,6 +400,12 @@ async function pollDR164Device(device) {
             break;
         }
 
+        // === GUARD 2b: Command wants the bus NOW — abort immediately ===
+        if (dr164AbortRequested.has(device.id)) {
+            console.log(`[DR164] ⏭ ${device.id}: aborting cycle — command needs the bus`);
+            break;
+        }
+
         // === GUARD 3: Too many consecutive timeouts — serial bus is broken ===
         if (consecutiveTimeouts >= DR164_MAX_CONSECUTIVE_TIMEOUTS) {
             console.warn(`[DR164] ⛔ ${device.id}: ${consecutiveTimeouts} consecutive timeouts — aborting cycle to protect serial bus`);
@@ -432,6 +439,12 @@ async function pollDR164Device(device) {
 
             // Wait for response
             const result = await waitForDR164Response(device.id, DR164_TIMEOUT_MS);
+
+            // A command interrupted us — leave the bus free immediately (skip drains)
+            if (dr164AbortRequested.has(device.id)) {
+                console.log(`[DR164] ⏭ ${device.id}: cycle interrupted by command`);
+                break;
+            }
 
             if (result === 'timeout') {
                 consecutiveTimeouts++;
@@ -498,6 +511,7 @@ function startDR164DevicePolling(device) {
     dr164LastGhostResponse.delete(device.id);
     dr164PendingRequests.delete(device.id);
     dr164DevicePollingActive.set(device.id, false);
+    dr164AbortRequested.delete(device.id);
 
     const deviceId = device.id;
 
@@ -652,6 +666,7 @@ function stopDR164DevicePolling(deviceId) {
         clearInterval(timerId);
         dr164DeviceTimers.delete(deviceId);
         dr164DevicePollingActive.delete(deviceId);
+        dr164AbortRequested.delete(deviceId);
         const resolver = dr164ResponseResolvers.get(deviceId);
         if (resolver) {
             dr164ResponseResolvers.delete(deviceId);
@@ -723,30 +738,44 @@ async function pollSingleDR164Device(deviceOrId) {
  * then fire a single "status" read (the first poll step, which decodes GB/MB/mode).
  */
 function resumeDr164PollingAfterCommand(deviceId, label = 'DR164-CMD') {
-    pausedDevices.delete(deviceId);
-    if (pollingDisabledDevices.has(deviceId)) return; // reads disabled for this unit
-    if (!dr164Devices.some(d => d.id === deviceId)) return;
-    console.log(`[${label}] Resumed polling for ${deviceId} — priority feedback read`);
+    // NOTE: pausedDevices stays SET until the feedback read finishes, so the routine
+    // timer can't start a competing cycle and any lingering cycle still aborts.
+    if (pollingDisabledDevices.has(deviceId) || !dr164Devices.some(d => d.id === deviceId)) {
+        pausedDevices.delete(deviceId);
+        dr164AbortRequested.delete(deviceId);
+        return;
+    }
+    console.log(`[${label}] ${deviceId} — priority feedback read`);
     runDr164PriorityFeedbackRead(deviceId, label);
 }
 
-/** Wait for the bus to free (bounded), then run a single status read for command feedback. */
+/** Wait for the aborted cycle to release the bus, then run one status read for command feedback. */
 async function runDr164PriorityFeedbackRead(deviceId, label, startedAt = Date.now()) {
     const device = dr164Devices.find(d => d.id === deviceId);
-    if (!device || pollingDisabledDevices.has(deviceId)) return;
-
-    // A previous cycle may still be draining a timeout; it aborts on `pausedDevices`,
-    // so give it a moment to release the bus rather than dropping our read.
-    if (dr164DevicePollingActive.get(deviceId)) {
-        if (Date.now() - startedAt > DR164_FEEDBACK_MAX_WAIT_MS) {
-            console.warn(`[${label}] ${deviceId}: bus busy ${DR164_FEEDBACK_MAX_WAIT_MS}ms — falling back to normal poll`);
-            pollSingleDR164Device(deviceId);
-            return;
-        }
-        setTimeout(() => runDr164PriorityFeedbackRead(deviceId, label, startedAt), DR164_FEEDBACK_PREEMPT_POLL_MS);
+    if (!device || pollingDisabledDevices.has(deviceId)) {
+        pausedDevices.delete(deviceId);
+        dr164AbortRequested.delete(deviceId);
         return;
     }
 
+    // The in-flight cycle was told to abort and exits within milliseconds. Wait for it
+    // to release the active flag; if it's genuinely wedged, force-release and take over.
+    if (dr164DevicePollingActive.get(deviceId)) {
+        if (Date.now() - startedAt > DR164_FEEDBACK_MAX_WAIT_MS) {
+            console.warn(`[${label}] ${deviceId}: cycle wedged — force-releasing to run feedback`);
+            dr164DevicePollingActive.set(deviceId, false);
+            dr164PendingRequests.delete(deviceId);
+            const stuck = dr164ResponseResolvers.get(deviceId);
+            if (stuck) { dr164ResponseResolvers.delete(deviceId); stuck('force-release'); }
+            // fall through and take the bus now
+        } else {
+            setTimeout(() => runDr164PriorityFeedbackRead(deviceId, label, startedAt), DR164_FEEDBACK_PREEMPT_POLL_MS);
+            return;
+        }
+    }
+
+    // We own the bus. Abort is consumed so the follow-up full cycle isn't killed.
+    dr164AbortRequested.delete(deviceId);
     dr164DevicePollingActive.set(deviceId, true);
     try {
         await pollDr164FeedbackStep(device, label);
@@ -760,7 +789,10 @@ async function runDr164PriorityFeedbackRead(deviceId, label, startedAt = Date.no
             dr164ResponseResolvers.delete(deviceId);
             resolver('cycle-end');
         }
+        pausedDevices.delete(deviceId);      // routine polling may resume now
         // Follow up with a full cycle so the rest of the telemetry catches up too.
+        // (If another command arrived meanwhile, its abort flag stays set and will
+        //  correctly preempt this follow-up cycle.)
         if (!pollingDisabledDevices.has(deviceId)) {
             setTimeout(() => pollSingleDR164Device(deviceId), DR164_STEP_GAP_MS);
         }
@@ -800,7 +832,23 @@ async function pollDr164FeedbackStep(device, label) {
     await waitForDR164Response(device.id, DR164_TIMEOUT_MS);
 }
 
+/**
+ * Preempt an in-flight routine cycle so a command's feedback read can grab the bus.
+ * Flags the loop to abort and force-resolves whatever step it's awaiting, so it
+ * exits in milliseconds instead of up to a full 5s step timeout.
+ */
+function abortDeviceCycle(deviceId) {
+    dr164AbortRequested.add(deviceId);
+    const resolver = dr164ResponseResolvers.get(deviceId);
+    if (resolver) {
+        dr164ResponseResolvers.delete(deviceId);
+        resolver('aborted');
+    }
+}
+
 function scheduleDr164PollResume(deviceId, label, delayMs = DR164_COMMAND_PAUSE_MS) {
+    // Kill the current cycle right away so the bus is free by the time we read feedback.
+    abortDeviceCycle(deviceId);
     setTimeout(() => resumeDr164PollingAfterCommand(deviceId, label), delayMs);
 }
 
