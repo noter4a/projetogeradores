@@ -1831,6 +1831,17 @@ export const initMqttService = (io) => {
                             } else if (mergedData.running !== undefined || mergedData.rpm !== undefined) {
                                 mergedData.status = 'STOPPED';
                             }
+                            // A stopped alternator produces no output. Force gen voltage/current/
+                            // freq/power to 0 so a stale coast-down reading (e.g. frozen 180 V)
+                            // isn't held forever by the DB COALESCE / state merge when the voltage
+                            // read step keeps timing out. Mains readings are left untouched — the
+                            // utility is energized independently of the genset.
+                            if (mergedData.status === 'STOPPED') {
+                                for (const f of ['voltageL1', 'voltageL2', 'voltageL3', 'voltageL12', 'voltageL23', 'voltageL31', 'avgVoltage', 'currentL1', 'currentL2', 'currentL3', 'frequency', 'activePower', 'activePowerTotal', 'powerFactor']) {
+                                    mergedData[f] = 0;
+                                    unifiedData[f] = 0;
+                                }
+                            }
                             unifiedData.mainsBreakerClosed = mergedData.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
                             unifiedData.status = mergedData.status;
