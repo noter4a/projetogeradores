@@ -511,51 +511,15 @@ export function isAgc150EngineRunning(data) {
   return (data.rpm ?? 0) > 100;
 }
 
-function clearMainsBusReadings(data) {
-  data.mainsVoltageL1 = 0;
-  data.mainsVoltageL2 = 0;
-  data.mainsVoltageL3 = 0;
-  data.mainsVoltageL12 = 0;
-  data.mainsVoltageL23 = 0;
-  data.mainsVoltageL31 = 0;
-  data.mainsFrequency = 0;
-}
-
-function clearGenBusReadings(data) {
-  data.voltageL1 = 0;
-  data.voltageL2 = 0;
-  data.voltageL3 = 0;
-  data.voltageL12 = 0;
-  data.voltageL23 = 0;
-  data.voltageL31 = 0;
-  data.avgVoltage = 0;
-  data.frequency = 0;
-  data.currentL1 = 0;
-  data.currentL2 = 0;
-  data.currentL3 = 0;
-}
-
 /**
- * UI bus readings reflect what feeds the load, not raw utility-side measurements.
- * Open breaker or mains failure => zero network electrical table.
+ * Compute "feeding load" flags for the UI badges only.
+ * Electrical readings are shown exactly as decoded from MQTT/Modbus — no
+ * breaker-based zeroing. An open mains breaker still shows the utility voltage
+ * measured on the network side.
  */
 function applyAgc150BusDisplay(data) {
-  const mainsFeedsLoad = data.mainsBreakerClosed === true && data.mainsFailure !== true;
-  const genFeedsLoad = data.genBreakerClosed === true;
-
-  data.mainsFeedingLoad = mainsFeedsLoad;
-  data.genFeedingLoad = genFeedsLoad;
-
-  if (!mainsFeedsLoad) {
-    clearMainsBusReadings(data);
-  }
-  if (!genFeedsLoad) {
-    clearGenBusReadings(data);
-  }
-  if (!mainsFeedsLoad && !genFeedsLoad) {
-    data.activePower = 0;
-    data.powerFactor = 0;
-  }
+  data.mainsFeedingLoad = data.mainsBreakerClosed === true && data.mainsFailure !== true;
+  data.genFeedingLoad = data.genBreakerClosed === true;
 }
 
 /**
