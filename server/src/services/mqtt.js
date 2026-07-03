@@ -170,6 +170,7 @@ const dr164ResponseResolvers = new Map(); // deviceId -> resolve() function for 
 const dr164DeviceTimers = new Map();      // deviceId -> setInterval ID (per-device independent polling)
 const dr164ConsecutiveTimeouts = new Map(); // deviceId -> number — tracks consecutive timeouts for abort logic
 const dr164LastGhostResponse = new Map();   // deviceId -> Date.now() — tracks when a ghost response was received
+const dr164FragmentBuffer = new Map();      // deviceId -> Buffer — partial response awaiting more MQTT fragments
 let watchdogTimerId = null;                 // Global watchdog timer ID
 
 // Modbus register discovery (K30XL direct RS232)
@@ -309,13 +310,13 @@ function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
     const pending = dr164PendingRequests.get(deviceId);
     if (!pending) {
         // Ghost response — arrived after timeout. Link is alive; refresh watchdog timestamp.
+        dr164FragmentBuffer.delete(deviceId);
         modemLastDataReceived.set(deviceId, Date.now());
         dr164LastGhostResponse.set(deviceId, Date.now());
         console.log(`[DR164] ⚠ Ghost response for ${deviceId} (no pending request) — marking for drain.`);
         return;
     }
 
-    const respHex = rawBuffer.toString('hex');
     const scanSession = modbusScanSessions.get(deviceId);
     if (scanSession?.status === 'running') {
         scanSession.lastCapture = classifyModbusResponse(rawBuffer, {
@@ -325,17 +326,46 @@ function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
             slaveId: pending.slaveId,
         });
     } else {
-        // Reject stale/mismatched frames (e.g. a previous step's answer arriving after
-        // its timeout) so they don't get mis-paired with the current step and desync
-        // the cycle. The current step keeps waiting for its real response.
-        if (!responseMatchesPending(rawBuffer, pending)) {
-            modemLastDataReceived.set(deviceId, Date.now());   // link is alive
-            dr164LastGhostResponse.set(deviceId, Date.now());  // drain before next step
-            console.log(`[DR164] ⚠ Stale/mismatched response for ${deviceId} (expected Fn ${pending.fn} Addr ${pending.startAddress} Qty ${pending.quantity}, got ${respHex.slice(0, 12)}…) — dropping.`);
+        // Some transparent MQTT-Modbus gateways flush their UART buffer on a size/time
+        // boundary independent of the Modbus frame boundary, splitting one physical
+        // response across multiple MQTT messages (observed: a 31-byte frame arriving as
+        // a 16-byte then a 15-byte publish). Accumulate bytes per pending request and
+        // validate the ACCUMULATED buffer, so a legitimate response isn't dropped just
+        // because it arrived in pieces.
+        const prior = dr164FragmentBuffer.get(deviceId);
+        const candidate = prior ? Buffer.concat([prior, rawBuffer]) : rawBuffer;
+
+        const anchorOk = candidate.length >= 2
+            && candidate[0] === pending.slaveId
+            && (candidate[1] === pending.fn || candidate[1] === ((pending.fn | 0x80) & 0xff));
+
+        if (!anchorOk) {
+            // Doesn't even look like the start of our response — genuine bus noise.
+            dr164FragmentBuffer.delete(deviceId);
+            modemLastDataReceived.set(deviceId, Date.now());
+            dr164LastGhostResponse.set(deviceId, Date.now());
+            console.log(`[DR164] ⚠ Noise for ${deviceId} (expected Fn ${pending.fn} Addr ${pending.startAddress} Qty ${pending.quantity}, got ${candidate.toString('hex').slice(0, 12)}…) — dropping.`);
             return;
         }
-        console.log(`[DR164] Response for ${deviceId}: ${respHex} (Req: Addr ${pending.startAddress}, Qty ${pending.quantity})`);
+
+        if (!responseMatchesPending(candidate, pending)) {
+            // Anchor matches but the frame isn't complete/valid yet.
+            if (candidate.length > 300) { // sane ceiling — this isn't converging, give up
+                dr164FragmentBuffer.delete(deviceId);
+                console.log(`[DR164] ⚠ Discarding oversized partial response for ${deviceId} (${candidate.length} bytes)`);
+                return;
+            }
+            dr164FragmentBuffer.set(deviceId, candidate);
+            console.log(`[DR164] ⏳ ${deviceId}: partial response (${candidate.length} bytes so far) — awaiting more fragments`);
+            return;
+        }
+
+        dr164FragmentBuffer.delete(deviceId);
+        rawBuffer = candidate;
+        console.log(`[DR164] Response for ${deviceId}: ${rawBuffer.toString('hex')} (Req: Addr ${pending.startAddress}, Qty ${pending.quantity})`);
     }
+
+    const respHex = rawBuffer.toString('hex');
 
     // Modbus exception (fn >= 0x80): link is OK but register map/slave may be wrong
     if (!scanSession && rawBuffer.length >= 3 && (rawBuffer[1] & 0x80)) {
@@ -425,6 +455,7 @@ async function pollDR164Device(device) {
             const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity, req.fn ?? 3);
 
             // Store pending request info for response correlation
+            dr164FragmentBuffer.delete(device.id); // don't let a stale partial bleed into this step
             dr164PendingRequests.set(device.id, {
                 requestHex: frame.toString('hex').toUpperCase(),
                 slaveId: device.slaveId,
@@ -512,6 +543,7 @@ function startDR164DevicePolling(device) {
     dr164PendingRequests.delete(device.id);
     dr164DevicePollingActive.set(device.id, false);
     dr164AbortRequested.delete(device.id);
+    dr164FragmentBuffer.delete(device.id);
 
     const deviceId = device.id;
 
@@ -667,6 +699,7 @@ function stopDR164DevicePolling(deviceId) {
         dr164DeviceTimers.delete(deviceId);
         dr164DevicePollingActive.delete(deviceId);
         dr164AbortRequested.delete(deviceId);
+        dr164FragmentBuffer.delete(deviceId);
         const resolver = dr164ResponseResolvers.get(deviceId);
         if (resolver) {
             dr164ResponseResolvers.delete(deviceId);
@@ -818,6 +851,7 @@ async function pollDr164FeedbackStep(device, label) {
     const fn = req.fn ?? 3;
     const frame = createModbusReadRequest(device.slaveId, req.startAddress, req.quantity, fn);
 
+    dr164FragmentBuffer.delete(device.id);
     dr164PendingRequests.set(device.id, {
         requestHex: frame.toString('hex').toUpperCase(),
         slaveId: device.slaveId,
@@ -861,6 +895,7 @@ async function modbusScanStep(device, step) {
     const fn = step.fn ?? 3;
     const frame = createModbusReadRequest(device.slaveId, step.startAddress, step.quantity, fn);
 
+    dr164FragmentBuffer.delete(device.id);
     dr164PendingRequests.set(device.id, {
         requestHex: frame.toString('hex').toUpperCase(),
         slaveId: device.slaveId,
