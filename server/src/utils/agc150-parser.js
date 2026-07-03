@@ -104,10 +104,6 @@ function regS16At(startAddress, regs, addr) {
   return s16Val(regAt(startAddress, regs, addr));
 }
 
-function busHasVoltage(m) {
-  return Math.max(m.l1n_v, m.l2n_v, m.l3n_v, m.l1l2_v, m.l2l3_v, m.l3l1_v) > 50;
-}
-
 export function parseDiscreteInputResponseHex(respHex) {
   const b = hexToBuf(respHex);
   if (!b || b.length < 5) throw new Error(`Discrete response RTU curta: ${respHex}`);
@@ -282,7 +278,7 @@ function decodeAcBlocks(profile, busAStart, busARegs, busBStart, busBRegs) {
 
   const out = [];
   const assignBusA = (measurements, role) => {
-    if (!measurements || !busHasVoltage(measurements)) return;
+    if (!measurements) return;
     const busRole = role === 'generator' ? 'generator' : 'mains';
     if (role === 'generator') {
       out.push(toGenBlock(measurements));
@@ -294,7 +290,7 @@ function decodeAcBlocks(profile, busAStart, busARegs, busBStart, busBRegs) {
   };
 
   const assignBusB = (measurements, role) => {
-    if (!measurements || !busHasVoltage(measurements)) return;
+    if (!measurements) return;
     if (role === 'generator') {
       out.push(toGenBlock(measurements));
     } else {
