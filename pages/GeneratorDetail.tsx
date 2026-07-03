@@ -1351,14 +1351,13 @@ const GeneratorDetail: React.FC = () => {
   return (
     <div className={`space-y-6 relative ${showOperatorUi && canControl ? 'pb-28' : 'pb-10'}`}>
       <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} statusText={statusText} />
-      {/* Full Screen Loading Overlay */}
+      {/* Small non-blocking corner toast while a command is in flight */}
       {controlLoading && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
-          <div className="w-16 h-16 border-4 border-ciklo-orange border-t-transparent rounded-full animate-spin mb-4"></div>
-          <h2 className="text-2xl font-bold text-white tracking-wide animate-pulse">
-            Processando Comando...
-          </h2>
-          <p className="text-gray-400 mt-2">Aguardando confirmação remota</p>
+        <div className="fixed top-4 right-4 z-50 pointer-events-none animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2.5 bg-ciklo-card/95 backdrop-blur-md border border-gray-700 rounded-full shadow-lg shadow-black/40 pl-3 pr-4 py-2">
+            <div className="w-3.5 h-3.5 border-2 border-ciklo-orange border-t-transparent rounded-full animate-spin shrink-0"></div>
+            <span className="text-xs font-semibold text-gray-200 whitespace-nowrap">Enviando comando...</span>
+          </div>
         </div>
       )}
 
