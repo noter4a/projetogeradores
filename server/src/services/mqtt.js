@@ -182,7 +182,7 @@ const MODBUS_SCAN_REPORT_DIR = path.join(__dirname, '../../logs');
 // Resilience constants
 const DR164_POLL_INTERVAL_MS = 15000;      // 15s between poll cycles (was 30s — faster mode/breaker feedback)
 const DR164_STEP_GAP_MS = 1500;            // 1.5s gap between Modbus steps (was 1s)
-const DR164_TIMEOUT_MS = 5000;             // 5s timeout per step
+const DR164_TIMEOUT_MS = 7000;             // Timeout per step — gives large fragmented responses (e.g. the 45-register engine block) room to reassemble across several MQTT-gateway flushes
 const DR164_POST_TIMEOUT_DRAIN_MS = 2500;  // 2.5s drain after timeout to flush late responses
 const DR164_POST_ERROR_DRAIN_MS = 3000;    // 3s drain after errors
 const DR164_MAX_CONSECUTIVE_TIMEOUTS = 3;  // Abort cycle after 3 consecutive timeouts

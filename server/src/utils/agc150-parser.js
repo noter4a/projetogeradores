@@ -528,7 +528,10 @@ export function mergeAgc150LiveTelemetry(existing, incoming) {
   const running = isAgc150EngineRunning(merged);
 
   if (running) {
-    for (const key of ['fuelLevel', 'batteryVoltage', 'oilPressure', 'engineTemp']) {
+    // Engine measurements (Step 5, the largest poll block) occasionally miss a cycle
+    // when the MQTT gateway fragments the response into more pieces than arrive within
+    // the step timeout. Hold the last known-good reading rather than showing a false 0.
+    for (const key of ['fuelLevel', 'batteryVoltage', 'oilPressure', 'engineTemp', 'rpm']) {
       const cur = merged[key];
       const prev = existing[key];
       if ((cur === 0 || cur == null) && prev > 0) {
@@ -537,6 +540,7 @@ export function mergeAgc150LiveTelemetry(existing, incoming) {
     }
   } else {
     merged.oilPressure = 0;
+    merged.rpm = 0;
   }
 
   return merged;
