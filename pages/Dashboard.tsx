@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GeneratorStatus, UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -6,7 +6,7 @@ import { useGenerators } from '../context/GeneratorContext';
 import { useOperatorMode } from '../context/OperatorModeContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio } from 'lucide-react';
+import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio, Search, X } from 'lucide-react';
 import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorDashboardCard from '../components/OperatorDashboardCard';
 import PullToRefreshIndicator from '../components/ui/PullToRefreshIndicator';
@@ -60,6 +60,32 @@ const Dashboard: React.FC = () => {
   const alarmGens = generators.filter(g => g.alarmCode && g.alarmCode > 0).length;
   const connectedGens = generators.filter(g => isGeneratorConnected(g.lastDataReceived)).length;
   const offlineGens = generators.filter(g => !isGeneratorConnected(g.lastDataReceived)).length;
+
+  // Filtro do painel: busca (nome do gerador / empresa / local) + status de conexão
+  const [search, setSearch] = useState('');
+  const [connFilter, setConnFilter] = useState<'all' | 'connected' | 'disconnected'>('all');
+
+  const filteredGenerators = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return generators.filter(g => {
+      const matchesSearch = !q
+        || g.name?.toLowerCase().includes(q)
+        || g.companyName?.toLowerCase().includes(q)
+        || g.location?.toLowerCase().includes(q);
+      const connected = isGeneratorConnected(g.lastDataReceived);
+      const matchesConn = connFilter === 'all'
+        || (connFilter === 'connected' ? connected : !connected);
+      return matchesSearch && matchesConn;
+    });
+  }, [generators, search, connFilter]);
+
+  const isFiltering = search.trim() !== '' || connFilter !== 'all';
+
+  const connFilterOptions: { value: typeof connFilter; label: string }[] = [
+    { value: 'all', label: 'Todos' },
+    { value: 'connected', label: 'Conectados' },
+    { value: 'disconnected', label: 'Desconectados' },
+  ];
 
   const showOperatorUi = operatorMode;
 
@@ -134,7 +160,52 @@ const Dashboard: React.FC = () => {
         <h3 className="text-lg font-bold text-white flex items-center gap-2 pl-1">
           <div className="w-1 h-5 bg-ciklo-orange rounded-full"></div>
           {showOperatorUi ? 'Painel de Visualização Simplificada' : 'Visão Geral do Painel'}
+          {!isLoading && isFiltering && (
+            <span className="ml-1 text-xs font-medium text-gray-500">
+              ({filteredGenerators.length} de {generators.length})
+            </span>
+          )}
         </h3>
+
+        {/* Filtro do painel */}
+        {!isLoading && generators.length > 0 && (
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por gerador, empresa ou local..."
+                className="w-full bg-ciklo-card border border-gray-700 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-ciklo-orange focus:ring-1 focus:ring-ciklo-orange transition-colors"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                  aria-label="Limpar busca"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+            <div className="flex bg-ciklo-card border border-gray-700 rounded-xl p-1 shrink-0">
+              {connFilterOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setConnFilter(opt.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    connFilter === opt.value
+                      ? 'bg-ciklo-orange text-black shadow'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           showOperatorUi ? (
@@ -162,15 +233,25 @@ const Dashboard: React.FC = () => {
               </button>
             )}
           </div>
+        ) : filteredGenerators.length === 0 ? (
+          <div className="text-center py-16 bg-ciklo-card rounded-xl border border-gray-800 border-dashed">
+            <p className="text-gray-400 text-lg">Nenhum gerador corresponde ao filtro.</p>
+            <button
+              onClick={() => { setSearch(''); setConnFilter('all'); }}
+              className="mt-4 text-ciklo-orange font-medium hover:underline"
+            >
+              Limpar filtros
+            </button>
+          </div>
         ) : showOperatorUi ? (
           <div className="grid grid-cols-1 gap-4">
-            {generators.map((gen) => (
+            {filteredGenerators.map((gen) => (
               <OperatorDashboardCard key={gen.id} gen={gen} />
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {generators.map((gen) => (
+            {filteredGenerators.map((gen) => (
               <div
                 key={gen.id}
                 onClick={() => navigate(`/generator/${gen.id}`)}
