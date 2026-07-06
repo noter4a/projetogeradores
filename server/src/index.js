@@ -10,6 +10,7 @@ import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { initMqttService, updatePollingList, runModbusScan, getModbusScanStatus } from './services/mqtt.js';
+import { initTcpBridge } from './services/tcp-bridge.js';
 import alarmRoutes from './routes/alarms.js';
 import crmRoutes from './routes/crm.js';
 import catalogRoutes from './routes/catalog.js';
@@ -35,6 +36,9 @@ const io = new Server(httpServer, {
 
 // Start MQTT Service
 initMqttService(io);
+
+// Start TCP<->MQTT bridge for serial-over-TCP modems (opt-in via TCP_BRIDGE_PORT)
+initTcpBridge();
 
 // FIX #6: Socket.IO com autenticação JWT
 io.use((socket, next) => {
