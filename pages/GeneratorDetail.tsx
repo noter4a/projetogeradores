@@ -792,11 +792,12 @@ const GeneratorDetail: React.FC = () => {
 
                   {/* --- ICONS --- */}
                   {(() => {
-                    const mainsFeedsLoad = gen.mainsFeedingLoad ?? gen.mainsBreakerClosed === true;
-                    const isMainsPresent = mainsFeedsLoad && (
-                      (gen.mainsVoltageL1 && gen.mainsVoltageL1 > 10)
-                      || (gen.mainsVoltageL12 && gen.mainsVoltageL12 > 10)
-                    );
+                    // Verde = rede energizada (tensão presente), mesmo com a chave aberta.
+                    // Cinza somente quando realmente não há tensão medida na rede.
+                    const isMainsPresent = [
+                      gen.mainsVoltageL1, gen.mainsVoltageL2, gen.mainsVoltageL3,
+                      gen.mainsVoltageL12, gen.mainsVoltageL23, gen.mainsVoltageL31,
+                    ].some(v => (v ?? 0) > 10);
                     return (
                       <g transform="translate(10, 50)" className={isMainsPresent ? "text-green-500" : "text-gray-500"}>
                         <circle cx="20" cy="20" r="22" fill="none" stroke={isMainsPresent ? "#22c55e" : "#6b7280"} strokeWidth="3" />
