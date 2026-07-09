@@ -1626,6 +1626,32 @@ const GeneratorDetail: React.FC = () => {
                 )}
               </div>
 
+              {/* Accordion: Curva de Carga */}
+              <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
+                <button
+                  onClick={() => toggleSection('load_curve')}
+                  className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('load_curve') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
+                      <TrendingUp size={22} className={expandedSections.has('load_curve') ? 'text-black' : 'text-ciklo-orange'} />
+                    </div>
+                    <div className="text-left">
+                      <span className="text-white font-bold text-base block">Curva de Carga</span>
+                      <span className="text-xs text-gray-400 mt-0.5 block">
+                        Período: {chartRange === '24h' ? '24 horas' : chartRange === '7d' ? '7 dias' : '1 mês'} • Potência: {Number(gen.activePowerTotal || 0).toFixed(1)} kW
+                      </span>
+                    </div>
+                  </div>
+                  {expandedSections.has('load_curve') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
+                </button>
+                {expandedSections.has('load_curve') && (
+                  <div className="px-1 pb-4 sm:px-3 animate-in fade-in duration-200">
+                    {renderLoadCurve()}
+                  </div>
+                )}
+              </div>
+
               {/* Accordion: Localização (só quando o gerador reporta GNSS) */}
               {gen.gpsUpdatedAt && (
                 <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
@@ -1653,32 +1679,6 @@ const GeneratorDetail: React.FC = () => {
                   )}
                 </div>
               )}
-
-              {/* Accordion: Curva de Carga */}
-              <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
-                <button
-                  onClick={() => toggleSection('load_curve')}
-                  className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('load_curve') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
-                      <TrendingUp size={22} className={expandedSections.has('load_curve') ? 'text-black' : 'text-ciklo-orange'} />
-                    </div>
-                    <div className="text-left">
-                      <span className="text-white font-bold text-base block">Curva de Carga</span>
-                      <span className="text-xs text-gray-400 mt-0.5 block">
-                        Período: {chartRange === '24h' ? '24 horas' : chartRange === '7d' ? '7 dias' : '1 mês'} • Potência: {Number(gen.activePowerTotal || 0).toFixed(1)} kW
-                      </span>
-                    </div>
-                  </div>
-                  {expandedSections.has('load_curve') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
-                </button>
-                {expandedSections.has('load_curve') && (
-                  <div className="px-1 pb-4 sm:px-3 animate-in fade-in duration-200">
-                    {renderLoadCurve()}
-                  </div>
-                )}
-              </div>
                 </>
               )}
             </div>
@@ -1689,13 +1689,13 @@ const GeneratorDetail: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="space-y-6">
                   {renderMechanicalParameters()}
-                  {renderLocation()}
                 </div>
                 <div className="lg:col-span-2 space-y-6">
                   {renderElectricalParameters()}
                 </div>
               </div>
               {renderLoadCurve()}
+              {renderLocation()}
             </>
           )}
         </div>
