@@ -89,6 +89,17 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
       );
     });
 
+    socket.on('generator:gps', (data: any) => {
+      setGenerators(prevGenerators =>
+        prevGenerators.map(gen => {
+          if (data.id === gen.id || data.id === gen.ip || data.id === gen.connectionName) {
+            return { ...gen, latitude: data.latitude, longitude: data.longitude, gpsUpdatedAt: data.gpsUpdatedAt };
+          }
+          return gen;
+        })
+      );
+    });
+
     socket.on('generator:list_changed', () => {
       console.log('[SOCKET] Generator list changed, reloading from server...');
       fetchGenerators();
@@ -98,6 +109,7 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
       socket?.off('connect', onConnect);
       socket?.off('disconnect', onDisconnect);
       socket?.off('generator:update');
+      socket?.off('generator:gps');
       socket?.off('generator:list_changed');
       socket?.disconnect();
       socket = null;

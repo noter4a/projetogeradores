@@ -17,7 +17,7 @@ import {
   Power, RotateCcw, Settings, Gauge,
   Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, ChevronDown, ChevronUp, Lock,
   RefreshCw, UtilityPole, Cable, TrendingUp, BarChart3, Play, Square,
-  Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban, AlertTriangle
+  Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban, AlertTriangle, MapPin
 } from 'lucide-react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
 
@@ -1378,6 +1378,18 @@ const GeneratorDetail: React.FC = () => {
                 <span className={`w-2 h-2 rounded-full ${gen.status === GeneratorStatus.RUNNING ? 'bg-green-500' : 'bg-red-500'}`}></span>
                 Status: {gen.status} | {gen.model}
               </p>
+              {gen.latitude != null && gen.longitude != null && (
+                <a
+                  href={`https://www.google.com/maps?q=${gen.latitude},${gen.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-ciklo-orange hover:underline"
+                  title={gen.gpsUpdatedAt ? `Atualizado: ${new Date(gen.gpsUpdatedAt).toLocaleString('pt-BR')}` : undefined}
+                >
+                  <MapPin size={13} />
+                  {gen.latitude.toFixed(5)}, {gen.longitude.toFixed(5)} — ver no mapa
+                </a>
+              )}
             </div>
           </div>
           {canControl && (

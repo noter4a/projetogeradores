@@ -10,7 +10,7 @@ import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { initMqttService, updatePollingList, runModbusScan, getModbusScanStatus } from './services/mqtt.js';
-import { initTcpBridge } from './services/tcp-bridge.js';
+import { initTcpBridge, initGnssBridge } from './services/tcp-bridge.js';
 import alarmRoutes from './routes/alarms.js';
 import crmRoutes from './routes/crm.js';
 import catalogRoutes from './routes/catalog.js';
@@ -39,6 +39,9 @@ initMqttService(io);
 
 // Start TCP<->MQTT bridge for serial-over-TCP modems (opt-in via TCP_BRIDGE_PORT)
 initTcpBridge();
+
+// Start GNSS location listener for modem GPS reports (opt-in via GNSS_BRIDGE_PORT)
+initGnssBridge(io);
 
 // FIX #6: Socket.IO com autenticação JWT
 io.use((socket, next) => {
@@ -980,6 +983,9 @@ router.get('/generators', authenticateToken, async (req, res) => {
             deviceType: row.connection_info?.deviceType || 'modem',
             agc150Profile: row.connection_info?.agc150Profile || 'gen',
             pollingPaused: row.connection_info?.pollingPaused === true,
+            latitude: row.connection_info?.gps?.lat ?? null,
+            longitude: row.connection_info?.gps?.lon ?? null,
+            gpsUpdatedAt: row.connection_info?.gps?.updatedAt ?? null,
             companyId: row.company_id,
             companyName: row.company_name,
             lastDataReceived: row.last_connected ? new Date(row.last_connected).getTime() : null,
@@ -1067,6 +1073,7 @@ router.put('/generators/:id', authenticateToken, requireRole('ADMIN'), async (re
         const existing = await pool.query("SELECT connection_info FROM generators WHERE id=$1", [id]);
         const existingPaused = existing.rows[0]?.connection_info?.pollingPaused === true;
         const pollingPaused = typeof gen.pollingPaused === 'boolean' ? gen.pollingPaused : existingPaused;
+        const existingGps = existing.rows[0]?.connection_info?.gps; // GPS is reported by the modem, not the form
 
         const connectionInfo = {
             connectionName: gen.connectionName,
@@ -1078,6 +1085,7 @@ router.put('/generators/:id', authenticateToken, requireRole('ADMIN'), async (re
             deviceType: gen.deviceType || 'modem',
             ...(gen.agc150Profile ? { agc150Profile: gen.agc150Profile } : {}),
             ...(pollingPaused ? { pollingPaused: true } : {}),
+            ...(existingGps ? { gps: existingGps } : {}),
         };
 
         await pool.query(

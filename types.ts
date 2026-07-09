@@ -114,6 +114,10 @@ export interface Generator {
   agc150Profile?: string;
   /** When true, the backend has stopped polling this unit (operator disabled reads) */
   pollingPaused?: boolean;
+  /** GPS position reported by the modem's GNSS feature */
+  latitude?: number | null;
+  longitude?: number | null;
+  gpsUpdatedAt?: string | null;
 
   // New Control Fields
   operationMode?: 'AUTO' | 'MANUAL' | 'INHIBITED';

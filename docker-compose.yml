@@ -32,6 +32,8 @@ services:
       # TCP<->MQTT bridge for serial-over-TCP modems (USR-G806s etc.).
       # Exposed on all interfaces so 4G modems can reach it. Must match TCP_BRIDGE_PORT in server/.env.
       - "8900:8900"
+      # GNSS location reports from the modem (separate socket). Must match GNSS_BRIDGE_PORT in server/.env.
+      - "8901:8901"
     volumes:
       - ./server/logs:/app/logs
     depends_on:
