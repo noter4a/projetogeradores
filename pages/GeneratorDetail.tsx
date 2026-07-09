@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
 
-const GENERATOR_SECTION_IDS = ['remote_control', 'mechanical', 'electrical', 'load_curve'] as const;
+const GENERATOR_SECTION_IDS = ['remote_control', 'mechanical', 'electrical', 'location', 'load_curve'] as const;
 type GeneratorSectionId = typeof GENERATOR_SECTION_IDS[number];
 
 const generatorSectionsStorageKey = (generatorId: string) => `ciklo_gen_sections_${generatorId}`;
@@ -32,6 +32,7 @@ function loadExpandedSections(generatorId: string | undefined, canControl: boole
     if (canControl) initial.add('remote_control');
     initial.add('mechanical');
     initial.add('electrical');
+    initial.add('location');
     initial.add('load_curve');
     return initial;
   };
@@ -1136,6 +1137,56 @@ const GeneratorDetail: React.FC = () => {
     );
   };
 
+  const renderLocation = () => {
+    if (!gen.gpsUpdatedAt) return null;
+    const hasFix = gen.gpsHasFix && gen.latitude != null && gen.longitude != null;
+
+    return (
+      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
+        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+          <MapPin size={18} className="text-ciklo-orange" /> Localização
+        </h3>
+
+        {hasFix ? (
+          <>
+            <div className="rounded-lg overflow-hidden border border-gray-700/50 mb-4 h-[260px]">
+              <iframe
+                title={`Mapa - ${gen.name}`}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${gen.longitude! - 0.004}%2C${gen.latitude! - 0.003}%2C${gen.longitude! + 0.004}%2C${gen.latitude! + 0.003}&layer=mapnik&marker=${gen.latitude}%2C${gen.longitude}`}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Coordenadas</p>
+                <p className="text-sm font-mono text-white">{gen.latitude!.toFixed(5)}, {gen.longitude!.toFixed(5)}</p>
+              </div>
+              <a
+                href={`https://www.google.com/maps?q=${gen.latitude},${gen.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs font-bold text-ciklo-orange hover:underline"
+              >
+                <MapPin size={14} /> Abrir no Google Maps
+              </a>
+            </div>
+            <p className="text-[10px] text-gray-600 mt-3">
+              Atualizado: {new Date(gen.gpsUpdatedAt).toLocaleString('pt-BR')}
+            </p>
+          </>
+        ) : (
+          <div className="flex items-center justify-center gap-3 text-gray-500 py-10">
+            <MapPin size={20} className="animate-pulse" />
+            <span className="text-sm">Buscando sinal de GPS...</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderLoadCurve = () => {
     const canSelectOnChart = powerHistory.length > 1 && !isChartZoomed;
 
@@ -1378,26 +1429,6 @@ const GeneratorDetail: React.FC = () => {
                 <span className={`w-2 h-2 rounded-full ${gen.status === GeneratorStatus.RUNNING ? 'bg-green-500' : 'bg-red-500'}`}></span>
                 Status: {gen.status} | {gen.model}
               </p>
-              {gen.gpsHasFix && gen.latitude != null && gen.longitude != null ? (
-                <a
-                  href={`https://www.google.com/maps?q=${gen.latitude},${gen.longitude}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-ciklo-orange hover:underline"
-                  title={gen.gpsUpdatedAt ? `Atualizado: ${new Date(gen.gpsUpdatedAt).toLocaleString('pt-BR')}` : undefined}
-                >
-                  <MapPin size={13} />
-                  {gen.latitude.toFixed(5)}, {gen.longitude.toFixed(5)} — ver no mapa
-                </a>
-              ) : gen.gpsUpdatedAt ? (
-                <span
-                  className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-gray-500"
-                  title={`Último relatório GNSS: ${new Date(gen.gpsUpdatedAt).toLocaleString('pt-BR')}`}
-                >
-                  <MapPin size={13} className="animate-pulse" />
-                  GPS: buscando sinal...
-                </span>
-              ) : null}
             </div>
           </div>
           {canControl && (
@@ -1595,6 +1626,34 @@ const GeneratorDetail: React.FC = () => {
                 )}
               </div>
 
+              {/* Accordion: Localização (só quando o gerador reporta GNSS) */}
+              {gen.gpsUpdatedAt && (
+                <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
+                  <button
+                    onClick={() => toggleSection('location')}
+                    className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('location') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
+                        <MapPin size={22} className={expandedSections.has('location') ? 'text-black' : 'text-ciklo-orange'} />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-white font-bold text-base block">Localização</span>
+                        <span className="text-xs text-gray-400 mt-0.5 block">
+                          {gen.gpsHasFix && gen.latitude != null ? `${gen.latitude.toFixed(4)}, ${gen.longitude!.toFixed(4)}` : 'Buscando sinal de GPS...'}
+                        </span>
+                      </div>
+                    </div>
+                    {expandedSections.has('location') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
+                  </button>
+                  {expandedSections.has('location') && (
+                    <div className="px-3 pb-4 animate-in fade-in duration-200">
+                      {renderLocation()}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Accordion: Curva de Carga */}
               <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
                 <button
@@ -1630,6 +1689,7 @@ const GeneratorDetail: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="space-y-6">
                   {renderMechanicalParameters()}
+                  {renderLocation()}
                 </div>
                 <div className="lg:col-span-2 space-y-6">
                   {renderElectricalParameters()}
