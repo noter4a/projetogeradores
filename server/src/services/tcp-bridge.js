@@ -185,9 +185,16 @@ export function initTcpBridge() {
     });
 }
 
-/** Persist a device's GPS position into connection_info.gps and push it to clients. */
-async function saveGpsPosition(io, deviceId, lat, lon) {
-    const gps = { lat, lon, updatedAt: new Date().toISOString() };
+/**
+ * Persist a GNSS report into connection_info.gps and push it to clients — even
+ * when no fix was decoded yet. This lets the UI show "waiting for GPS signal"
+ * instead of nothing at all, distinguishing "no GNSS configured on this unit"
+ * from "GNSS is reporting but hasn't acquired satellites yet".
+ */
+async function saveGpsReport(io, deviceId, pos /* {lat, lon} | null */) {
+    const gps = pos
+        ? { hasFix: true, lat: pos.lat, lon: pos.lon, updatedAt: new Date().toISOString() }
+        : { hasFix: false, updatedAt: new Date().toISOString() };
     try {
         const result = await pool.query(
             `UPDATE generators
@@ -197,15 +204,21 @@ async function saveGpsPosition(io, deviceId, lat, lon) {
             [JSON.stringify(gps), deviceId]
         );
         if (result.rowCount === 0) {
-            console.warn(`[GNSS] Position for unknown device "${deviceId}" (no matching generator) — ignoring.`);
+            console.warn(`[GNSS] Report for unknown device "${deviceId}" (no matching generator) — ignoring.`);
             return;
         }
-        console.log(`[GNSS] ${deviceId} @ ${lat}, ${lon}`);
+        console.log(pos ? `[GNSS] ${deviceId} @ ${pos.lat}, ${pos.lon}` : `[GNSS] ${deviceId}: reporting, no fix yet`);
         // Dedicated event so a GPS report doesn't refresh lastDataReceived (which would
         // make a unit with a dead controller but live modem look "connected").
-        if (io) io.emit('generator:gps', { id: deviceId, latitude: lat, longitude: lon, gpsUpdatedAt: gps.updatedAt });
+        if (io) io.emit('generator:gps', {
+            id: deviceId,
+            gpsHasFix: gps.hasFix,
+            latitude: gps.lat ?? null,
+            longitude: gps.lon ?? null,
+            gpsUpdatedAt: gps.updatedAt,
+        });
     } catch (err) {
-        console.error(`[GNSS] Failed to save position for ${deviceId}:`, err.message);
+        console.error(`[GNSS] Failed to save report for ${deviceId}:`, err.message);
     }
 }
 
@@ -252,11 +265,10 @@ export function initGnssBridge(io) {
             console.log(`[GNSS] ${deviceId} report (${chunk.length}B) hex=${hex} ascii="${ascii}"`);
 
             const pos = parseNmeaPosition(chunk.toString('latin1'));
-            if (pos) {
-                saveGpsPosition(io, deviceId, pos.lat, pos.lon);
-            } else {
-                console.log(`[GNSS] ${deviceId}: no NMEA position decoded from this report (format may be binary — capture kept above).`);
+            if (!pos) {
+                console.log(`[GNSS] ${deviceId}: no fix in this report (format may be binary — capture kept above).`);
             }
+            saveGpsReport(io, deviceId, pos);
         });
 
         socket.on('timeout', () => socket.destroy());

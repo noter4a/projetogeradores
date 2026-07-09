@@ -93,7 +93,7 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
       setGenerators(prevGenerators =>
         prevGenerators.map(gen => {
           if (data.id === gen.id || data.id === gen.ip || data.id === gen.connectionName) {
-            return { ...gen, latitude: data.latitude, longitude: data.longitude, gpsUpdatedAt: data.gpsUpdatedAt };
+            return { ...gen, gpsHasFix: data.gpsHasFix, latitude: data.latitude, longitude: data.longitude, gpsUpdatedAt: data.gpsUpdatedAt };
           }
           return gen;
         })

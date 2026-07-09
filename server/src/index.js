@@ -983,6 +983,7 @@ router.get('/generators', authenticateToken, async (req, res) => {
             deviceType: row.connection_info?.deviceType || 'modem',
             agc150Profile: row.connection_info?.agc150Profile || 'gen',
             pollingPaused: row.connection_info?.pollingPaused === true,
+            gpsHasFix: row.connection_info?.gps?.hasFix === true,
             latitude: row.connection_info?.gps?.lat ?? null,
             longitude: row.connection_info?.gps?.lon ?? null,
             gpsUpdatedAt: row.connection_info?.gps?.updatedAt ?? null,

@@ -1378,7 +1378,7 @@ const GeneratorDetail: React.FC = () => {
                 <span className={`w-2 h-2 rounded-full ${gen.status === GeneratorStatus.RUNNING ? 'bg-green-500' : 'bg-red-500'}`}></span>
                 Status: {gen.status} | {gen.model}
               </p>
-              {gen.latitude != null && gen.longitude != null && (
+              {gen.gpsHasFix && gen.latitude != null && gen.longitude != null ? (
                 <a
                   href={`https://www.google.com/maps?q=${gen.latitude},${gen.longitude}`}
                   target="_blank"
@@ -1389,7 +1389,15 @@ const GeneratorDetail: React.FC = () => {
                   <MapPin size={13} />
                   {gen.latitude.toFixed(5)}, {gen.longitude.toFixed(5)} — ver no mapa
                 </a>
-              )}
+              ) : gen.gpsUpdatedAt ? (
+                <span
+                  className="inline-flex items-center gap-1.5 mt-1.5 text-xs text-gray-500"
+                  title={`Último relatório GNSS: ${new Date(gen.gpsUpdatedAt).toLocaleString('pt-BR')}`}
+                >
+                  <MapPin size={13} className="animate-pulse" />
+                  GPS: buscando sinal...
+                </span>
+              ) : null}
             </div>
           </div>
           {canControl && (
