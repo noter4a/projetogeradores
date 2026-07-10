@@ -333,7 +333,28 @@ function handleDR164BinaryResponse(deviceId, rawBuffer, io) {
         // validate the ACCUMULATED buffer, so a legitimate response isn't dropped just
         // because it arrived in pieces.
         const prior = dr164FragmentBuffer.get(deviceId);
-        const candidate = prior ? Buffer.concat([prior, rawBuffer]) : rawBuffer;
+        let candidate = prior ? Buffer.concat([prior, rawBuffer]) : rawBuffer;
+
+        // Some gateways (e.g. USR-M100 with RS485 echo enabled) publish our own
+        // request back on the data topic before — or glued to — the controller's
+        // reply. Strip any echoed request prefix so it can't poison fragment
+        // reassembly, and ignore pure echoes entirely (full 8-byte match incl.
+        // CRC makes a false positive against a real response virtually impossible).
+        const reqFrame = Buffer.from(pending.requestHex, 'hex');
+        let echoStripped = false;
+        while (candidate.length >= reqFrame.length && candidate.subarray(0, reqFrame.length).equals(reqFrame)) {
+            candidate = candidate.subarray(reqFrame.length);
+            echoStripped = true;
+        }
+        if (candidate.length === 0) {
+            dr164FragmentBuffer.delete(deviceId);
+            modemLastDataReceived.set(deviceId, Date.now()); // link alive, but it's just our own echo
+            console.log(`[DR164] ↩ ${deviceId}: modem echoed our request (Fn ${pending.fn} Addr ${pending.startAddress}) — ignoring. Check the modem's RS485 echo setting.`);
+            return;
+        }
+        if (echoStripped) {
+            console.log(`[DR164] ↩ ${deviceId}: stripped echoed request prefix, ${candidate.length} byte(s) remain`);
+        }
 
         const anchorOk = candidate.length >= 2
             && candidate[0] === pending.slaveId
