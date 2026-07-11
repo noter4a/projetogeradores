@@ -16,6 +16,7 @@ import {
     resolveAgc150Profile,
 } from '../utils/agc150-parser.js';
 import { decodeKvaPayload } from '../utils/kva-parser.js';
+import { decodeCumminsPayload, CUMMINS_POLL_SEQUENCE, isCumminsController } from '../utils/cummins-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
 import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
 import {
@@ -425,11 +426,13 @@ async function pollDR164Device(device) {
     // Select poll sequence based on controller type
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
     const isDse = device.controller === 'dse';
+    const isCummins = isCumminsController(device.controller);
     const isSgc420 = isSgc420Controller(device.controller);
     const isAgc150 = isAgc150Controller(device.controller);
     const pollSequence = isKva ? KVA_POLL_SEQUENCE
-        : (isDse ? DSE_POLL_SEQUENCE : getPollSequenceForController(device.controller));
-    const controllerLabel = isKva ? 'KVA' : (isDse ? 'DSE' : controllerProfileLabel(device.controller));
+        : (isDse ? DSE_POLL_SEQUENCE
+        : (isCummins ? CUMMINS_POLL_SEQUENCE : getPollSequenceForController(device.controller)));
+    const controllerLabel = isKva ? 'KVA' : (isDse ? 'DSE' : (isCummins ? 'CUMMINS' : controllerProfileLabel(device.controller)));
 
     const topic = `devices/command/${device.id}`;
     console.log(`[${controllerLabel}] Starting poll cycle for ${device.id} (Slave ${device.slaveId}) — ${pollSequence.length} steps`);
@@ -585,6 +588,7 @@ function devicePollingLabel(device) {
     if (!device) return 'DR164';
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
     const isDse = device.controller === 'dse';
+    if (isCumminsController(device.controller)) return 'CUMMINS';
     return isKva ? 'KVA' : (isDse ? 'DSE' : controllerProfileLabel(device.controller));
 }
 
@@ -864,7 +868,8 @@ async function pollDr164FeedbackStep(device, label) {
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
     const isDse = device.controller === 'dse';
     const pollSequence = isKva ? KVA_POLL_SEQUENCE
-        : (isDse ? DSE_POLL_SEQUENCE : getPollSequenceForController(device.controller));
+        : (isDse ? DSE_POLL_SEQUENCE
+        : (isCumminsController(device.controller) ? CUMMINS_POLL_SEQUENCE : getPollSequenceForController(device.controller)));
     const req = pollSequence[0];
     if (!req) return;
 
@@ -1244,11 +1249,13 @@ export const initMqttService = (io) => {
             const isDr164Device = dr164Devices.some(d => d.id === deviceId);
             const isDeifDr164Device = isDr164Device && !isKvaDevice && !isDseDevice && !isAgc150Device && !isSgc420Device;
             const isDeifDevice = !isKvaDevice && !isDseDevice && (isDeifDr164Device || isSgc420Device || isAgc150Device);
+            const isCumminsDevice = dr164Devices.some(d => d.id === deviceId && isCumminsController(d.controller));
             const kvaResults = isKvaDevice ? decodeKvaPayload(payload) : [];
             const dseResults = isDseDevice ? decodeDsePayload(payload) : [];
+            const cumminsResults = isCumminsDevice ? decodeCumminsPayload(payload) : [];
 
             // If we have valid decoded blocks, merge them into a unified status object
-            if (results.length > 0 || kvaResults.length > 0 || dseResults.length > 0) {
+            if (results.length > 0 || kvaResults.length > 0 || dseResults.length > 0 || cumminsResults.length > 0) {
                 // We might receive multiple blocks (Voltages + Engine), so we start with a base object
                 // and merge all decoded fields.
                 let unifiedData = {};
@@ -1692,6 +1699,57 @@ export const initMqttService = (io) => {
                             // Calculate average voltage
                             const avgVal = (d.voltageL1 + d.voltageL2 + d.voltageL3) / 3;
                             unifiedData.avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
+                        }
+                    }
+                });
+
+                // ========================================
+                // Cummins PowerCommand (PCC 1301) Data Mapping
+                // ========================================
+                cumminsResults.forEach(res => {
+                    if (res.ok && res.decoded) {
+                        const d = res.decoded;
+
+                        if (d.block === 'CUMMINS_STATUS') {
+                            unifiedData.operationMode = d.operationMode;
+                            unifiedData.status = d.status;
+                            unifiedData.running = d.running;
+                            unifiedData.alarmCode = d.alarmCode;
+                            unifiedData.alarmMessage = d.alarmMessage;
+                            if (!unifiedData.alarms) unifiedData.alarms = {};
+                            unifiedData.alarms.shutdown = d.isShutdown;
+                            unifiedData.voltageL1 = d.voltageL1;
+                            unifiedData.voltageL2 = d.voltageL2;
+                            unifiedData.voltageL3 = d.voltageL3;
+                            unifiedData.voltageL12 = d.voltageL12;
+                            unifiedData.voltageL23 = d.voltageL23;
+                            unifiedData.voltageL31 = d.voltageL31;
+                            unifiedData.avgVoltage = d.avgVoltage;
+                        }
+
+                        if (d.block === 'CUMMINS_CURRENT') {
+                            unifiedData.currentL1 = d.currentL1;
+                            unifiedData.currentL2 = d.currentL2;
+                            unifiedData.currentL3 = d.currentL3;
+                        }
+
+                        if (d.block === 'CUMMINS_POWER') {
+                            unifiedData.activePower = d.activePower;
+                            unifiedData.activePowerTotal = d.activePowerTotal;
+                            unifiedData.apparentPower = d.apparentPower;
+                            unifiedData.frequency = d.frequency;
+                        }
+
+                        if (d.block === 'CUMMINS_ENGINE1') {
+                            unifiedData.batteryVoltage = d.batteryVoltage;
+                            unifiedData.oilPressure = d.oilPressure;
+                            unifiedData.engineTemp = d.engineTemp;
+                        }
+
+                        if (d.block === 'CUMMINS_ENGINE2') {
+                            unifiedData.rpm = d.rpm;
+                            unifiedData.totalHours = d.totalHours;
+                            unifiedData.runHours = d.runHours;
                         }
                     }
                 });

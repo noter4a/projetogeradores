@@ -113,8 +113,8 @@ const AddGenerator: React.FC = () => {
       const updated = { ...prev, [name]: value };
       // Auto-select deviceType when controller changes
       if (name === 'controller') {
-        if (value === 'kvar' || value === 'dse' || value === 'sgc420' || value === 'agc150') {
-          updated.deviceType = 'dr164'; // KVA, DSE, SGC420 e AGC150 usam modo transparente (DR164/USR162)
+        if (value === 'kvar' || value === 'dse' || value === 'sgc420' || value === 'agc150' || value === 'cummins') {
+          updated.deviceType = 'dr164'; // KVA, DSE, SGC420, AGC150 e Cummins usam modo transparente (DR164/USR162)
         }
       }
       return updated;
@@ -342,6 +342,7 @@ const AddGenerator: React.FC = () => {
               <option value="sgc420">DEIF SGC 420</option>
               <option value="agc150">DEIF AGC 150</option>
               <option value="kvar">KVA</option>
+              <option value="cummins">Cummins PowerCommand (PCC 1301)</option>
             </select>
           </div>
 
