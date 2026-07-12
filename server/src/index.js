@@ -11,6 +11,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { initMqttService, updatePollingList, runModbusScan, getModbusScanStatus } from './services/mqtt.js';
 import { initTcpBridge, initGnssBridge } from './services/tcp-bridge.js';
+import { initSnmpAgent } from './services/snmp-agent.js';
 import alarmRoutes from './routes/alarms.js';
 import crmRoutes from './routes/crm.js';
 import catalogRoutes from './routes/catalog.js';
@@ -42,6 +43,9 @@ initTcpBridge();
 
 // Start GNSS location listener for modem GPS reports (opt-in via GNSS_BRIDGE_PORT)
 initGnssBridge(io);
+
+// Start SNMP agent exposing generator telemetry (opt-in via SNMP_PORT)
+initSnmpAgent();
 
 // FIX #6: Socket.IO com autenticação JWT
 io.use((socket, next) => {

@@ -34,6 +34,9 @@ services:
       - "8900:8900"
       # GNSS location reports from the modem (separate socket). Must match GNSS_BRIDGE_PORT in server/.env.
       - "8901:8901"
+      # SNMP agent (generator telemetry, read-only). Must match SNMP_PORT in server/.env.
+      # Restrict via firewall to the monitoring system's IP — never leave this open to the internet.
+      - "161:161/udp"
     volumes:
       - ./server/logs:/app/logs
     depends_on:

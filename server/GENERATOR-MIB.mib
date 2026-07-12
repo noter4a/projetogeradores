@@ -1,0 +1,181 @@
+GENERATOR-MIB DEFINITIONS ::= BEGIN
+
+-- MIB for the native SNMP agent in server/src/services/snmp-agent.js.
+-- Troque 99999 pelo seu Private Enterprise Number (PEN), registrado de graca
+-- em https://pen.iana.org/pen/PenApplication.page, antes de entregar isso a
+-- um cliente externo. O agente tambem le SNMP_ENTERPRISE_OID do .env — troque
+-- os dois juntos (o numero aqui e so documentacao; quem manda no OID real
+-- servido pela rede e a env var).
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, enterprises
+        FROM SNMPv2-SMI;
+
+generatorGateway MODULE-IDENTITY
+    LAST-UPDATED "202607110000Z"
+    ORGANIZATION "Sua Empresa"
+    CONTACT-INFO "seu-email@empresa.com"
+    DESCRIPTION
+        "MIB do agente SNMP nativo de monitoramento de geradores (Ciklo)."
+    ::= { enterprises 99999 }
+
+-- Tabela conceitual: uma linha por gerador, indexada por generatorIndex
+-- (inteiro estavel, atribuido na primeira vez que o gerador e visto pelo
+-- agente e mantido pelo tempo de vida do processo — nao e o mesmo id que
+-- aparece no painel).
+generatorTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF GeneratorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Tabela com uma linha por gerador monitorado."
+    ::= { generatorGateway 1 }
+
+generatorEntry OBJECT-TYPE
+    SYNTAX      GeneratorEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Uma linha da tabela de geradores."
+    INDEX       { generatorIndex }
+    ::= { generatorTable 1 }
+
+GeneratorEntry ::= SEQUENCE {
+    generatorIndex      Integer32,
+    generatorId         OCTET STRING,
+    generatorName       OCTET STRING,
+    statusCode          INTEGER,
+    connected           INTEGER,
+    mainsVoltage        Gauge32,
+    genVoltage          Gauge32,
+    frequency           Gauge32,
+    rpm                 Gauge32,
+    fuelLevel           Gauge32,
+    batteryVoltage      Gauge32,
+    oilPressure         Gauge32,
+    engineTemp          Gauge32,
+    activePower         Gauge32,
+    alarmCode           Integer32,
+    runHours            Gauge32,
+    lastUpdateEpoch     Gauge32
+}
+
+generatorIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..2147483647)
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Indice estavel da linha (nao e o ID do gerador no painel)."
+    ::= { generatorEntry 1 }
+
+generatorId OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "ID do gerador como aparece no banco/painel (ex: GEN-172...)."
+    ::= { generatorEntry 2 }
+
+generatorName OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Nome cadastrado do gerador."
+    ::= { generatorEntry 3 }
+
+statusCode OBJECT-TYPE
+    SYNTAX      INTEGER { stopped(1), running(2), alarm(3), offline(4) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Status atual do gerador."
+    ::= { generatorEntry 4 }
+
+connected OBJECT-TYPE
+    SYNTAX      INTEGER { no(0), yes(1) }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Se o gerador reportou dados nos ultimos 120s."
+    ::= { generatorEntry 5 }
+
+mainsVoltage OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Tensao da rede eletrica, fase 1 (V)."
+    ::= { generatorEntry 6 }
+
+genVoltage OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Tensao gerada pelo grupo gerador, fase 1 (V)."
+    ::= { generatorEntry 7 }
+
+frequency OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Frequencia do gerador, em Hz x10 (600 = 60.0 Hz)."
+    ::= { generatorEntry 8 }
+
+rpm OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Rotacao do motor (RPM)."
+    ::= { generatorEntry 9 }
+
+fuelLevel OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Nivel de combustivel (%)."
+    ::= { generatorEntry 10 }
+
+batteryVoltage OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Tensao da bateria de partida, em V x10 (272 = 27.2V)."
+    ::= { generatorEntry 11 }
+
+oilPressure OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Pressao do oleo, em bar x100 (550 = 5.50 bar)."
+    ::= { generatorEntry 12 }
+
+engineTemp OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Temperatura do motor/liquido de arrefecimento (graus C)."
+    ::= { generatorEntry 13 }
+
+activePower OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Potencia ativa, em kW x10 (453 = 45.3 kW)."
+    ::= { generatorEntry 14 }
+
+alarmCode OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Codigo do alarme atualmente ativo (0 = sem alarme)."
+    ::= { generatorEntry 15 }
+
+runHours OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Horimetro total, em horas x100 (9666 = 96.66h)."
+    ::= { generatorEntry 16 }
+
+lastUpdateEpoch OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Timestamp Unix (segundos) da ultima leitura recebida."
+    ::= { generatorEntry 17 }
+
+END
