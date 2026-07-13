@@ -88,6 +88,16 @@ SNMP_CLIENT_EXPORT_1_GENERATORS=Ciklo70
 - Pode repetir para outros clientes: `SNMP_CLIENT_EXPORT_2_PORT=16102`,
   `_2_COMMUNITY=...`, `_2_GENERATORS=Ciklo55,Ciklo50` (pode ter mais de
   um gerador por export, se for o mesmo cliente).
+- **Porta**: use uma porta dentro de **16101–16110** — essa faixa já
+  vem publicada no `docker-compose.yml`. Se precisar de mais de 10
+  exports, adicione outra faixa no compose e rode
+  `docker-compose up -d api` (recreate) pra aplicar.
+- Depois de mexer no `.env`, recrie o container pra valer
+  (`docker restart` sozinho **não** relê o `.env`):
+  ```bash
+  docker rm -f ciklo-api
+  docker-compose up -d api
+  ```
 - Libere no firewall só a porta daquele export, só para o IP do
   cliente: `ufw allow from <IP_DO_CLIENTE> to any port 16101 proto udp`.
 

@@ -37,6 +37,10 @@ services:
       # SNMP agent (generator telemetry, read-only). Must match SNMP_PORT in server/.env.
       # Restrict via firewall to the monitoring system's IP — never leave this open to the internet.
       - "161:161/udp"
+      # Per-client scoped SNMP exports (SNMP_CLIENT_EXPORT_<N>_PORT in server/.env).
+      # Reserved range so adding a new export only needs .env + container recreate —
+      # no compose edit needed as long as the chosen port falls in this range.
+      - "16101-16110:16101-16110/udp"
     volumes:
       - ./server/logs:/app/logs
     depends_on:
