@@ -36,6 +36,18 @@
 // Each export's table only ever contains those generator(s) — the client's
 // monitoring system can walk/browse freely with no risk of seeing anyone
 // else's fleet.
+//
+// Alarm traps: each agent instance can optionally push an SNMPv2c trap the
+// moment IT notices (on its own poll cycle) that a generator's alarmCode
+// changed — started, changed to a different code, or cleared back to 0.
+// This is push-based on top of the poll-based table: no separate detection
+// path, just a diff against what this instance last wrote for that row.
+//   SNMP_TRAP_TARGET=<host>:<port>          (full-fleet agent's trap target)
+//   SNMP_TRAP_COMMUNITY=<community>          (defaults to SNMP_COMMUNITY)
+//   SNMP_CLIENT_EXPORT_<N>_TRAP_TARGET=<host>:<port>
+//   SNMP_CLIENT_EXPORT_<N>_TRAP_COMMUNITY=<community>  (defaults to that export's own community)
+// No trap target configured for an instance = no traps sent by it (opt-in).
+// Trap OID and variable-binding OIDs: see server/GENERATOR-MIB.mib.
 
 import snmp from 'net-snmp';
 import pool from '../db.js';
@@ -126,6 +138,53 @@ function rowToColumns(row, stableIndexFor) {
     ];
 }
 
+const ALARM_CODE_COLUMN_INDEX = 14; // 0-based position in the `cols` array (column number 15)
+
+/**
+ * Builds a one-shot trap sender bound to a target/community, or a no-op if
+ * no target is configured. Reuses one SNMP session for the agent instance's
+ * lifetime rather than opening a new socket per trap.
+ */
+function createTrapSender({ target, community, enterpriseOid, label }) {
+    if (!target) return null;
+
+    const parts = target.split(':');
+    const host = parts[0];
+    const port = parseInt(parts[1], 10);
+    if (!host || !port) {
+        console.error(`[SNMP]${label ? ` [${label}]` : ''} Invalid trap target "${target}" — expected host:port. Traps disabled for this instance.`);
+        return null;
+    }
+
+    // NOTE: session.trap() sends to `trapPort`, a SEPARATE option from `port`
+    // (which is only used for get/set/walk requests) — defaults to 162 if not
+    // set explicitly, regardless of `port`. Must set both to the same value.
+    const trapSession = snmp.createSession(host, community, { port, trapPort: port, version: snmp.Version2c });
+    trapSession.on('error', (err) => {
+        console.error(`[SNMP]${label ? ` [${label}]` : ''} Trap session error:`, err.message);
+    });
+
+    const trapOid = `${enterpriseOid}.2.1`;
+
+    return function sendAlarmTrap({ generatorId, generatorName, previousCode, newCode }) {
+        const eventType = newCode === 0 ? 'CLEARED' : (previousCode === 0 ? 'STARTED' : 'CHANGED');
+        const varbinds = [
+            { oid: `${enterpriseOid}.3.1`, type: snmp.ObjectType.OctetString, value: generatorId },
+            { oid: `${enterpriseOid}.3.2`, type: snmp.ObjectType.OctetString, value: generatorName },
+            { oid: `${enterpriseOid}.3.3`, type: snmp.ObjectType.Integer, value: previousCode },
+            { oid: `${enterpriseOid}.3.4`, type: snmp.ObjectType.Integer, value: newCode },
+            { oid: `${enterpriseOid}.3.5`, type: snmp.ObjectType.OctetString, value: eventType },
+        ];
+        trapSession.trap(trapOid, varbinds, (err) => {
+            if (err) {
+                console.error(`[SNMP]${label ? ` [${label}]` : ''} Failed to send alarm trap for ${generatorId}:`, err.message);
+            } else {
+                console.log(`[SNMP]${label ? ` [${label}]` : ''} Alarm trap sent: ${generatorId} (${generatorName}) ${eventType} — ${previousCode} -> ${newCode}`);
+            }
+        });
+    };
+}
+
 /** getTableRowCells throws (rather than returning null) if the table's tree
  *  node hasn't been created yet — which only happens lazily, the first time
  *  addTableRow() runs. Treat "provider node doesn't exist yet" the same as
@@ -140,8 +199,11 @@ function safeGetRow(mib, table, rowIndex) {
 
 /** Upsert every current generator into the table, and drop rows for
  *  generators that no longer exist (index stays reserved in memory so a
- *  reappearing generator gets the same index back next time). */
-function refreshTable(mib, generatorIds, stableIndexFor, indexValues, label) {
+ *  reappearing generator gets the same index back next time). When
+ *  `sendAlarmTrap` is provided, fires a trap on any alarmCode transition for
+ *  a row this instance had already seen before (never on first sight of a
+ *  row, to avoid a trap storm for pre-existing alarms on process start). */
+function refreshTable(mib, generatorIds, stableIndexFor, indexValues, label, sendAlarmTrap) {
     return fetchGeneratorRows(generatorIds)
         .then((rows) => {
             const seenIndexes = new Set();
@@ -152,6 +214,14 @@ function refreshTable(mib, generatorIds, stableIndexFor, indexValues, label) {
                 seenIndexes.add(idx);
                 const existing = safeGetRow(mib, 'generatorTable', [idx]);
                 if (existing) {
+                    if (sendAlarmTrap && existing[ALARM_CODE_COLUMN_INDEX] !== cols[ALARM_CODE_COLUMN_INDEX]) {
+                        sendAlarmTrap({
+                            generatorId: cols[1],
+                            generatorName: cols[2],
+                            previousCode: existing[ALARM_CODE_COLUMN_INDEX],
+                            newCode: cols[ALARM_CODE_COLUMN_INDEX],
+                        });
+                    }
                     cols.forEach((value, i) => {
                         if (existing[i] !== value) {
                             mib.setTableSingleCell('generatorTable', i + 1, [idx], value);
@@ -179,7 +249,7 @@ function refreshTable(mib, generatorIds, stableIndexFor, indexValues, label) {
  * index-assignment map, so a scoped export's row indices don't depend on
  * what other instances/exports exist.
  */
-function startAgentInstance({ port, community, enterpriseOid, pollIntervalMs, generatorIds, label }) {
+function startAgentInstance({ port, community, enterpriseOid, pollIntervalMs, generatorIds, label, trapTarget, trapCommunity }) {
     if (community === 'public') {
         console.warn(`[SNMP]${label ? ` [${label}]` : ''} Using default community "public" — set a real community for production use.`);
     }
@@ -233,11 +303,19 @@ function startAgentInstance({ port, community, enterpriseOid, pollIntervalMs, ge
     };
     const indexValues = () => indexByGeneratorId.values();
 
-    refreshTable(mib, generatorIds, stableIndexFor, indexValues, label);
-    setInterval(() => refreshTable(mib, generatorIds, stableIndexFor, indexValues, label), pollIntervalMs);
+    const sendAlarmTrap = createTrapSender({
+        target: trapTarget,
+        community: trapCommunity || community,
+        enterpriseOid,
+        label,
+    });
+
+    refreshTable(mib, generatorIds, stableIndexFor, indexValues, label, sendAlarmTrap);
+    setInterval(() => refreshTable(mib, generatorIds, stableIndexFor, indexValues, label, sendAlarmTrap), pollIntervalMs);
 
     const scope = generatorIds?.length ? `scoped to [${generatorIds.join(', ')}]` : 'full fleet';
-    console.log(`[SNMP]${label ? ` [${label}]` : ''} Agent listening on UDP ${port} (${scope}), table OID ${enterpriseOid}.1, refreshing every ${pollIntervalMs}ms.`);
+    const trapInfo = sendAlarmTrap ? `, traps -> ${trapTarget}` : '';
+    console.log(`[SNMP]${label ? ` [${label}]` : ''} Agent listening on UDP ${port} (${scope}), table OID ${enterpriseOid}.1, refreshing every ${pollIntervalMs}ms${trapInfo}.`);
     return agent;
 }
 
@@ -254,7 +332,9 @@ function readClientExportConfigs() {
             console.warn(`[SNMP] SNMP_CLIENT_EXPORT_${n}_GENERATORS is empty — skipping export ${n} (a scoped export needs at least one generator, otherwise use the full-fleet SNMP_PORT instead).`);
             continue;
         }
-        configs.push({ n, port, community, generatorIds });
+        const trapTarget = process.env[`SNMP_CLIENT_EXPORT_${n}_TRAP_TARGET`] || null;
+        const trapCommunity = process.env[`SNMP_CLIENT_EXPORT_${n}_TRAP_COMMUNITY`] || null;
+        configs.push({ n, port, community, generatorIds, trapTarget, trapCommunity });
     }
     return configs;
 }
@@ -274,6 +354,8 @@ export function initSnmpAgent() {
             pollIntervalMs,
             generatorIds: null,
             label: 'fleet',
+            trapTarget: process.env.SNMP_TRAP_TARGET || null,
+            trapCommunity: process.env.SNMP_TRAP_COMMUNITY || null,
         }));
     } else {
         console.log('[SNMP] Full-fleet agent disabled (set SNMP_PORT to enable).');
@@ -287,6 +369,8 @@ export function initSnmpAgent() {
             pollIntervalMs,
             generatorIds: cfg.generatorIds,
             label: `client-export-${cfg.n}`,
+            trapTarget: cfg.trapTarget,
+            trapCommunity: cfg.trapCommunity,
         }));
     }
 

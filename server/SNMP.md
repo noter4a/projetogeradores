@@ -109,17 +109,52 @@ snmptable -v2c -c cliente_ciklo70 <IP_DO_SERVIDOR>:16101 1.3.6.1.4.1.99999.1
 
 Só aparece a linha do Ciklo70 — nenhum outro gerador da frota.
 
-## 6. Somente leitura, sempre
+## 6. Alarmes por trap (push, sem precisar ficar consultando)
+
+Além de o `alarmCode` (coluna 15) já mostrar o alarme ativo quando
+consultado, cada instância do agente pode **avisar sozinha** o sistema
+de monitoramento do cliente assim que perceber, no próprio ciclo de
+poll, que o `alarmCode` de um gerador mudou — abriu (`0 -> N`), trocou
+(`N -> M`) ou fechou (`N -> 0`). Nenhum trap é enviado na primeira vez
+que o agente vê um gerador (evita avalanche de traps toda vez que o
+processo reinicia com alarmes já existentes).
+
+No `server/.env`, para a frota inteira:
+```
+SNMP_TRAP_TARGET=<ip_do_receptor>:<porta>
+SNMP_TRAP_COMMUNITY=<community_do_trap>     # opcional, usa SNMP_COMMUNITY se omitido
+```
+
+Ou para um export específico de cliente:
+```
+SNMP_CLIENT_EXPORT_1_TRAP_TARGET=<ip_do_receptor_do_cliente>:<porta>
+SNMP_CLIENT_EXPORT_1_TRAP_COMMUNITY=<community_do_trap>   # opcional
+```
+
+Sem `..._TRAP_TARGET` configurado, aquela instância simplesmente não
+manda trap nenhum (continua só respondendo consulta, como antes).
+
+O trap manda 5 variáveis (ver `alarmTrap` no `GENERATOR-MIB.mib`):
+`trapGeneratorId`, `trapGeneratorName`, `trapPreviousAlarmCode`,
+`trapCurrentAlarmCode` e `trapEventType` (`STARTED`/`CHANGED`/`CLEARED`).
+
+Testar recebendo com o `snmptrapd` (do pacote net-snmp) do lado do
+cliente:
+```bash
+mkdir -p ~/.snmp/mibs   # copie GENERATOR-MIB.mib para essa pasta
+snmptrapd -f -Lo -m ALL -M +$HOME/.snmp/mibs
+```
+Assim que um alarme mudar de estado num gerador daquele export, a
+mensagem deve aparecer na hora, sem precisar consultar nada.
+
+## 7. Somente leitura, sempre
 
 Nenhuma coluna aceita `SET` — a tabela inteira é `MAX-ACCESS read-only`
 e a comunidade só recebe nível `ReadOnly`. Não existe caminho para
 controlar um gerador via SNMP.
 
-## 6. Evolução futura (não implementado ainda)
+## 8. Evolução futura (não implementado ainda)
 
 - **SNMPv3** (usuário/senha em vez de community string em texto claro)
   — a biblioteca (`net-snmp`) já suporta via `authorizer.addUser(...)`,
   mas o agente atual só usa SNMPv2c/community. Avise se precisar.
-- **Traps** de alarme (push em vez de polling) — hoje o cliente precisa
-  consultar; dá para adicionar `agent.sendTrap(...)` quando um alarme
-  abrir/fechar, se for necessário.

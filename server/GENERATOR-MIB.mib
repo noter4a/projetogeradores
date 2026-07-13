@@ -8,7 +8,7 @@ GENERATOR-MIB DEFINITIONS ::= BEGIN
 -- servido pela rede e a env var).
 
 IMPORTS
-    MODULE-IDENTITY, OBJECT-TYPE, enterprises
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, enterprises
         FROM SNMPv2-SMI;
 
 generatorGateway MODULE-IDENTITY
@@ -177,5 +177,58 @@ lastUpdateEpoch OBJECT-TYPE
     STATUS      current
     DESCRIPTION "Timestamp Unix (segundos) da ultima leitura recebida."
     ::= { generatorEntry 17 }
+
+-- Notificacoes (traps). Disparadas pelo agente (nao fazem parte da tabela)
+-- quando alarmCode de um gerador muda de valor entre um ciclo de poll e
+-- outro — inicio de alarme (0 -> N), troca de alarme (N -> M) ou resolucao
+-- (N -> 0). So enviado se SNMP_TRAP_TARGET / SNMP_CLIENT_EXPORT_<n>_TRAP_TARGET
+-- estiver configurado — ver server/SNMP.md.
+
+notifications OBJECT IDENTIFIER ::= { generatorGateway 2 }
+
+alarmTrap NOTIFICATION-TYPE
+    OBJECTS { trapGeneratorId, trapGeneratorName, trapPreviousAlarmCode,
+              trapCurrentAlarmCode, trapEventType }
+    STATUS  current
+    DESCRIPTION
+        "Disparado quando o alarme ativo de um gerador muda de estado."
+    ::= { notifications 1 }
+
+trapVars OBJECT IDENTIFIER ::= { generatorGateway 3 }
+
+trapGeneratorId OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION "ID do gerador cujo alarme mudou (mesmo valor de generatorId)."
+    ::= { trapVars 1 }
+
+trapGeneratorName OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION "Nome do gerador cujo alarme mudou."
+    ::= { trapVars 2 }
+
+trapPreviousAlarmCode OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION "Codigo de alarme antes da mudanca (0 = nao tinha alarme)."
+    ::= { trapVars 3 }
+
+trapCurrentAlarmCode OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION "Codigo de alarme depois da mudanca (0 = alarme resolvido)."
+    ::= { trapVars 4 }
+
+trapEventType OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION "STARTED, CHANGED ou CLEARED."
+    ::= { trapVars 5 }
 
 END
