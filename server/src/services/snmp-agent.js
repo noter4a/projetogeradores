@@ -4,11 +4,10 @@
 // Postgres rows the REST API (`GET /api/generators`) already serves, polled on
 // an interval and mapped into a standard SNMP conceptual table — one row per
 // generator, indexed by a stable integer assigned the first time each
-// generator is seen.
+// generator is seen (per agent instance — see "Scoped exports" below).
 //
-// Opt-in via SNMP_PORT (does nothing if unset). Read-only: no SET is ever
-// honored — the table's columns are all MAX-ACCESS read-only, and the
-// community/user access level is capped at ReadOnly.
+// Read-only, always: no SET is ever honored — the table's columns are all
+// MAX-ACCESS read-only, and every community is capped at ReadOnly.
 //
 // OID layout (see server/GENERATOR-MIB.mib for the matching MIB definition):
 //   1.3.6.1.4.1.<PEN>.1              generatorTable   (walk/snmptable this)
@@ -16,6 +15,27 @@
 //   1.3.6.1.4.1.<PEN>.1.1.<col>.<i>  column <col> of the row at index <i>
 // Replace <PEN> (SNMP_ENTERPRISE_OID) with your own IANA Private Enterprise
 // Number before handing this to an external client — see pen.iana.org.
+//
+// Full-fleet agent: opt-in via SNMP_PORT (does nothing if unset).
+//
+// Scoped exports (e.g. "give this one client SNMP for just their generator"):
+// the net-snmp library's access control only supports a global ReadOnly/
+// ReadWrite/None level per community, not per-row/per-OID views — so a
+// community can't be restricted to a subset of rows within one shared table.
+// Instead, each scoped export is a SEPARATE agent instance on its own port,
+// pre-filtered by generator, with its own community. Configure as many as
+// needed via numbered env vars:
+//   SNMP_CLIENT_EXPORT_1_PORT=16101
+//   SNMP_CLIENT_EXPORT_1_COMMUNITY=cliente_ciklo70
+//   SNMP_CLIENT_EXPORT_1_GENERATORS=Ciklo70
+//   SNMP_CLIENT_EXPORT_2_PORT=16102
+//   SNMP_CLIENT_EXPORT_2_COMMUNITY=cliente_outro
+//   SNMP_CLIENT_EXPORT_2_GENERATORS=Ciklo55,Ciklo50
+// GENERATORS is a comma-separated list matched against the generator's id,
+// connection_info.ip or connection_info.connectionName (whichever you know).
+// Each export's table only ever contains those generator(s) — the client's
+// monitoring system can walk/browse freely with no risk of seeing anyone
+// else's fleet.
 
 import snmp from 'net-snmp';
 import pool from '../db.js';
@@ -24,10 +44,9 @@ const CONNECTION_THRESHOLD_MS = 120_000; // mirrors utils/generatorHealth.ts on 
 
 const STATUS_ENUM = { STOPPED: 1, RUNNING: 2, ALARM: 3, OFFLINE: 4 };
 
-// Column definition: [number, name, type, scale (multiply float by this to get an integer)]
-// Gauge32/Integer/Counter32 are all integer-only on the wire, so non-integer
-// telemetry (voltage, frequency, hours, etc.) is scaled up and documented as
-// such in the MIB (e.g. "Hz x10", "V x10").
+// Column definition: Gauge32/Integer are integer-only on the wire, so non-
+// integer telemetry (voltage, frequency, hours, etc.) is scaled up and
+// documented as such in the MIB (e.g. "Hz x10", "V x10").
 const COLUMNS = [
     { number: 1, name: 'generatorIndex', type: snmp.ObjectType.Integer },
     { number: 2, name: 'generatorId', type: snmp.ObjectType.OctetString },
@@ -53,9 +72,15 @@ function toIntOrZero(v, scale = 1) {
     return Math.max(0, Math.round(Number(v) * scale));
 }
 
-async function fetchGeneratorRows() {
+/**
+ * @param {string[]|null} generatorIds - when provided, only these generators
+ *   are returned (matched against id, connection_info.ip or connectionName).
+ *   Null/empty means "all generators" (the full-fleet agent).
+ */
+async function fetchGeneratorRows(generatorIds) {
     // alarm_code has no column on `generators` — the live/active alarm (if any)
     // lives in alarm_history as the row with end_time IS NULL for that generator.
+    const hasFilter = Array.isArray(generatorIds) && generatorIds.length > 0;
     const { rows } = await pool.query(`
         SELECT g.id, g.name, g.status, g.last_connected,
                g.voltage_l1, g.mains_voltage_l1, g.frequency,
@@ -65,25 +90,15 @@ async function fetchGeneratorRows() {
                 WHERE ah.generator_id = g.id AND ah.end_time IS NULL
                 ORDER BY ah.start_time DESC LIMIT 1) AS alarm_code
         FROM generators g
+        ${hasFilter ? `WHERE g.id = ANY($1)
+               OR g.connection_info->>'ip' = ANY($1)
+               OR g.connection_info->>'connectionName' = ANY($1)` : ''}
         ORDER BY g.id ASC
-    `);
+    `, hasFilter ? [generatorIds] : []);
     return rows;
 }
 
-/** deviceId -> stable table index. Assigned once, kept for the process lifetime
- *  (a generator that disappears keeps its slot reserved so it doesn't churn a
- *  monitoring system's cache if it comes back). */
-const indexByGeneratorId = new Map();
-let nextIndex = 1;
-
-function stableIndexFor(id) {
-    if (!indexByGeneratorId.has(id)) {
-        indexByGeneratorId.set(id, nextIndex++);
-    }
-    return indexByGeneratorId.get(id);
-}
-
-function rowToColumns(row) {
+function rowToColumns(row, stableIndexFor) {
     const idx = stableIndexFor(row.id);
     const connected = !!row.last_connected && (Date.now() - new Date(row.last_connected).getTime()) < CONNECTION_THRESHOLD_MS;
     const statusCode = STATUS_ENUM[row.status] || (connected ? STATUS_ENUM.STOPPED : STATUS_ENUM.OFFLINE);
@@ -126,13 +141,13 @@ function safeGetRow(mib, table, rowIndex) {
 /** Upsert every current generator into the table, and drop rows for
  *  generators that no longer exist (index stays reserved in memory so a
  *  reappearing generator gets the same index back next time). */
-function refreshTable(mib) {
-    return fetchGeneratorRows()
+function refreshTable(mib, generatorIds, stableIndexFor, indexValues, label) {
+    return fetchGeneratorRows(generatorIds)
         .then((rows) => {
             const seenIndexes = new Set();
 
             for (const row of rows) {
-                const cols = rowToColumns(row);
+                const cols = rowToColumns(row, stableIndexFor);
                 const idx = cols[0];
                 seenIndexes.add(idx);
                 const existing = safeGetRow(mib, 'generatorTable', [idx]);
@@ -147,34 +162,30 @@ function refreshTable(mib) {
                 }
             }
 
-            // Remove rows for generators no longer in the DB (index reservation stays).
-            for (const idx of indexByGeneratorId.values()) {
+            for (const idx of indexValues()) {
                 if (!seenIndexes.has(idx) && safeGetRow(mib, 'generatorTable', [idx])) {
                     mib.deleteTableRow('generatorTable', [idx]);
                 }
             }
         })
         .catch((err) => {
-            console.error('[SNMP] Failed to refresh generator table:', err.message);
+            console.error(`[SNMP]${label ? ` [${label}]` : ''} Failed to refresh generator table:`, err.message);
         });
 }
 
-export function initSnmpAgent() {
-    const port = parseInt(process.env.SNMP_PORT || '', 10);
-    if (!port) {
-        console.log('[SNMP] Disabled (set SNMP_PORT to enable).');
-        return;
-    }
-
-    const community = process.env.SNMP_COMMUNITY || 'public';
+/**
+ * Starts one SNMP agent instance bound to `port`, serving only `generatorIds`
+ * (or the whole fleet if null/empty). Each instance has its own independent
+ * index-assignment map, so a scoped export's row indices don't depend on
+ * what other instances/exports exist.
+ */
+function startAgentInstance({ port, community, enterpriseOid, pollIntervalMs, generatorIds, label }) {
     if (community === 'public') {
-        console.warn('[SNMP] Using default community "public" — set SNMP_COMMUNITY for production use.');
+        console.warn(`[SNMP]${label ? ` [${label}]` : ''} Using default community "public" — set a real community for production use.`);
     }
-    const enterpriseOid = process.env.SNMP_ENTERPRISE_OID || '1.3.6.1.4.1.99999';
     if (enterpriseOid === '1.3.6.1.4.1.99999') {
-        console.warn('[SNMP] Using placeholder enterprise OID 99999 — register a real PEN at pen.iana.org before exposing this to an external client (see server/GENERATOR-MIB.mib).');
+        console.warn(`[SNMP]${label ? ` [${label}]` : ''} Using placeholder enterprise OID 99999 — register a real PEN at pen.iana.org before exposing this to an external client (see server/GENERATOR-MIB.mib).`);
     }
-    const pollIntervalMs = parseInt(process.env.SNMP_POLL_INTERVAL_MS || '15000', 10);
 
     const agent = snmp.createAgent({
         port,
@@ -182,7 +193,7 @@ export function initSnmpAgent() {
         disableAuthorization: false,
         accessControlModelType: snmp.AccessControlModelType.Simple,
     }, (error) => {
-        if (error) console.error('[SNMP] Agent request error:', error.message);
+        if (error) console.error(`[SNMP]${label ? ` [${label}]` : ''} Agent request error:`, error.message);
     });
 
     const authorizer = agent.getAuthorizer();
@@ -213,9 +224,71 @@ export function initSnmpAgent() {
 
     const mib = agent.getMib();
 
-    refreshTable(mib);
-    setInterval(() => refreshTable(mib), pollIntervalMs);
+    // Index assignment is local to this agent instance.
+    const indexByGeneratorId = new Map();
+    let nextIndex = 1;
+    const stableIndexFor = (id) => {
+        if (!indexByGeneratorId.has(id)) indexByGeneratorId.set(id, nextIndex++);
+        return indexByGeneratorId.get(id);
+    };
+    const indexValues = () => indexByGeneratorId.values();
 
-    console.log(`[SNMP] Agent listening on UDP ${port}, table OID ${enterpriseOid}.1, refreshing every ${pollIntervalMs}ms.`);
+    refreshTable(mib, generatorIds, stableIndexFor, indexValues, label);
+    setInterval(() => refreshTable(mib, generatorIds, stableIndexFor, indexValues, label), pollIntervalMs);
+
+    const scope = generatorIds?.length ? `scoped to [${generatorIds.join(', ')}]` : 'full fleet';
+    console.log(`[SNMP]${label ? ` [${label}]` : ''} Agent listening on UDP ${port} (${scope}), table OID ${enterpriseOid}.1, refreshing every ${pollIntervalMs}ms.`);
     return agent;
+}
+
+/** Reads SNMP_CLIENT_EXPORT_<N>_{PORT,COMMUNITY,GENERATORS} for N=1,2,3,... until one is missing. */
+function readClientExportConfigs() {
+    const configs = [];
+    for (let n = 1; ; n++) {
+        const port = parseInt(process.env[`SNMP_CLIENT_EXPORT_${n}_PORT`] || '', 10);
+        if (!port) break;
+        const community = process.env[`SNMP_CLIENT_EXPORT_${n}_COMMUNITY`] || `client${n}`;
+        const generatorsRaw = process.env[`SNMP_CLIENT_EXPORT_${n}_GENERATORS`] || '';
+        const generatorIds = generatorsRaw.split(',').map(s => s.trim()).filter(Boolean);
+        if (generatorIds.length === 0) {
+            console.warn(`[SNMP] SNMP_CLIENT_EXPORT_${n}_GENERATORS is empty — skipping export ${n} (a scoped export needs at least one generator, otherwise use the full-fleet SNMP_PORT instead).`);
+            continue;
+        }
+        configs.push({ n, port, community, generatorIds });
+    }
+    return configs;
+}
+
+export function initSnmpAgent() {
+    const enterpriseOid = process.env.SNMP_ENTERPRISE_OID || '1.3.6.1.4.1.99999';
+    const pollIntervalMs = parseInt(process.env.SNMP_POLL_INTERVAL_MS || '15000', 10);
+
+    const agents = [];
+
+    const fullPort = parseInt(process.env.SNMP_PORT || '', 10);
+    if (fullPort) {
+        agents.push(startAgentInstance({
+            port: fullPort,
+            community: process.env.SNMP_COMMUNITY || 'public',
+            enterpriseOid,
+            pollIntervalMs,
+            generatorIds: null,
+            label: 'fleet',
+        }));
+    } else {
+        console.log('[SNMP] Full-fleet agent disabled (set SNMP_PORT to enable).');
+    }
+
+    for (const cfg of readClientExportConfigs()) {
+        agents.push(startAgentInstance({
+            port: cfg.port,
+            community: cfg.community,
+            enterpriseOid,
+            pollIntervalMs,
+            generatorIds: cfg.generatorIds,
+            label: `client-export-${cfg.n}`,
+        }));
+    }
+
+    return agents;
 }

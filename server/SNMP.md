@@ -5,7 +5,10 @@ sem processo separado, sem re-assinar MQTT. Ele lê os mesmos dados do
 Postgres que a API REST já serve, num loop de polling, e monta uma
 tabela SNMP conceitual (uma linha por gerador).
 
-Desligado por padrão — só liga se `SNMP_PORT` estiver definida.
+Desligado por padrão. O export com a frota inteira só liga se `SNMP_PORT`
+estiver definida (seção 1) — mas você também pode usar **só** exports
+individuais por gerador/cliente (seção 5) sem nunca ligar o `SNMP_PORT`
+da frota inteira.
 
 ## 1. Configuração (`server/.env`)
 
@@ -62,7 +65,41 @@ Os valores decimais vêm multiplicados (documentado na descrição de cada
 OID) porque os tipos SNMP padrão (`Gauge32`/`Integer`) só armazenam
 inteiros.
 
-## 5. Somente leitura, sempre
+## 5. Dar acesso a um cliente para **só um gerador** (ex: Ciklo70)
+
+A biblioteca SNMP usada só suporta nível de acesso global por community
+(ReadOnly/ReadWrite/None) — não dá para restringir uma community a
+ver só algumas linhas dentro da mesma tabela. Por isso, expor um
+gerador específico para um cliente é feito com um **agente próprio,
+numa porta própria**, filtrado só naquele(s) gerador(es) — o cliente
+nunca vê o resto da frota, mesmo tentando.
+
+No `server/.env`:
+
+```
+SNMP_CLIENT_EXPORT_1_PORT=16101
+SNMP_CLIENT_EXPORT_1_COMMUNITY=cliente_ciklo70
+SNMP_CLIENT_EXPORT_1_GENERATORS=Ciklo70
+```
+
+- **`GENERATORS`**: lista separada por vírgula. Aceita o ID do gerador
+  no banco, o `ip`/tópico (o que aparece como "Ciklo70") ou o
+  `connectionName` — o que for mais fácil de identificar.
+- Pode repetir para outros clientes: `SNMP_CLIENT_EXPORT_2_PORT=16102`,
+  `_2_COMMUNITY=...`, `_2_GENERATORS=Ciklo55,Ciklo50` (pode ter mais de
+  um gerador por export, se for o mesmo cliente).
+- Libere no firewall só a porta daquele export, só para o IP do
+  cliente: `ufw allow from <IP_DO_CLIENTE> to any port 16101 proto udp`.
+
+Teste exatamente como o cliente vai testar:
+
+```bash
+snmptable -v2c -c cliente_ciklo70 <IP_DO_SERVIDOR>:16101 1.3.6.1.4.1.99999.1
+```
+
+Só aparece a linha do Ciklo70 — nenhum outro gerador da frota.
+
+## 6. Somente leitura, sempre
 
 Nenhuma coluna aceita `SET` — a tabela inteira é `MAX-ACCESS read-only`
 e a comunidade só recebe nível `ReadOnly`. Não existe caminho para
