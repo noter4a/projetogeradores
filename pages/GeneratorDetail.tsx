@@ -24,6 +24,71 @@ import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 const GENERATOR_SECTION_IDS = ['remote_control', 'mechanical', 'electrical', 'location', 'load_curve'] as const;
 type GeneratorSectionId = typeof GENERATOR_SECTION_IDS[number];
 
+/** One downsampled bucket from /readings. `power` is the bucket average (what the
+ *  line plots); powerMax/powerMin are the true extremes inside that bucket. */
+interface PowerPoint {
+  time: string;
+  power: number;
+  powerMax: number;
+  powerMin: number;
+  samples: number;
+  activeSamples: number;
+  bucketSeconds: number;
+}
+
+interface LoadStats {
+  peak: number;         // kW — true peak across the window
+  peakTime: string;     // label of the bucket containing the peak
+  avg: number;          // kW — sample-weighted average
+  loadFactor: number | null; // % of nominal, null when nominal is unknown
+  energyKwh: number;    // kWh over the window
+  runningHours: number; // hours with load > 0
+}
+
+/** Stats over the currently-visible buckets. Averages are weighted by each
+ *  bucket's sample count so partially-filled buckets don't skew the result. */
+function computeLoadStats(points: PowerPoint[], nominalKva?: number): LoadStats | null {
+  if (points.length === 0) return null;
+
+  let peak = -Infinity;
+  let peakTime = '';
+  let weightedSum = 0;
+  let totalSamples = 0;
+  let energyKwh = 0;
+  let runningSeconds = 0;
+
+  for (const p of points) {
+    if (p.powerMax > peak) {
+      peak = p.powerMax;
+      peakTime = p.time;
+    }
+    const samples = p.samples > 0 ? p.samples : 1;
+    weightedSum += p.power * samples;
+    totalSamples += samples;
+
+    // Energy: average power over the bucket's duration.
+    energyKwh += (p.power * p.bucketSeconds) / 3600;
+
+    // Running time: proportion of the bucket's samples that had load.
+    const activeRatio = p.samples > 0 ? p.activeSamples / p.samples : 0;
+    runningSeconds += p.bucketSeconds * activeRatio;
+  }
+
+  const avg = totalSamples > 0 ? weightedSum / totalSamples : 0;
+  // powerKVA is apparent power; comparing kW to it is an approximation, but it's
+  // the only nominal rating stored and is what operators size against.
+  const loadFactor = nominalKva && nominalKva > 0 ? (avg / nominalKva) * 100 : null;
+
+  return {
+    peak: peak === -Infinity ? 0 : peak,
+    peakTime,
+    avg,
+    loadFactor,
+    energyKwh,
+    runningHours: runningSeconds / 3600,
+  };
+}
+
 const generatorSectionsStorageKey = (generatorId: string) => `ciklo_gen_sections_${generatorId}`;
 
 function loadExpandedSections(generatorId: string | undefined, canControl: boolean): Set<string> {
@@ -243,7 +308,7 @@ const GeneratorDetail: React.FC = () => {
 
   // --- Historical Power Chart (DB-backed) ---
   const [chartRange, setChartRange] = useState<'24h' | '7d' | '30d'>('24h');
-  const [powerHistory, setPowerHistory] = useState<{ time: string; power: number }[]>([]);
+  const [powerHistory, setPowerHistory] = useState<PowerPoint[]>([]);
   const [chartLoading, setChartLoading] = useState(false);
   const [chartZoomRange, setChartZoomRange] = useState<{ startIndex: number; endIndex: number } | null>(null);
   const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
@@ -269,6 +334,13 @@ const GeneratorDetail: React.FC = () => {
   );
 
   const chartDisplayData = isChartZoomed ? visiblePowerHistory : powerHistory;
+
+  // Stats follow whatever the chart is currently showing — zoom into a window
+  // and the numbers describe exactly that window.
+  const loadStats = useMemo(
+    () => computeLoadStats(chartDisplayData, gen?.powerKVA),
+    [chartDisplayData, gen?.powerKVA]
+  );
 
   useEffect(() => {
     setChartZoomRange(null);
@@ -351,7 +423,17 @@ const GeneratorDetail: React.FC = () => {
             timeLabel = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' +
                         date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
           }
-          return { time: timeLabel, power: Number(row.power) || 0 };
+          const power = Number(row.power) || 0;
+          return {
+            time: timeLabel,
+            power,
+            // Fall back to the average when a bucket predates the max/min columns.
+            powerMax: row.power_max != null ? Number(row.power_max) : power,
+            powerMin: row.power_min != null ? Number(row.power_min) : power,
+            samples: Number(row.samples) || 1,
+            activeSamples: Number(row.active_samples) || 0,
+            bucketSeconds: Number(row.bucketSeconds) || 60,
+          } as PowerPoint;
         });
         setPowerHistory(formatted);
       }
@@ -1396,6 +1478,87 @@ const GeneratorDetail: React.FC = () => {
             </ResponsiveContainer>
           )}
         </div>
+
+        {/* Mini-relatório do período (segue o zoom/seleção do gráfico) */}
+        {!chartLoading && loadStats && chartDisplayData.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-800">
+            <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+              <h4 className="text-[11px] uppercase tracking-wider font-bold text-gray-500">
+                Resumo do período
+              </h4>
+              <span className="text-[10px] text-gray-600 font-mono">
+                {isChartZoomed
+                  ? `trecho selecionado • ${chartDisplayData.length} pts`
+                  : chartRange === '24h' ? 'últimas 24 horas' : chartRange === '7d' ? 'últimos 7 dias' : 'últimos 30 dias'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Pico máximo</p>
+                <p className="text-lg font-bold text-ciklo-yellow leading-tight">
+                  {loadStats.peak.toFixed(1)} <span className="text-xs text-gray-500 font-normal">kW</span>
+                </p>
+                {loadStats.peakTime && (
+                  <p className="text-[10px] text-gray-600 mt-0.5 truncate" title={loadStats.peakTime}>
+                    em {loadStats.peakTime}
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Média</p>
+                <p className="text-lg font-bold text-white leading-tight">
+                  {loadStats.avg.toFixed(1)} <span className="text-xs text-gray-500 font-normal">kW</span>
+                </p>
+              </div>
+
+              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Fator de carga</p>
+                {loadStats.loadFactor != null ? (
+                  <>
+                    <p className={`text-lg font-bold leading-tight ${
+                      loadStats.loadFactor < 30 ? 'text-amber-400' : 'text-green-400'
+                    }`}>
+                      {loadStats.loadFactor.toFixed(0)}<span className="text-xs text-gray-500 font-normal">%</span>
+                    </p>
+                    <p className="text-[10px] text-gray-600 mt-0.5">
+                      de {gen.powerKVA} kVA
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-lg font-bold text-gray-600 leading-tight">–</p>
+                )}
+              </div>
+
+              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Energia</p>
+                <p className="text-lg font-bold text-white leading-tight">
+                  {loadStats.energyKwh >= 1000
+                    ? `${(loadStats.energyKwh / 1000).toFixed(2)} `
+                    : `${loadStats.energyKwh.toFixed(1)} `}
+                  <span className="text-xs text-gray-500 font-normal">
+                    {loadStats.energyKwh >= 1000 ? 'MWh' : 'kWh'}
+                  </span>
+                </p>
+              </div>
+
+              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Em operação</p>
+                <p className="text-lg font-bold text-white leading-tight">
+                  {loadStats.runningHours.toFixed(1)} <span className="text-xs text-gray-500 font-normal">h</span>
+                </p>
+              </div>
+            </div>
+
+            {loadStats.loadFactor != null && loadStats.loadFactor < 30 && loadStats.runningHours > 0 && (
+              <p className="text-[10px] text-amber-400/80 mt-3 flex items-start gap-1.5">
+                <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                Fator de carga baixo — o gerador está operando bem abaixo da capacidade nominal no período.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     );
   };

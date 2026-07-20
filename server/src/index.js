@@ -1188,11 +1188,21 @@ router.get('/generators/:id/readings', authenticateToken, async (req, res) => {
     }
 
     try {
-        // Downsample to avoid returning thousands of rows
+        // Downsample to avoid returning thousands of rows.
+        // `power` (the bucket AVERAGE) is what the chart line plots. power_max/
+        // power_min are the true extremes WITHIN each bucket — without them the
+        // stats panel would report "peak" as the highest bucket average, which
+        // badly understates the real peak on wide ranges (30d buckets are 30min
+        // averages). samples/active_samples let the client compute energy and
+        // running time without a second round trip.
         const result = await pool.query(`
-            SELECT 
+            SELECT
                 to_timestamp(floor(extract(epoch from recorded_at) / $2) * $2) as time,
                 ROUND(AVG(active_power)::numeric, 2) as power,
+                ROUND(MAX(active_power)::numeric, 2) as power_max,
+                ROUND(MIN(active_power)::numeric, 2) as power_min,
+                COUNT(*) as samples,
+                COUNT(*) FILTER (WHERE active_power > 0) as active_samples,
                 ROUND(AVG(rpm)::numeric, 0) as rpm,
                 ROUND(AVG(frequency)::numeric, 2) as frequency
             FROM generator_readings
@@ -1202,7 +1212,7 @@ router.get('/generators/:id/readings', authenticateToken, async (req, res) => {
             ORDER BY time ASC
         `, [id, bucket, intervalSql]);
 
-        res.json(result.rows);
+        res.json(result.rows.map(r => ({ ...r, bucketSeconds: bucket })));
     } catch (err) {
         console.error('Get readings error:', err);
         res.status(500).json({ message: 'Erro ao buscar leituras.' });
