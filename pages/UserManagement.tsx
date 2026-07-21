@@ -4,10 +4,7 @@ import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { UserRole, User, Company } from '../types';
 import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Lock, Eye, Wallet, ChevronLeft, ChevronRight, Building, Phone, MessageSquare, Search, X } from 'lucide-react';
-
-// Accent-insensitive compare so "jose" also finds "José"
-const normalize = (value: string) =>
-  value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+import { normalizeSearch as normalize } from '../utils/formatters';
 
 const UserManagement: React.FC = () => {
   const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();

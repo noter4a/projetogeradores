@@ -15,6 +15,13 @@ export const formatCurrency = (val: number | string | null | undefined, moeda?: 
 };
 
 /**
+ * Lowercase and strip accents for search comparisons, so typing "jose"
+ * matches "José" and "conceicao" matches "Conceição".
+ */
+export const normalizeSearch = (value: string): string =>
+  value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+/**
  * Format an ISO date string to pt-BR locale (dd/mm/yyyy).
  */
 export const formatDate = (dateStr?: string): string => {
