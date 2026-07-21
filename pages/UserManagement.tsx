@@ -3,7 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { UserRole, User, Company } from '../types';
-import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Lock, Eye, Wallet, ChevronLeft, ChevronRight, Building, Phone, MessageSquare } from 'lucide-react';
+import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Lock, Eye, Wallet, ChevronLeft, ChevronRight, Building, Phone, MessageSquare, Search, X } from 'lucide-react';
+
+// Accent-insensitive compare so "jose" also finds "José"
+const normalize = (value: string) =>
+  value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 
 const UserManagement: React.FC = () => {
   const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();
@@ -25,19 +29,52 @@ const UserManagement: React.FC = () => {
     }
   }, [token]);
 
+  // Filters
+  const [search, setSearch] = useState('');
+  // '' = todas as empresas, 'none' = usuários sem empresa vinculada
+  const [companyFilter, setCompanyFilter] = useState<string>('');
+
+  const filteredUsers = useMemo(() => {
+    const term = normalize(search.trim());
+    return users.filter(u => {
+      const matchesSearch = !term ||
+        normalize(u.name).includes(term) ||
+        normalize(u.email).includes(term) ||
+        normalize(u.companyName || '').includes(term);
+
+      const matchesCompany =
+        companyFilter === '' ||
+        (companyFilter === 'none' ? !u.companyId : u.companyId === Number(companyFilter));
+
+      return matchesSearch && matchesCompany;
+    });
+  }, [users, search, companyFilter]);
+
+  const hasActiveFilters = search.trim() !== '' || companyFilter !== '';
+
+  const clearFilters = () => {
+    setSearch('');
+    setCompanyFilter('');
+  };
+
   // Pagination
   const ITEMS_PER_PAGE = 10;
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(users.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / ITEMS_PER_PAGE));
   const paginatedUsers = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return users.slice(start, start + ITEMS_PER_PAGE);
-  }, [users, currentPage]);
+    return filteredUsers.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredUsers, currentPage]);
 
-  // Reset to page 1 when user count changes
+  // Back to page 1 whenever the filters change the result set
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, companyFilter]);
+
+  // Keep the page in range when users are added/removed
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [users.length, totalPages]);
+  }, [filteredUsers.length, totalPages]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -296,6 +333,46 @@ const UserManagement: React.FC = () => {
         </div>
       )}
 
+      {/* Filter Bar */}
+      <div className="bg-ciklo-card border border-gray-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-ciklo-black border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-gray-600 focus:border-ciklo-orange outline-none"
+            placeholder="Buscar por nome, e-mail ou empresa..."
+          />
+        </div>
+
+        <div className="relative md:w-64">
+          <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" size={18} />
+          <select
+            value={companyFilter}
+            onChange={e => setCompanyFilter(e.target.value)}
+            className="w-full bg-ciklo-black border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-white focus:border-ciklo-orange outline-none appearance-none"
+          >
+            <option value="">Todas as Empresas</option>
+            <option value="none">Sem Empresa</option>
+            {companies.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-700 rounded-lg transition-colors whitespace-nowrap"
+          >
+            <X size={16} />
+            Limpar
+          </button>
+        )}
+      </div>
+
       {/* Users List */}
       <div className="bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
@@ -411,6 +488,15 @@ const UserManagement: React.FC = () => {
                   </td>
                 </tr>
               ))}
+              {filteredUsers.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-gray-500 text-sm">
+                    {hasActiveFilters
+                      ? 'Nenhum usuário encontrado com os filtros aplicados.'
+                      : 'Nenhum usuário cadastrado.'}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -419,7 +505,7 @@ const UserManagement: React.FC = () => {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800 bg-[#1a1a1a]">
             <span className="text-xs text-gray-500">
-              Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, users.length)} de {users.length} usuários
+              Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredUsers.length)} de {filteredUsers.length} usuários
             </span>
             <div className="flex items-center gap-2">
               <button
