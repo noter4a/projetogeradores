@@ -11,6 +11,8 @@ export interface Company {
   id: number;
   name: string;
   created_at?: string;
+  credits?: number;
+  last_credit_debit_date?: string;
 }
 
 export interface User {
@@ -25,6 +27,8 @@ export interface User {
   assignedGeneratorIds?: string[];
   companyId?: number;
   companyName?: string;
+  /** Remaining credits of the user's company; null when the user has no company (e.g. ADMIN) */
+  companyCredits?: number | null;
 }
 
 export enum GeneratorStatus {

@@ -14,6 +14,7 @@ import ProfileSettings from './pages/ProfileSettings';
 import CompanyManagement from './pages/CompanyManagement';
 import Reports from './pages/Reports';
 import Maintenance from './pages/Maintenance';
+import NoCredits from './pages/NoCredits';
 
 
 // Quotation Module Pages
@@ -33,6 +34,15 @@ import { ThemeProvider } from './context/ThemeContext';
 import { OperatorModeProvider } from './context/OperatorModeContext';
 import { useIsMobile } from './hooks/useIsMobile';
 import SocketConnectionBanner from './components/ui/SocketConnectionBanner';
+import CreditsWarningBanner from './components/ui/CreditsWarningBanner';
+
+// ADMIN is never blocked. Users with no company (companyCredits is null/undefined)
+// are not gated either — the gate only applies once a user belongs to a company.
+const hasCredits = (user: { role: UserRole; companyCredits?: number | null } | null) => {
+  if (!user || user.role === UserRole.ADMIN) return true;
+  if (user.companyCredits === null || user.companyCredits === undefined) return true;
+  return user.companyCredits > 0;
+};
 
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   const { user } = useAuth();
@@ -40,8 +50,21 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Credit check removed
+  if (!hasCredits(user)) {
+    return <Navigate to="/no-credits" replace />;
+  }
 
+  return <>{children}</>;
+};
+
+const NoCreditsRoute = ({ children }: { children?: React.ReactNode }) => {
+  const { user } = useAuth();
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  if (hasCredits(user)) {
+    return <Navigate to="/" replace />;
+  }
   return <>{children}</>;
 };
 
@@ -70,6 +93,10 @@ const SalesRoute = ({ children }: { children?: React.ReactNode }) => {
     return <Navigate to="/" replace />;
   }
 
+  if (!hasCredits(user)) {
+    return <Navigate to="/no-credits" replace />;
+  }
+
   return <>{children}</>;
 };
 
@@ -82,6 +109,10 @@ const MonitoringRoute = ({ children }: { children?: React.ReactNode }) => {
 
   if (user.role === UserRole.ORCAMENTOS) {
     return <Navigate to="/sales/clients" replace />;
+  }
+
+  if (!hasCredits(user)) {
+    return <Navigate to="/no-credits" replace />;
   }
 
   return <>{children}</>;
@@ -154,6 +185,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
         </header>
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 bg-ciklo-black">
+          <CreditsWarningBanner />
           {children}
         </main>
       </div>
@@ -175,6 +207,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible w-full">
         <main className="flex-1 overflow-x-hidden overflow-y-auto print:overflow-visible bg-ciklo-black print:bg-white p-6 print:p-0">
+          <CreditsWarningBanner />
           {children}
         </main>
       </div>
@@ -204,7 +237,11 @@ const AppContent: React.FC = () => {
       <Routes>
         <Route path="/login" element={<Login />} />
 
-        {/* NoCredits route removed */}
+        <Route path="/no-credits" element={
+          <NoCreditsRoute>
+            <NoCredits />
+          </NoCreditsRoute>
+        } />
 
         <Route path="/" element={
           <ProtectedRoute>

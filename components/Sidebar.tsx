@@ -3,12 +3,13 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Zap, 
-  LogOut, 
-  Settings2, 
-  Users, 
-  MessageCircle, 
-  Wallet, 
-  AlertTriangle, 
+  LogOut,
+  Settings2,
+  Users,
+  MessageCircle,
+  Wallet,
+  CreditCard,
+  AlertTriangle,
   BookOpen, 
   FileText, 
   FolderOpen, 
@@ -35,6 +36,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
   const location = useLocation();
   const navigate = useNavigate();
   const isOnGeneratorDetail = location.pathname.startsWith('/generator/');
+
+  // Only rendered when the user belongs to a company (companyCredits is null for ADMIN/no-company users)
+  const credits = user?.companyCredits;
+  const creditsStyle = credits === null || credits === undefined ? null :
+    credits <= 0 ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+    credits <= 7 ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' :
+    'bg-gray-800/50 border-gray-700 text-gray-400';
 
   // Mobile navigation view state
   const [currentView, setCurrentView] = useState<'main' | 'generators' | 'sales' | 'admin'>(() => {
@@ -95,23 +103,38 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
         {/* User info - clickable to profile */}
         {!collapsed ? (
-          <NavLink to="/profile" className="block p-4 border-b border-gray-800 group">
-            <div className="flex items-center gap-3 p-3 bg-ciklo-dark rounded-lg border border-gray-700 group-hover:border-ciklo-orange/40 transition-all duration-200">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-ciklo-orange to-ciklo-yellow flex items-center justify-center text-xs font-bold text-black flex-shrink-0">
+          <div className="border-b border-gray-800">
+            <NavLink to="/profile" className="block p-4 pb-2 group">
+              <div className="flex items-center gap-3 p-3 bg-ciklo-dark rounded-lg border border-gray-700 group-hover:border-ciklo-orange/40 transition-all duration-200">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-ciklo-orange to-ciklo-yellow flex items-center justify-center text-xs font-bold text-black flex-shrink-0">
+                  {user?.name.charAt(0)}
+                </div>
+                <div className="overflow-hidden flex-1">
+                  <p className="text-sm font-medium text-white truncate group-hover:text-ciklo-orange transition-colors">{user?.name}</p>
+                  <p className="text-xs text-gray-400 truncate capitalize">{user?.role.toLowerCase()}</p>
+                </div>
+              </div>
+            </NavLink>
+            {creditsStyle && (
+              <div className={`mx-4 mb-4 px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center justify-between ${creditsStyle}`}>
+                <span className="flex items-center gap-1.5"><CreditCard size={14} /> Créditos</span>
+                <span className="font-bold">{credits}</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="border-b border-gray-800">
+            <NavLink to="/profile" className="p-3 flex justify-center group">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-ciklo-orange to-ciklo-yellow flex items-center justify-center text-xs font-bold text-black group-hover:shadow-lg group-hover:shadow-orange-500/30 transition-all" title={`${user?.name} - Meu Perfil`}>
                 {user?.name.charAt(0)}
               </div>
-              <div className="overflow-hidden flex-1">
-                <p className="text-sm font-medium text-white truncate group-hover:text-ciklo-orange transition-colors">{user?.name}</p>
-                <p className="text-xs text-gray-400 truncate capitalize">{user?.role.toLowerCase()}</p>
+            </NavLink>
+            {creditsStyle && (
+              <div className={`mx-2 mb-3 px-1 py-1 rounded-lg border text-[10px] font-bold text-center ${creditsStyle}`} title={`${credits} créditos restantes`}>
+                {credits}
               </div>
-            </div>
-          </NavLink>
-        ) : (
-          <NavLink to="/profile" className="p-3 border-b border-gray-800 flex justify-center group">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-ciklo-orange to-ciklo-yellow flex items-center justify-center text-xs font-bold text-black group-hover:shadow-lg group-hover:shadow-orange-500/30 transition-all" title={`${user?.name} - Meu Perfil`}>
-              {user?.name.charAt(0)}
-            </div>
-          </NavLink>
+            )}
+          </div>
         )}
 
         {/* Navigation */}
@@ -275,8 +298,15 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
               <p className="text-[10px] text-ciklo-yellow uppercase tracking-widest font-semibold">Geradores</p>
             </div>
           </div>
-          <div className="text-xs text-gray-500 font-medium bg-gray-900 px-3 py-1.5 rounded-full capitalize">
-            {user?.role.toLowerCase()}
+          <div className="flex items-center gap-2">
+            {creditsStyle && (
+              <div className={`text-xs font-bold px-3 py-1.5 rounded-full border flex items-center gap-1 ${creditsStyle}`}>
+                <CreditCard size={12} /> {credits}
+              </div>
+            )}
+            <div className="text-xs text-gray-500 font-medium bg-gray-900 px-3 py-1.5 rounded-full capitalize">
+              {user?.role.toLowerCase()}
+            </div>
           </div>
         </div>
 

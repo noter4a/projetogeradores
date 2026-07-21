@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { Company } from '../types';
-import { Building, Plus, Trash2, Edit, Check, X, FolderPlus, Server } from 'lucide-react';
+import { Building, Plus, Trash2, Edit, Check, X, FolderPlus, Server, CreditCard } from 'lucide-react';
 
 const CompanyManagement: React.FC = () => {
   const { token } = useAuth();
@@ -16,6 +16,11 @@ const CompanyManagement: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [companyName, setCompanyName] = useState('');
   const [selectedGeneratorIds, setSelectedGeneratorIds] = useState<string[]>([]);
+
+  // Credits management modal state
+  const [creditsTarget, setCreditsTarget] = useState<Company | null>(null);
+  const [creditsAmount, setCreditsAmount] = useState('30');
+  const [creditsSaving, setCreditsSaving] = useState(false);
 
   const fetchCompanies = async () => {
     if (!token) return;
@@ -110,6 +115,39 @@ const CompanyManagement: React.FC = () => {
       setError('Erro de rede ao salvar empresa.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenCredits = (company: Company) => {
+    setCreditsTarget(company);
+    setCreditsAmount('30');
+  };
+
+  const handleAddCredits = async (amount: number) => {
+    if (!creditsTarget || !token || !Number.isFinite(amount) || amount === 0) return;
+    setCreditsSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/companies/${creditsTarget.id}/credits`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount }),
+      });
+      if (res.ok) {
+        setCreditsTarget(null);
+        await fetchCompanies();
+      } else {
+        const errData = await res.json();
+        setError(errData.message || 'Erro ao atualizar créditos.');
+      }
+    } catch (err) {
+      console.error('Error updating credits:', err);
+      setError('Erro de rede ao atualizar créditos.');
+    } finally {
+      setCreditsSaving(false);
     }
   };
 
@@ -261,6 +299,7 @@ const CompanyManagement: React.FC = () => {
                 <th className="p-4 pl-6">ID</th>
                 <th className="p-4">Nome da Empresa</th>
                 <th className="p-4">Data de Criação</th>
+                <th className="p-4 text-center">Créditos</th>
                 <th className="p-4 text-center">Ações</th>
               </tr>
             </thead>
@@ -280,6 +319,25 @@ const CompanyManagement: React.FC = () => {
                   </td>
                   <td className="p-4 text-sm text-gray-400">
                     {c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '-'}
+                  </td>
+                  <td className="p-4 text-center">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenCredits(c);
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all hover:brightness-125 ${
+                        (c.credits ?? 0) <= 0
+                          ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                          : (c.credits ?? 0) <= 7
+                          ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
+                          : 'bg-green-500/10 border-green-500/30 text-green-400'
+                      }`}
+                      title="Gerenciar créditos"
+                    >
+                      <CreditCard size={14} /> {c.credits ?? 0}
+                    </button>
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1">
@@ -311,7 +369,7 @@ const CompanyManagement: React.FC = () => {
               ))}
               {companies.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-500 text-sm">
+                  <td colSpan={5} className="p-8 text-center text-gray-500 text-sm">
                     Nenhuma empresa cadastrada. Clique em "Nova Empresa" para começar.
                   </td>
                 </tr>
@@ -320,6 +378,63 @@ const CompanyManagement: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Credits Management Modal */}
+      {creditsTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setCreditsTarget(null)}
+        >
+          <div
+            className="bg-ciklo-card border border-gray-800 rounded-xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in slide-in-from-bottom-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-white mb-1">Créditos — {creditsTarget.name}</h3>
+            <p className="text-sm text-gray-400 mb-5">
+              Saldo atual: <span className="font-bold text-white">{creditsTarget.credits ?? 0}</span> créditos
+            </p>
+
+            <button
+              type="button"
+              disabled={creditsSaving}
+              onClick={() => handleAddCredits(30)}
+              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2.5 rounded-lg mb-4 disabled:opacity-50 transition-colors"
+            >
+              + 30 Créditos (Renovar Plano)
+            </button>
+
+            <label className="block text-sm text-gray-400 mb-1">Quantidade customizada</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={creditsAmount}
+                onChange={(e) => setCreditsAmount(e.target.value)}
+                className="flex-1 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none"
+                placeholder="Ex: 30 ou -10"
+              />
+              <button
+                type="button"
+                disabled={creditsSaving}
+                onClick={() => handleAddCredits(Number(creditsAmount))}
+                className="px-4 py-2 bg-ciklo-orange hover:bg-orange-600 text-black font-bold rounded-lg disabled:opacity-50 transition-colors"
+              >
+                Aplicar
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Use valores negativos para remover créditos manualmente.</p>
+
+            <div className="flex justify-end mt-5">
+              <button
+                type="button"
+                onClick={() => setCreditsTarget(null)}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

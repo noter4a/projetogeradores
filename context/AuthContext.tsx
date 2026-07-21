@@ -133,7 +133,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
           
           const current = currentUserRef.current;
           // Verify if any permission or role changed
-          const userChanged = !current ||
+          const permissionChanged = !current ||
             current.id !== updatedUser.id ||
             current.name !== updatedUser.name ||
             current.role !== updatedUser.role ||
@@ -143,13 +143,20 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             current.emailAlerts !== updatedUser.emailAlerts ||
             JSON.stringify(current.assignedGeneratorIds || []) !== JSON.stringify(updatedUser.assignedGeneratorIds || []);
 
-          if (userChanged) {
+          // Credits change on their own daily, silently -> don't show the
+          // "syncing permissions" overlay for a plain credit-count update.
+          const creditsChanged = current && current.companyCredits !== updatedUser.companyCredits;
+
+          if (permissionChanged) {
             setIsSyncing(true);
             setTimeout(() => {
               setUser(updatedUser);
               localStorage.setItem('ciklo_auth_user', JSON.stringify(updatedUser));
               setIsSyncing(false);
             }, 800);
+          } else if (creditsChanged) {
+            setUser(updatedUser);
+            localStorage.setItem('ciklo_auth_user', JSON.stringify(updatedUser));
           }
         }
       } catch (err) {

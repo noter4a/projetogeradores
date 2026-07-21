@@ -170,6 +170,14 @@ const initDb = async (retries = 15, delay = 5000) => {
                 );
             `);
 
+            // Migration: Add credit system columns to companies
+            try {
+                await client.query("ALTER TABLE companies ADD COLUMN IF NOT EXISTS credits INTEGER NOT NULL DEFAULT 30");
+                await client.query("ALTER TABLE companies ADD COLUMN IF NOT EXISTS last_credit_debit_date DATE NOT NULL DEFAULT CURRENT_DATE");
+            } catch (e) {
+                console.log("Migration companies.credits already applied or failed:", e.message);
+            }
+
             // Create Users Table
             await client.query(`
               CREATE TABLE IF NOT EXISTS users (
@@ -554,7 +562,11 @@ const requireRole = (...roles) => (req, res, next) => {
 router.get('/auth/profile', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts, email_alerts FROM users WHERE id = $1',
+            `SELECT u.id, u.name, u.email, u.role, u.assigned_generators, u.company_id, u.phone, u.whatsapp_alerts, u.email_alerts,
+                    c.credits AS company_credits
+             FROM users u
+             LEFT JOIN companies c ON c.id = u.company_id
+             WHERE u.id = $1`,
             [req.user.id]
         );
         if (result.rows.length === 0) {
@@ -568,6 +580,7 @@ router.get('/auth/profile', authenticateToken, async (req, res) => {
             role: user.role,
             assignedGeneratorIds: user.assigned_generators || [],
             companyId: user.company_id,
+            companyCredits: user.company_id ? Number(user.company_credits) : null,
             phone: user.phone,
             whatsappAlerts: user.whatsapp_alerts,
             emailAlerts: user.email_alerts
@@ -764,6 +777,38 @@ router.post('/auth/register', authenticateToken, async (req, res) => {
     }
 });
 
+// --- CREDIT SYSTEM: daily debit reconciliation (fixed Brasília midnight cutoff) ---
+// Brasília has used a fixed UTC-3 offset with no DST since 2019, so a plain
+// 3-hour subtraction from UTC is enough to derive the correct calendar date.
+function getBrasiliaDateString() {
+    const brasilia = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    return brasilia.toISOString().slice(0, 10);
+}
+
+// Debits 1 credit per elapsed Brasília day since each company's last debit.
+// Uses a date-diff UPDATE (not a fixed decrement) so it self-heals after any
+// server downtime spanning multiple midnights, and is idempotent within the
+// same day since the WHERE clause only matches companies already behind.
+async function reconcileCompanyCredits() {
+    try {
+        const today = getBrasiliaDateString();
+        const result = await pool.query(
+            `UPDATE companies
+             SET credits = GREATEST(0, credits - ($1::date - last_credit_debit_date)),
+                 last_credit_debit_date = $1::date
+             WHERE last_credit_debit_date < $1::date
+             RETURNING id, name, credits`,
+            [today]
+        );
+        if (result.rows.length > 0) {
+            console.log(`Credit reconciliation (${today}): debited ${result.rows.length} company(ies) -`,
+                result.rows.map(r => `${r.name}=${r.credits}`).join(', '));
+        }
+    } catch (e) {
+        console.error('Credit reconciliation error:', e.message);
+    }
+}
+
 // --- COMPANIES CRUD ROUTES ---
 
 // GET /api/companies - PROTECTED (All authenticated users can list)
@@ -849,6 +894,31 @@ router.put('/companies/:id', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('Update company error:', err);
         res.status(500).json({ message: 'Erro ao atualizar empresa.' });
+    }
+});
+
+// PATCH /api/companies/:id/credits - PROTECTED (Admin Only) - Add credits to a company (e.g. plan renewal)
+router.patch('/companies/:id/credits', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem adicionar créditos.' });
+    }
+    const { id } = req.params;
+    const amount = Number(req.body.amount);
+    if (!Number.isFinite(amount) || amount === 0) {
+        return res.status(400).json({ message: 'Quantidade de créditos inválida.' });
+    }
+    try {
+        const result = await pool.query(
+            'UPDATE companies SET credits = GREATEST(0, credits + $1) WHERE id = $2 RETURNING *',
+            [amount, id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Empresa não encontrada.' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Update company credits error:', err);
+        res.status(500).json({ message: 'Erro ao atualizar créditos da empresa.' });
     }
 });
 
@@ -1238,5 +1308,8 @@ app.use('/api/*', (req, res) => {
 // Start Server
 httpServer.listen(PORT, async () => {
     await initDb();
+    await reconcileCompanyCredits();
+    // Re-check every 10 minutes so the midnight Brasília cutoff is applied promptly
+    setInterval(reconcileCompanyCredits, 10 * 60 * 1000);
     console.log(`Server running on port ${PORT} (Build: Syntax Fixed)`);
 });
