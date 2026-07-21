@@ -1404,8 +1404,15 @@ export const initMqttService = (io) => {
                                     // of mirroring it onto both sides unconditionally: with the
                                     // mains breaker closed and the gen breaker open, current can
                                     // only physically be flowing through mains.
-                                    const mainsClosed = (d.mainsBreakerClosed ?? unifiedData.mainsBreakerClosed) === true;
-                                    const genClosed = (d.genBreakerClosed ?? unifiedData.genBreakerClosed) === true;
+                                    //
+                                    // Breaker state must come from unifiedData (populated by the
+                                    // digital-input block, STATUS_COMBINED_77_78 for SGC-120 /
+                                    // reconcileSgc420BreakerState for SGC420) rather than from `d`
+                                    // here: this LOAD_CURRENT_23 block does not carry real breaker
+                                    // flags — an earlier version bit-masked the L2 current reading
+                                    // itself and coincidentally looked like a breaker flag.
+                                    const mainsClosed = unifiedData.mainsBreakerClosed === true;
+                                    const genClosed = unifiedData.genBreakerClosed === true;
 
                                     if (mainsClosed && !genClosed) {
                                         unifiedData.mainsCurrentL1 = unifiedData.currentL1;

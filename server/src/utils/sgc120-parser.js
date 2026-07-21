@@ -606,29 +606,27 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
 
   // Bloco 23 (3 regs): LOAD CURRENTS (L1, L2, L3)
   // User provided datasheet: 23=L1, 24=L2, 25=L3 (Scale 0.1)
+  // NOTE: reg24 is the L2 current reading (see c2 below), not a status word.
+  // A previous version of this block bit-masked that same value as if it
+  // were a breaker flag (val24 & 0x0004 / 0x0002). It happened to look
+  // plausible in one manual trace, but across real traffic it just aliases
+  // whatever L2 current is measured (e.g. 44.7A -> raw 447 -> bit 2 set ->
+  // "mains closed"), flipping on/off with the current reading rather than
+  // the actual breakers. Real breaker state for this controller comes from
+  // the digital inputs in STATUS_COMBINED_77_78 (reg 77, bits 15/14) — see
+  // mqtt.js, which already polls that block ahead of this one.
   if (startAddress === 23 && regs.length >= 3) {
     const c1 = scale01(u16(regs, 0) * 0.1);
     const c2 = scale01(u16(regs, 1) * 0.1);
     const c3 = scale01(u16(regs, 2) * 0.1);
 
-    // Legacy Breaker Logic (Restored & Corrected)
-    // Reg 24 (Index 1) value 172 (0xAC = 1010 1100)
-    // User trace: "Mains Closed" and Val=172 (Bit 2 is 1). So Bit 2 = Mains Closed.
-    // User trace: "Gen Open" and Val=172 (Bit 1 is 0). So Bit 1 = Gen Closed.
-    const val24 = u16(regs, 1);
-    const mainsClosed = (val24 & 0x0004) !== 0; // Bit 2
-    const genClosed = (val24 & 0x0002) !== 0;   // Bit 1
-
     console.log(`[PARSER] Currents (23): L1=${c1}A, L2=${c2}A, L3=${c3}A`);
-    console.log(`[PARSER] Breaker Flags via Reg 24: Mains=${mainsClosed}, Gen=${genClosed} (Val: ${val24})`);
 
     return {
       block: "LOAD_CURRENT_23",
       loadCurr_l1: c1,
       loadCurr_l2: c2,
       loadCurr_l3: c3,
-      mainsBreakerClosed: mainsClosed,
-      genBreakerClosed: genClosed,
       reg23: u16(regs, 0),
       reg24: u16(regs, 1)
     };
