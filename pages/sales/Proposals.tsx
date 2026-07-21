@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, Eye, Trash2, Search, ArrowRight, Pencil } from 'lucide-react';
+import { FileText, Plus, Eye, Trash2, Search, ArrowRight, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { QmProposal } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -7,6 +7,8 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 const Proposals: React.FC = () => {
   const [proposals, setProposals] = useState<QmProposal[]>([]);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
   const navigate = useNavigate();
 
   const fetchProposals = async () => {
@@ -57,11 +59,19 @@ const Proposals: React.FC = () => {
   };
 
 
-  const filteredProposals = proposals.filter(p => 
-    p.numero_proposta?.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredProposals = proposals.filter(p =>
+    p.numero_proposta?.toLowerCase().includes(search.toLowerCase()) ||
     p.cliente_nome?.toLowerCase().includes(search.toLowerCase()) ||
     p.gerador_modelo?.toLowerCase().includes(search.toLowerCase())
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProposals.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedProposals = filteredProposals.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -118,7 +128,7 @@ const Proposals: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredProposals.map((prop) => (
+                pagedProposals.map((prop) => (
                   <tr key={prop.id} className="hover:bg-gray-800/30 transition-colors">
                     <td className="p-4 font-mono font-medium text-white">{prop.numero_proposta}</td>
                     <td className="p-4">
@@ -170,6 +180,31 @@ const Proposals: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between bg-ciklo-card rounded-xl border border-gray-800 px-4 py-3">
+          <span className="text-sm text-gray-400">
+            Página {safePage} de {totalPages} ({filteredProposals.length} propostas)
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
