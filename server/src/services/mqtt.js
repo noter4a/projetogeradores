@@ -1397,9 +1397,43 @@ export const initMqttService = (io) => {
                                 unifiedData.currentL2 = d.loadCurr_l2 || 0;
                                 unifiedData.currentL3 = d.loadCurr_l3 || 0;
                                 if (!isAgc150Device) {
-                                    unifiedData.mainsCurrentL1 = unifiedData.currentL1;
-                                    unifiedData.mainsCurrentL2 = unifiedData.currentL2;
-                                    unifiedData.mainsCurrentL3 = unifiedData.currentL3;
+                                    // SGC-120/420 have a single CT set on the load side, not one
+                                    // per breaker — the register only tells us how much current
+                                    // is flowing, not through which switch. Attribute it to
+                                    // whichever breaker the device itself reports closed instead
+                                    // of mirroring it onto both sides unconditionally: with the
+                                    // mains breaker closed and the gen breaker open, current can
+                                    // only physically be flowing through mains.
+                                    const mainsClosed = (d.mainsBreakerClosed ?? unifiedData.mainsBreakerClosed) === true;
+                                    const genClosed = (d.genBreakerClosed ?? unifiedData.genBreakerClosed) === true;
+
+                                    if (mainsClosed && !genClosed) {
+                                        unifiedData.mainsCurrentL1 = unifiedData.currentL1;
+                                        unifiedData.mainsCurrentL2 = unifiedData.currentL2;
+                                        unifiedData.mainsCurrentL3 = unifiedData.currentL3;
+                                        unifiedData.currentL1 = 0;
+                                        unifiedData.currentL2 = 0;
+                                        unifiedData.currentL3 = 0;
+                                    } else if (genClosed && !mainsClosed) {
+                                        unifiedData.mainsCurrentL1 = 0;
+                                        unifiedData.mainsCurrentL2 = 0;
+                                        unifiedData.mainsCurrentL3 = 0;
+                                    } else if (!mainsClosed && !genClosed) {
+                                        // Neither switch closed: no path for current on either side
+                                        unifiedData.currentL1 = 0;
+                                        unifiedData.currentL2 = 0;
+                                        unifiedData.currentL3 = 0;
+                                        unifiedData.mainsCurrentL1 = 0;
+                                        unifiedData.mainsCurrentL2 = 0;
+                                        unifiedData.mainsCurrentL3 = 0;
+                                    } else {
+                                        // Both closed (parallel/transfer transient) — a single CT
+                                        // set can't separate the two, so keep the old mirrored
+                                        // behavior as the best available approximation.
+                                        unifiedData.mainsCurrentL1 = unifiedData.currentL1;
+                                        unifiedData.mainsCurrentL2 = unifiedData.currentL2;
+                                        unifiedData.mainsCurrentL3 = unifiedData.currentL3;
+                                    }
                                 }
                             }
                         }
