@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Pencil, Trash2, X, Search, Building2, MapPin, Phone, Mail } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, X, Search, Building2, MapPin, Phone, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
 import { QmClient } from '../../types';
 import { maskCpfCnpj, maskPhone, maskCep, UF_LIST } from '../../utils/formatters';
 
@@ -8,6 +8,8 @@ const Clients: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   const [formData, setFormData] = useState<Partial<QmClient>>({
     razao_social: '',
@@ -113,10 +115,18 @@ const Clients: React.FC = () => {
     }
   };
 
-  const filteredClients = clients.filter(c => 
-    c.razao_social.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredClients = clients.filter(c =>
+    c.razao_social.toLowerCase().includes(search.toLowerCase()) ||
     (c.cnpj_cpf && c.cnpj_cpf.includes(search))
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedClients = filteredClients.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
@@ -265,7 +275,7 @@ const Clients: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredClients.map((client) => (
+                  pagedClients.map((client) => (
                     <tr key={client.id} className="hover:bg-gray-800/30 transition-colors">
                       <td className="p-4">
                         <div className="font-semibold text-white">{client.razao_social}</div>
@@ -304,6 +314,31 @@ const Clients: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!isFormOpen && totalPages > 1 && (
+        <div className="flex items-center justify-between bg-ciklo-card rounded-xl border border-gray-800 px-4 py-3">
+          <span className="text-sm text-gray-400">
+            Página {safePage} de {totalPages} ({filteredClients.length} clientes)
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300"
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
         </div>
       )}
