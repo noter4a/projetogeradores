@@ -39,6 +39,22 @@ function buildMqttOptions() {
     };
 }
 
+// Only log a new trail point once the unit has moved at least this far from the
+// last recorded position — keeps location_history from filling with near-identical
+// points while a generator sits still (which is most of the time).
+const MIN_TRAIL_MOVE_METERS = 100;
+
+/** Great-circle distance between two lat/lon points, in meters (haversine). */
+function haversineMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Earth radius in meters
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+}
+
 /** ddmm.mmmm (NMEA) -> decimal degrees, signed by hemisphere. */
 function nmeaToDecimal(value, hemi) {
     if (!value) return null;
@@ -186,6 +202,38 @@ export function initTcpBridge() {
 }
 
 /**
+ * Append a point to location_history for a generator, but only if it has moved
+ * at least MIN_TRAIL_MOVE_METERS from the most recent stored point (or if this is
+ * the first point ever). This keeps the trail meaningful — one point per real
+ * displacement — instead of thousands of duplicates while the unit sits still.
+ */
+async function recordTrailPoint(generatorId, pos) {
+    try {
+        const last = await pool.query(
+            `SELECT latitude, longitude FROM location_history
+             WHERE generator_id = $1 ORDER BY recorded_at DESC LIMIT 1`,
+            [generatorId]
+        );
+
+        if (last.rowCount > 0) {
+            const prev = last.rows[0];
+            const moved = haversineMeters(
+                Number(prev.latitude), Number(prev.longitude), pos.lat, pos.lon
+            );
+            if (moved < MIN_TRAIL_MOVE_METERS) return; // still parked — skip
+        }
+
+        await pool.query(
+            `INSERT INTO location_history (generator_id, latitude, longitude) VALUES ($1, $2, $3)`,
+            [generatorId, pos.lat, pos.lon]
+        );
+        console.log(`[GNSS] ${generatorId}: trail point recorded (${pos.lat}, ${pos.lon})`);
+    } catch (err) {
+        console.error(`[GNSS] Failed to record trail point for ${generatorId}:`, err.message);
+    }
+}
+
+/**
  * Persist a GNSS report into connection_info.gps and push it to clients — even
  * when no fix was decoded yet. This lets the UI show "waiting for GPS signal"
  * instead of nothing at all, distinguishing "no GNSS configured on this unit"
@@ -208,6 +256,14 @@ async function saveGpsReport(io, deviceId, pos /* {lat, lon} | null */) {
             return;
         }
         console.log(pos ? `[GNSS] ${deviceId} @ ${pos.lat}, ${pos.lon}` : `[GNSS] ${deviceId}: reporting, no fix yet`);
+
+        // Record a trail point when this fix is ≥100m from the last stored one
+        // (or it's the very first point). Uses the resolved generator id from the
+        // UPDATE above so the history keys off the real generator, not the alias
+        // the modem registered with.
+        if (pos) {
+            await recordTrailPoint(result.rows[0].id, pos);
+        }
         // Dedicated event so a GPS report doesn't refresh lastDataReceived (which would
         // make a unit with a dead controller but live modem look "connected").
         if (io) io.emit('generator:gps', {

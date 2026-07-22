@@ -20,6 +20,7 @@ import {
   Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban, AlertTriangle, MapPin
 } from 'lucide-react';
 import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
+import LocationHistoryMap from '../components/LocationHistoryMap';
 
 const GENERATOR_SECTION_IDS = ['remote_control', 'mechanical', 'electrical', 'location', 'load_curve'] as const;
 type GeneratorSectionId = typeof GENERATOR_SECTION_IDS[number];
@@ -1221,7 +1222,6 @@ const GeneratorDetail: React.FC = () => {
 
   const renderLocation = () => {
     if (!gen.gpsUpdatedAt) return null;
-    const hasFix = gen.gpsHasFix && gen.latitude != null && gen.longitude != null;
 
     return (
       <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
@@ -1229,42 +1229,15 @@ const GeneratorDetail: React.FC = () => {
           <MapPin size={18} className="text-ciklo-orange" /> Localização
         </h3>
 
-        {hasFix ? (
-          <>
-            <div className="rounded-lg overflow-hidden border border-gray-700/50 mb-4 h-[260px]">
-              <iframe
-                title={`Mapa - ${gen.name}`}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${gen.longitude! - 0.004}%2C${gen.latitude! - 0.003}%2C${gen.longitude! + 0.004}%2C${gen.latitude! + 0.003}&layer=mapnik&marker=${gen.latitude}%2C${gen.longitude}`}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Coordenadas</p>
-                <p className="text-sm font-mono text-white">{gen.latitude!.toFixed(5)}, {gen.longitude!.toFixed(5)}</p>
-              </div>
-              <a
-                href={`https://www.google.com/maps?q=${gen.latitude},${gen.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs font-bold text-ciklo-orange hover:underline"
-              >
-                <MapPin size={14} /> Abrir no Google Maps
-              </a>
-            </div>
-            <p className="text-[10px] text-gray-600 mt-3">
-              Atualizado: {new Date(gen.gpsUpdatedAt).toLocaleString('pt-BR')}
-            </p>
-          </>
-        ) : (
-          <div className="flex items-center justify-center gap-3 text-gray-500 py-10">
-            <MapPin size={20} className="animate-pulse" />
-            <span className="text-sm">Buscando sinal de GPS...</span>
-          </div>
-        )}
+        <LocationHistoryMap
+          generatorId={gen.id}
+          currentLat={gen.gpsHasFix ? gen.latitude : null}
+          currentLon={gen.gpsHasFix ? gen.longitude : null}
+        />
+
+        <p className="text-[10px] text-gray-600 mt-3">
+          Atualizado: {new Date(gen.gpsUpdatedAt).toLocaleString('pt-BR')}
+        </p>
       </div>
     );
   };

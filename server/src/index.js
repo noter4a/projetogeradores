@@ -308,10 +308,25 @@ const initDb = async (retries = 15, delay = 5000) => {
                 );
             `);
 
+            // Create Location History Table (GPS trail for modems with GNSS).
+            // A new row is only written when the unit moves ≥100m from the last
+            // recorded point (see saveGpsReport in tcp-bridge.js), so a stationary
+            // generator adds nothing here — the table only grows when it travels.
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS location_history (
+                    id SERIAL PRIMARY KEY,
+                    generator_id VARCHAR(50) NOT NULL,
+                    latitude NUMERIC(10,6) NOT NULL,
+                    longitude NUMERIC(10,6) NOT NULL,
+                    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+
             // Create index for fast time-range queries
             try {
                 await client.query(`CREATE INDEX IF NOT EXISTS idx_readings_gen_time ON generator_readings (generator_id, recorded_at DESC)`);
                 await client.query(`CREATE INDEX IF NOT EXISTS idx_alarm_history_gen_end ON alarm_history (generator_id, end_time DESC)`);
+                await client.query(`CREATE INDEX IF NOT EXISTS idx_location_history_gen_time ON location_history (generator_id, recorded_at DESC)`);
             } catch(e) { console.log('Index creation skipped:', e.message); }
 
             // --- QUOTATION MODULE (QM) TABLES ---
@@ -1286,6 +1301,36 @@ router.get('/generators/:id/readings', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('Get readings error:', err);
         res.status(500).json({ message: 'Erro ao buscar leituras.' });
+    }
+});
+
+// GET /api/generators/:id/location-history - GPS trail (points only logged on ≥100m moves)
+router.get('/generators/:id/location-history', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    // Cap how far back we look so a very well-travelled unit can't return an
+    // unbounded payload; the client draws the path in chronological order.
+    const limit = Math.min(parseInt(req.query.limit, 10) || 500, 2000);
+
+    try {
+        const result = await pool.query(`
+            SELECT latitude, longitude, recorded_at
+            FROM location_history
+            WHERE generator_id = $1
+               OR generator_id = (SELECT connection_info->>'ip' FROM generators WHERE id = $1 LIMIT 1)
+            ORDER BY recorded_at DESC
+            LIMIT $2
+        `, [id, limit]);
+
+        // Return oldest-first so the frontend can draw the polyline start -> end directly.
+        const points = result.rows.reverse().map(r => ({
+            latitude: Number(r.latitude),
+            longitude: Number(r.longitude),
+            recordedAt: r.recorded_at,
+        }));
+        res.json(points);
+    } catch (err) {
+        console.error('Get location history error:', err);
+        res.status(500).json({ message: 'Erro ao buscar histórico de localização.' });
     }
 });
 
