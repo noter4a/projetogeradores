@@ -1775,6 +1775,7 @@ export const initMqttService = (io) => {
                             unifiedData.alarmMessage = d.alarmMessage;
                             if (!unifiedData.alarms) unifiedData.alarms = {};
                             unifiedData.alarms.shutdown = d.isShutdown;
+                            if (d.genBreakerClosed != null) unifiedData.genBreakerClosed = d.genBreakerClosed;
                             unifiedData.voltageL1 = d.voltageL1;
                             unifiedData.voltageL2 = d.voltageL2;
                             unifiedData.voltageL3 = d.voltageL3;

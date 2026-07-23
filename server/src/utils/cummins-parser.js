@@ -61,6 +61,14 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
             alarmMessage = `${kind} Cummins (código ${activeFault})`;
         }
 
+        // NFPA 110 bitmap (40016). O PCC 1301 não expõe posição de disjuntor, mas
+        // o bit 14 "Genset Supplying Load" indica o gerador alimentando a carga
+        // (= disjuntor do gerador fechado). Não há status da chave de REDE — o
+        // controlador é só de gerador e não monitora a concessionária.
+        const nfpa1 = u16(regs, 6); // 40016 (offset 6 no bloco 40010-40025)
+        const genSupplyingLoad = (nfpa1 & 0x4000) !== 0; // bit 14
+        console.log(`[CUMMINS-PARSER] NFPA 40016=0x${nfpa1.toString(16).toUpperCase()} | Genset Supplying Load(bit14)=${genSupplyingLoad}`);
+
         return {
             block: 'CUMMINS_STATUS',
             operationMode,
@@ -69,6 +77,7 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
             alarmCode,
             alarmMessage,
             isShutdown: faultType === 4,
+            genBreakerClosed: genSupplyingLoad, // "Genset Supplying Load" (sem status de chave de rede)
             // Tensões: L-N (40018-40020) e L-L (40022-40025)
             voltageL1: val(u16(regs, 8)),   // 40018
             voltageL2: val(u16(regs, 9)),   // 40019
