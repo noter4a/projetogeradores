@@ -22,11 +22,12 @@ export const CUMMINS_POLL_SEQUENCE = [
     // % de carga por fase — bloco menos crítico, deixado por último para não
     // atrasar os dados de motor num device com timeouts (RS485 congestionado).
     { startAddress: 57, quantity: 3, fn: 3 },  // 40058-40060: % de carga (corrente/nominal)
-    // SONDAGEM (diagnóstico) — nível de combustível não existe no mapa base do
-    // PCC 1301, mas pode existir se houver módulo AUX101 (PowerCommand 2.x/3.x).
-    // Leitura apenas; se o controlador não suportar, retorna exceção Modbus.
-    { startAddress: 3744, quantity: 2, fn: 3 }, // 43745 Fuel Level % + 43746 Fuel Level
-    { startAddress: 1125, quantity: 2, fn: 3 }, // 41126/41127 Fuel Level (Ohm, sender bruto)
+    // NOTA: o nível de combustível (reg 43745 "Fuel Level %", AUX101) existe e o
+    // controlador responde, mas retorna 0% mesmo com o tanque cheio — o sensor de
+    // nível não está ligado/configurado no AUX101 (verificado em campo). Enquanto
+    // o sensor não for conectado, não há nível utilizável para ler, então não
+    // sondamos esse registrador. Para reativar: repor { startAddress: 3744,
+    // quantity: 2 } aqui e remapear CUMMINS_FUEL_PCT -> fuelLevel no mqtt.
 ];
 
 const u16 = (regs, i) => (regs[i] ?? 0);
@@ -164,23 +165,6 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
             totalHours,
             runHours: totalHours,
         };
-    }
-
-    // ---- SONDAGEM: Nível de combustível % (addr 3744 = 43745/43746) ----
-    if (startAddress === 3744 && regs.length >= 1) {
-        const raw = u16(regs, 0);                     // 43745 (×0.1, signed, %)
-        const signed = raw > 32767 ? raw - 65536 : raw;
-        const fuelPct = (raw === 65535) ? null : Number((signed * 0.1).toFixed(1));
-        console.log(`[CUMMINS-PROBE] 43745 FuelLevel%% raw=${raw} -> ${fuelPct}% | 43746 raw=${u16(regs, 1)}`);
-        // Só considera válido se cair numa faixa plausível de nível (0..110%).
-        const valid = fuelPct != null && fuelPct >= 0 && fuelPct <= 110;
-        return { block: 'CUMMINS_FUEL_PCT', fuelLevel: valid ? fuelPct : null, fuelRawPct: raw };
-    }
-
-    // ---- SONDAGEM: Nível de combustível bruto (addr 1125 = 41126/41127, Ohm) ----
-    if (startAddress === 1125 && regs.length >= 2) {
-        console.log(`[CUMMINS-PROBE] 41126/41127 FuelLevel(Ohm) raw=${u16(regs, 0)},${u16(regs, 1)}`);
-        return { block: 'CUMMINS_FUEL_OHM', fuelOhm1: u16(regs, 0), fuelOhm2: u16(regs, 1) };
     }
 
     console.log(`[CUMMINS-PARSER] Bloco desconhecido no endereço ${startAddress} (${regs.length} regs)`);
