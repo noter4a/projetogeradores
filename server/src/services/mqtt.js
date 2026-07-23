@@ -1405,14 +1405,17 @@ export const initMqttService = (io) => {
                                     // mains breaker closed and the gen breaker open, current can
                                     // only physically be flowing through mains.
                                     //
-                                    // Breaker state must come from unifiedData (populated by the
-                                    // digital-input block, STATUS_COMBINED_77_78 for SGC-120 /
-                                    // reconcileSgc420BreakerState for SGC420) rather than from `d`
-                                    // here: this LOAD_CURRENT_23 block does not carry real breaker
-                                    // flags — an earlier version bit-masked the L2 current reading
-                                    // itself and coincidentally looked like a breaker flag.
-                                    const mainsClosed = unifiedData.mainsBreakerClosed === true;
-                                    const genClosed = unifiedData.genBreakerClosed === true;
+                                    // Breaker state does not travel in the LOAD_CURRENT_23 block.
+                                    // On SGC-120 every Modbus block is batched into one MQTT message,
+                                    // so unifiedData already carries the breaker flags here. But the
+                                    // SGC-420 modem sends each block as its OWN message, so at this
+                                    // point unifiedData has no breaker state — it lives in the
+                                    // previously persisted device state. Fall back to that, otherwise
+                                    // the "neither closed" branch below would zero the current on
+                                    // every SGC-420 frame (the reported "no current" bug).
+                                    const persisted = currentGeneratorsState[deviceId]?.data || {};
+                                    const mainsClosed = (unifiedData.mainsBreakerClosed ?? persisted.mainsBreakerClosed) === true;
+                                    const genClosed = (unifiedData.genBreakerClosed ?? persisted.genBreakerClosed) === true;
 
                                     if (mainsClosed && !genClosed) {
                                         unifiedData.mainsCurrentL1 = unifiedData.currentL1;

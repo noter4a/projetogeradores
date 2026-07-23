@@ -353,6 +353,10 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
     const c2 = scale01(u16(regs, 1) * 0.1);
     const c3 = scale01(u16(regs, 2) * 0.1);
 
+    // Raw log so we can confirm the controller actually returns load current
+    // when there is load (regs are "Load L1/L2/L3 current" per the DEIF table).
+    console.log(`[PARSER-420] Load current 23-25: L1=${c1}A L2=${c2}A L3=${c3}A (raw ${u16(regs,0)},${u16(regs,1)},${u16(regs,2)})`);
+
     return {
       block: 'LOAD_CURRENT_23',
       loadCurr_l1: c1,
