@@ -17,9 +17,11 @@ export const CUMMINS_POLL_SEQUENCE = [
     { startAddress: 9, quantity: 16, fn: 3 },  // 40010-40025: modo, estado, falha, tensões
     { startAddress: 25, quantity: 4, fn: 3 },  // 40026-40029: correntes L1/L2/L3 + média
     { startAddress: 39, quantity: 6, fn: 3 },  // 40040-40045: potência (kVA) + frequência
-    { startAddress: 57, quantity: 3, fn: 3 },  // 40058-40060: % de carga por fase (corrente/nominal)
     { startAddress: 60, quantity: 5, fn: 3 },  // 40061-40065: bateria, óleo, temperatura
     { startAddress: 67, quantity: 4, fn: 3 },  // 40068-40071: RPM, nº de partidas, horas motor
+    // % de carga por fase — bloco menos crítico, deixado por último para não
+    // atrasar os dados de motor num device com timeouts (RS485 congestionado).
+    { startAddress: 57, quantity: 3, fn: 3 },  // 40058-40060: % de carga (corrente/nominal)
 ];
 
 const u16 = (regs, i) => (regs[i] ?? 0);
