@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { decodeSgc120Payload, createModbusReadRequest, crc16Modbus } from '../utils/sgc120-parser.js';
-import { decodeSgc420Payload, SGC420_POLL_SEQUENCE, isSgc420Controller, reconcileSgc420BreakerState } from '../utils/sgc420-parser.js';
+import { decodeSgc420Payload, SGC420_POLL_SEQUENCE, isSgc420Controller, reconcileSgc420BreakerState, isSgc420GenIdle, zeroSgc420GenOutputs } from '../utils/sgc420-parser.js';
 import {
     decodeAgc150Payload,
     AGC150_POLL_SEQUENCE,
@@ -1986,6 +1986,14 @@ export const initMqttService = (io) => {
 
                         if (isSgc420Device) {
                             reconcileSgc420BreakerState(mergedData);
+                            // Clear frozen generator-output values (e.g. a stale 31 kW on a
+                            // stopped unit whose power block stopped refreshing due to serial
+                            // timeouts). A de-energized genset outputs no power/current — zero
+                            // both the live state (mergedData) and the DB-write path (unifiedData).
+                            if (isSgc420GenIdle(mergedData)) {
+                                zeroSgc420GenOutputs(mergedData);
+                                zeroSgc420GenOutputs(unifiedData);
+                            }
                             unifiedData.mainsBreakerClosed = mergedData.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = mergedData.genBreakerClosed;
                         } else if (isAgc150Device) {

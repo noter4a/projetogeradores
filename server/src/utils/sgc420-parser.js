@@ -115,6 +115,34 @@ export function reconcileSgc420BreakerState(data) {
   return data;
 }
 
+// Generator-OUTPUT electrical quantities — physically zero when the genset isn't
+// producing voltage. These come from blocks (power at reg 26-30, current at
+// reg 23-25) that can time out on a congested RS485 bus; when they stop
+// refreshing their last value freezes, e.g. a stopped unit still reading 31 kW.
+const SGC420_GEN_OUTPUT_FIELDS = [
+  'activePower', 'activePowerL1', 'activePowerL2', 'activePowerL3', 'activePowerTotal',
+  'reactivePower', 'apparentPower', 'powerFactor', 'engineLoad',
+  'currentL1', 'currentL2', 'currentL3',
+];
+
+/**
+ * True when the generator is not producing voltage (and not spinning up), so its
+ * own output power/current must be zero. Uses the merged (persisted) gen voltage
+ * and RPM, which are reliable even on a frame where the power/current block was
+ * missed — the whole point, since that's exactly when a stale value would freeze.
+ */
+export function isSgc420GenIdle(data) {
+  const genV = Math.max(data.voltageL1 || 0, data.voltageL2 || 0, data.voltageL3 || 0);
+  const rpm = data.rpm ?? 0;
+  return genV < 20 && rpm < 100;
+}
+
+/** Zero the generator's own output quantities in-place. Mains-side current is left untouched. */
+export function zeroSgc420GenOutputs(data) {
+  for (const f of SGC420_GEN_OUTPUT_FIELDS) data[f] = 0;
+  return data;
+}
+
 /** Combustível: valor ≤100 = % inteiro; >100 = escala 0.1 (ex. 890 → 89%) */
 function decodeFuelLevelPct(raw) {
   if (raw <= 0) return 0;
