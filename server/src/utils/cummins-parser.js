@@ -17,8 +17,9 @@ export const CUMMINS_POLL_SEQUENCE = [
     { startAddress: 9, quantity: 16, fn: 3 },  // 40010-40025: modo, estado, falha, tensões
     { startAddress: 25, quantity: 4, fn: 3 },  // 40026-40029: correntes L1/L2/L3 + média
     { startAddress: 39, quantity: 6, fn: 3 },  // 40040-40045: potência (kVA) + frequência
+    { startAddress: 57, quantity: 3, fn: 3 },  // 40058-40060: % de carga por fase (corrente/nominal)
     { startAddress: 60, quantity: 5, fn: 3 },  // 40061-40065: bateria, óleo, temperatura
-    { startAddress: 67, quantity: 4, fn: 3 },  // 40068-40071: RPM, partidas, horas motor
+    { startAddress: 67, quantity: 4, fn: 3 },  // 40068-40071: RPM, nº de partidas, horas motor
 ];
 
 const u16 = (regs, i) => (regs[i] ?? 0);
@@ -82,9 +83,26 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
         const scale = (r) => (r === 65535 ? null : Number((r * 0.1).toFixed(1)));
         return {
             block: 'CUMMINS_CURRENT',
-            currentL1: scale(u16(regs, 0)), // 40026
-            currentL2: scale(u16(regs, 1)), // 40027
-            currentL3: scale(u16(regs, 2)), // 40028
+            currentL1: scale(u16(regs, 0)),                     // 40026 (×0.1 A)
+            currentL2: scale(u16(regs, 1)),                     // 40027
+            currentL3: scale(u16(regs, 2)),                     // 40028
+            avgCurrent: regs.length >= 4 ? scale(u16(regs, 3)) : null, // 40029 corrente média
+        };
+    }
+
+    // ---- Bloco F: % de carga por fase (addr 57 = 40058-40060, ×0.1 %) ----
+    // "Rated Alternator L1/L2/L3 Current (%)": corrente como % da nominal.
+    if (startAddress === 57 && regs.length >= 3) {
+        const pct = (r) => (r === 65535 ? null : Number((r * 0.1).toFixed(1)));
+        const p1 = pct(u16(regs, 0)), p2 = pct(u16(regs, 1)), p3 = pct(u16(regs, 2));
+        const vals = [p1, p2, p3].filter((v) => v != null);
+        const avg = vals.length ? Number((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)) : null;
+        return {
+            block: 'CUMMINS_LOAD_PCT',
+            loadPercentL1: p1,
+            loadPercentL2: p2,
+            loadPercentL3: p3,
+            loadPercent: avg, // média das fases — "% de carga"
         };
     }
 
@@ -114,16 +132,19 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
         };
     }
 
-    // ---- Bloco E: RPM + Horas motor (addr 67 = 40068, 4 regs) ----
+    // ---- Bloco E: RPM + nº de partidas + Horas motor (addr 67 = 40068, 4 regs) ----
     if (startAddress === 67 && regs.length >= 4) {
-        const rpm = val(u16(regs, 0)); // 40068
-        const runHi = u16(regs, 2);    // 40070 (segundos, high word)
-        const runLo = u16(regs, 3);    // 40071 (segundos, low word)
-        const totalSeconds = (runHi << 16) | runLo;
+        const rpm = val(u16(regs, 0));       // 40068
+        const totalRuns = val(u16(regs, 1)); // 40069 "Total Runs" (nº de partidas/ciclos)
+        const runHi = u16(regs, 2);          // 40070 (segundos, high word — mult 1)
+        const runLo = u16(regs, 3);          // 40071 (segundos, low word)
+        // >>> 0 evita o resultado negativo do << quando o bit alto está setado.
+        const totalSeconds = ((runHi << 16) | runLo) >>> 0;
         const totalHours = Number((totalSeconds / 3600).toFixed(2));
         return {
             block: 'CUMMINS_ENGINE2',
             rpm,
+            startAttempts: totalRuns,
             totalHours,
             runHours: totalHours,
         };

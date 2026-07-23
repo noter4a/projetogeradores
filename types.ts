@@ -61,10 +61,18 @@ export interface Generator {
   currentL1: number;
   currentL2: number;
   currentL3: number;
+  avgCurrent?: number; // A — corrente média das fases
   frequency: number;
   powerFactor: number;
   activePower: number; // kW
   apparentPower?: number; // kVA
+  /** % de carga (corrente/nominal) — Cummins PCC 1301 */
+  loadPercent?: number;
+  loadPercentL1?: number;
+  loadPercentL2?: number;
+  loadPercentL3?: number;
+  /** Número de partidas/ciclos do gerador */
+  startAttempts?: number;
   reactivePower?: number; // kVAr
   apparentEnergy?: number; // kVAh
   activeEnergy?: number; // kWh

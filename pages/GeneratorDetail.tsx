@@ -1013,6 +1013,32 @@ const GeneratorDetail: React.FC = () => {
               {Number(gen.totalHours || 0).toFixed(2)} h
             </span>
           </div>
+          {gen.loadPercent != null && (
+            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+              <div className="flex items-center gap-2 text-gray-400">
+                <BarChart3 size={18} /> Carga
+              </div>
+              <span className={`text-xl font-bold ${gen.loadPercent >= 90 ? 'text-red-500' : gen.loadPercent >= 70 ? 'text-ciklo-orange' : 'text-green-500'}`}>
+                {gen.loadPercent}%
+              </span>
+            </div>
+          )}
+          {gen.avgCurrent != null && (
+            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+              <div className="flex items-center gap-2 text-gray-400">
+                <Zap size={18} /> Corrente Média
+              </div>
+              <span className="text-xl font-bold text-white">{gen.avgCurrent} A</span>
+            </div>
+          )}
+          {gen.startAttempts != null && (
+            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+              <div className="flex items-center gap-2 text-gray-400">
+                <RotateCcw size={18} /> Nº de Partidas
+              </div>
+              <span className="text-xl font-bold text-white">{gen.startAttempts}</span>
+            </div>
+          )}
         </div>
       </div>
     );

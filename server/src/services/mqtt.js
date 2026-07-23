@@ -1788,6 +1788,14 @@ export const initMqttService = (io) => {
                             unifiedData.currentL1 = d.currentL1;
                             unifiedData.currentL2 = d.currentL2;
                             unifiedData.currentL3 = d.currentL3;
+                            if (d.avgCurrent != null) unifiedData.avgCurrent = d.avgCurrent;
+                        }
+
+                        if (d.block === 'CUMMINS_LOAD_PCT') {
+                            unifiedData.loadPercent = d.loadPercent;
+                            unifiedData.loadPercentL1 = d.loadPercentL1;
+                            unifiedData.loadPercentL2 = d.loadPercentL2;
+                            unifiedData.loadPercentL3 = d.loadPercentL3;
                         }
 
                         if (d.block === 'CUMMINS_POWER') {
@@ -1807,6 +1815,7 @@ export const initMqttService = (io) => {
                             unifiedData.rpm = d.rpm;
                             unifiedData.totalHours = d.totalHours;
                             unifiedData.runHours = d.runHours;
+                            if (d.startAttempts != null) unifiedData.startAttempts = d.startAttempts;
                         }
                     }
                 });

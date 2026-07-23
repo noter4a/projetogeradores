@@ -13,8 +13,9 @@ export function isGeneratorConnected(lastDataReceived?: number): boolean {
 // readings, and e.g. run hours don't reset just because comms dropped).
 const OFFLINE_ZERO_FIELDS: (keyof Generator)[] = [
   'voltageL1', 'voltageL2', 'voltageL3', 'voltageL12', 'voltageL23', 'voltageL31',
-  'currentL1', 'currentL2', 'currentL3',
+  'currentL1', 'currentL2', 'currentL3', 'avgCurrent',
   'frequency', 'powerFactor', 'activePower', 'apparentPower', 'reactivePower',
+  'loadPercent', 'loadPercentL1', 'loadPercentL2', 'loadPercentL3',
   'rpm', 'oilPressure', 'engineTemp', 'fuelLevel', 'batteryVoltage',
   'mainsVoltageL1', 'mainsVoltageL2', 'mainsVoltageL3',
   'mainsVoltageL12', 'mainsVoltageL23', 'mainsVoltageL31',
