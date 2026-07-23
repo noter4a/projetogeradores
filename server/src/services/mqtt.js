@@ -1799,6 +1799,11 @@ export const initMqttService = (io) => {
                             unifiedData.loadPercentL3 = d.loadPercentL3;
                         }
 
+                        // SONDAGEM: se o controlador (AUX101) devolver nível de combustível válido, usa.
+                        if (d.block === 'CUMMINS_FUEL_PCT' && d.fuelLevel != null) {
+                            unifiedData.fuelLevel = d.fuelLevel;
+                        }
+
                         if (d.block === 'CUMMINS_POWER') {
                             unifiedData.activePower = d.activePower;
                             unifiedData.activePowerTotal = d.activePowerTotal;
