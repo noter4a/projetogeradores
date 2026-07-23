@@ -2877,6 +2877,42 @@ export const sendControlCommand = (deviceId, action) => {
                 return { success: true };
             }
 
+            // Cummins PCC 1301 / HMI211 — comandos de escrita (Cap. 14 do manual A029X159):
+            //   40300 (addr 299) "Genset start/stop via Modbus": 1=Partir, 0=Parar
+            //   40301 (addr 300) "Fault reset via Modbus": 1=Ativo (pulso)
+            // Auto/Manual NÃO é escrevível: o modo Off-Run-Auto é definido pela chave
+            // física do painel (40010 é somente leitura). A partida remota via Modbus
+            // exige a chave do painel na posição Auto/Remoto.
+            if (isCumminsController(device.controller)) {
+                if (action === 'auto' || action === 'manual') {
+                    return {
+                        success: false,
+                        error: 'O Cummins PCC 1301 não permite trocar Auto/Manual via Modbus — use a chave Off-Run-Auto no painel (HMI211).',
+                    };
+                }
+                if (action === 'reset' || action === 'ack') {
+                    pausedDevices.add(deviceId);
+                    client.publish(topic, createModbusWriteRequest(slaveId, 300, 1)); // 40301 = 1
+                    console.log(`[CUMMINS-CMD] RESET FALHA: 40301=1 -> ${deviceId}`);
+                    setTimeout(() => {
+                        client.publish(topic, createModbusWriteRequest(slaveId, 300, 0)); // volta a 0
+                    }, DR164_COMMAND_COIL_PULSE_MS);
+                    scheduleDr164PollResume(deviceId, 'CUMMINS-CMD');
+                    return { success: true };
+                }
+                let cumminsVal;
+                if (action === 'start') cumminsVal = 1;
+                else if (action === 'stop') cumminsVal = 0;
+                else return { success: false, error: `Ação '${action}' não suportada no Cummins PCC 1301` };
+
+                pausedDevices.add(deviceId);
+                const cbuf = createModbusWriteRequest(slaveId, 299, cumminsVal); // 40300
+                client.publish(topic, cbuf);
+                console.log(`[CUMMINS-CMD] ${action.toUpperCase()}: 40300=${cumminsVal} -> ${deviceId}. Hex: ${cbuf.toString('hex').toUpperCase()}`);
+                scheduleDr164PollResume(deviceId, 'CUMMINS-CMD');
+                return { success: true };
+            }
+
             // DEIF DR164 (SGC120 / SGC420): existing command logic
             let commandValue;
             switch (action) {
