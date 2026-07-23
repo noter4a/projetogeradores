@@ -1238,9 +1238,16 @@ export const initMqttService = (io) => {
             const deviceController = resolveDeviceController(deviceId);
             const isSgc420Device = isSgc420Controller(deviceController);
             const isAgc150Device = isAgc150Controller(deviceController);
+            const isCumminsDeviceController = isCumminsController(deviceController);
             const agc150Profile = isAgc150Device ? resolveDeviceAgc150Profile(deviceId) : null;
+            // Cummins has its own decoder (cumminsResults below). It must NOT also fall
+            // through to the SGC-120 decoder — that would read Cummins registers as if
+            // they were SGC-120 ones and inject garbage (e.g. an 8.9M-hour run time
+            // from misreading the battery/oil registers), which then overwrites the
+            // correct Cummins values during the merge.
             const results = isAgc150Device ? decodeAgc150Payload(payload, { profile: agc150Profile })
                 : isSgc420Device ? decodeSgc420Payload(payload)
+                : isCumminsDeviceController ? []
                 : decodeSgc120Payload(payload);
 
             // Check if this device uses a KVA or DSE controller
