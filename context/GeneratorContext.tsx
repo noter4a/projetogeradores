@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, PropsWithChildren } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, PropsWithChildren } from 'react';
 import { Generator } from '../types';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { withOfflineZeroing } from '../utils/generatorHealth';
 
 let socket: Socket | null = null;
 
@@ -32,6 +33,13 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
   const [generators, setGenerators] = useState<Generator[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSocketConnected, setIsSocketConnected] = useState(true);
+  // Ticks periodically so a generator flips to "offline" (and its live values
+  // zero out) even when no new data arrives to trigger a re-render.
+  const [connTick, setConnTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setConnTick(v => v + 1), 20_000);
+    return () => clearInterval(t);
+  }, []);
 
   const fetchGenerators = useCallback(async () => {
     if (!token) {
@@ -176,10 +184,18 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
     [token]
   );
 
+  // Present disconnected units with zeroed instantaneous values (non-destructive;
+  // raw `generators` state and the backend keep the last reading). Recomputed on
+  // the connTick so the transition happens on a timer, not only on new data.
+  const displayGenerators = useMemo(
+    () => generators.map(withOfflineZeroing),
+    [generators, connTick]
+  );
+
   return (
     <GeneratorContext.Provider
       value={{
-        generators,
+        generators: displayGenerators,
         isLoading,
         isSocketConnected,
         fetchGenerators,
