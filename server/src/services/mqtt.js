@@ -1491,8 +1491,14 @@ export const initMqttService = (io) => {
                                 if (d.opMode) {
                                     dr164CommandedMode.set(deviceId, d.opMode);
                                 }
-                                console.log(`[SGC420-MODE] ${deviceId} Reg91=0x${d.reg78_hex} dgOp=${d.dgOpMode ?? '?'} -> ${resolvedMode}${d.opMode ? '' : ' (held)'}`);
-                                // Chaves QTA: definidas por reconcileSgc420BreakerState (tensão/RPM)
+                                // Carrega os bits reais de estado de carga do Reg 91 (DEIF DG status):
+                                //   bit 11/16 "Load on Mains" e bit 10/16 "Load on DG". São o
+                                //   feedback real dos contatores — persistidos aqui para que o
+                                //   reconcileSgc420BreakerState use o estado real da chave, não a
+                                //   presença de tensão (rede pode ter tensão com a chave aberta).
+                                if (d.loadOnMains !== undefined) unifiedData.loadOnMains = d.loadOnMains;
+                                if (d.loadOnDg !== undefined) unifiedData.loadOnDg = d.loadOnDg;
+                                console.log(`[SGC420-MODE] ${deviceId} Reg91=0x${d.reg78_hex} dgOp=${d.dgOpMode ?? '?'} loadMains=${d.loadOnMains} loadDg=${d.loadOnDg} -> ${resolvedMode}${d.opMode ? '' : ' (held)'}`);
                             } else if (isDeifDevice) {
                                 const highByte = parseInt(d.reg78_hex, 16) >> 8;
                                 let resolvedMode = null;

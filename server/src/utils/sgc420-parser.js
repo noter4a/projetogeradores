@@ -45,23 +45,42 @@ function decodeReg91Status(raw) {
   const dgOpMode = (raw >> 11) & 0x07;
   const opMode = decodeReg91OperationMode(raw);
 
-  const loadOnMains = (raw & 0x0400) !== 0; // bit 11 — flag de status, não = chave fechada
-  const loadOnDg = (raw & 0x0200) !== 0;    // bit 10 — idem
+  // Reg 91 "DG status", per the official DEIF SGC 420 Mk II Modbus table
+  // (sgc-420-mk-ii-modbus-tables-4189341402-uk.xlsx):
+  //   bit 11/16 (0x0400) = "Load on Mains" -> mains contactor closed / load on mains
+  //   bit 10/16 (0x0200) = "Load on DG"    -> gen contactor closed / load on generator
+  //   bit 15/16 (0x4000) = "Mains healthy" -> grid has voltage (NOT the breaker!)
+  // These are the manufacturer's real load-path feedback, so they — not voltage
+  // presence — are what tell us which breaker is actually closed.
+  const loadOnMains = (raw & 0x0400) !== 0; // bit 11/16
+  const loadOnDg = (raw & 0x0200) !== 0;    // bit 10/16
 
   return {
     opMode,
     dgOpMode,
     loadOnMains,
     loadOnDg,
-    // Breaker state is derived later from voltages/RPM (reconcileSgc420BreakerState)
   };
 }
 
 /**
- * Estado real das chaves QTA — derivado de tensão/RPM, não dos bits Load on DG/Mains.
- * Reg 91 "Load on DG" pode ficar ativo mesmo com GMG parado (estado lógico do ATS).
+ * Estado real das chaves QTA a partir do Reg 91 (DEIF DG status): bit "Load on
+ * Mains" = chave de rede fechada, bit "Load on DG" = chave do gerador fechada.
+ *
+ * NÃO inferir a chave de rede pela presença de tensão: a rede pode estar
+ * energizada ("Mains healthy" = 1) com a chave de rede ABERTA — era exatamente
+ * esse o bug (rede aberta aparecendo como fechada porque havia tensão de rede).
+ * A heurística antiga de tensão/RPM fica só como fallback para os primeiros
+ * frames, antes do Reg 91 ter sido lido na sessão.
  */
 export function reconcileSgc420BreakerState(data) {
+  if (data.loadOnMains !== undefined || data.loadOnDg !== undefined) {
+    data.mainsBreakerClosed = data.loadOnMains === true;
+    data.genBreakerClosed = data.loadOnDg === true;
+    return data;
+  }
+
+  // Fallback (só até o Reg 91 chegar): tensão/RPM.
   const mainsV = Math.max(data.mainsVoltageL1 || 0, data.mainsVoltageL2 || 0, data.mainsVoltageL3 || 0);
   const genV = Math.max(data.voltageL1 || 0, data.voltageL2 || 0, data.voltageL3 || 0);
   const rpm = data.rpm ?? 0;
