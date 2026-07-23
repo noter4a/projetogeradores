@@ -45,15 +45,20 @@ function decodeReg91Status(raw) {
   const dgOpMode = (raw >> 11) & 0x07;
   const opMode = decodeReg91OperationMode(raw);
 
-  // Reg 91 "DG status", per the official DEIF SGC 420 Mk II Modbus table
-  // (sgc-420-mk-ii-modbus-tables-4189341402-uk.xlsx):
-  //   bit 11/16 (0x0400) = "Load on Mains" -> mains contactor closed / load on mains
-  //   bit 10/16 (0x0200) = "Load on DG"    -> gen contactor closed / load on generator
-  //   bit 15/16 (0x4000) = "Mains healthy" -> grid has voltage (NOT the breaker!)
-  // These are the manufacturer's real load-path feedback, so they — not voltage
-  // presence — are what tell us which breaker is actually closed.
-  const loadOnMains = (raw & 0x0400) !== 0; // bit 11/16
-  const loadOnDg = (raw & 0x0200) !== 0;    // bit 10/16
+  // Reg 91 "DG status" load-path bits. The official DEIF SGC 420 Mk II Modbus
+  // table (sgc-420-mk-ii-modbus-tables-4189341402-uk.xlsx) lists:
+  //   bit 11/16 (0x0400) = "Load on Mains"
+  //   bit 10/16 (0x0200) = "Load on DG"
+  //   bit 15/16 (0x4000) = "Mains healthy" (grid has voltage — NOT the breaker)
+  // BUT field measurement on Ciklo55 shows these two are swapped in the actual
+  // firmware: with the genset STOPPED (0 V, 0 rpm) and the grid present, Reg 91
+  // read 0x4280 — i.e. bit 0x0200 set. The load cannot physically be on a
+  // stopped generator, so 0x0200 must be "Load on Mains", not "Load on DG".
+  // (This also explains why an earlier attempt distrusted these bits: the
+  // "Load on DG" bit appeared active with the genset off.) We trust the
+  // measured reality over the datasheet labels:
+  const loadOnMains = (raw & 0x0200) !== 0; // empirically the mains load-path bit
+  const loadOnDg = (raw & 0x0400) !== 0;    // empirically the generator load-path bit
 
   return {
     opMode,
