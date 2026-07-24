@@ -28,6 +28,11 @@ export const CUMMINS_POLL_SEQUENCE = [
     // Se o sender de nível estiver fiado em qualquer canal, a tensão aparece aqui
     // mesmo sem a entrada estar configurada como "Fuel Level" no InPower.
     { startAddress: 3722, quantity: 8, fn: 3 }, // 43723-43730: AUX101 input 1..8 Voltage
+    // SONDAGEM: registradores do mapa PowerCommand 2.x/3.x não listados no cap.14 —
+    // se a unidade responder tensão de rede real (~220V) aqui, ela implementa o
+    // mapa estendido e ganhamos rede (40118-40120) e PF (40039).
+    { startAddress: 117, quantity: 6, fn: 3 },  // 40118-40123: Utility L1N/L2N/L3N...
+    { startAddress: 38, quantity: 2, fn: 3 },   // 40039-40040: Total PF (×0.01) + kVA L1
 ];
 
 const u16 = (regs, i) => (regs[i] ?? 0);
@@ -165,6 +170,17 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
             totalHours,
             runHours: totalHours,
         };
+    }
+
+    // ---- SONDAGEM: mapa estendido 2.x/3.x — Utility (addr 117) e PF (addr 38) ----
+    if (startAddress === 117 && regs.length >= 3) {
+        const v = Array.from({ length: Math.min(regs.length, 6) }, (_, k) => u16(regs, k));
+        console.log(`[CUMMINS-PROBE-EXT] 40118+ Utility raw = [${v.join(', ')}]`);
+        return { block: 'CUMMINS_PROBE_UTILITY', utilityRaw: v };
+    }
+    if (startAddress === 38 && regs.length >= 1) {
+        console.log(`[CUMMINS-PROBE-EXT] 40039 PF raw=${u16(regs, 0)} | 40040 raw=${u16(regs, 1)}`);
+        return { block: 'CUMMINS_PROBE_PF', pfRaw: u16(regs, 0) };
     }
 
     // ---- SONDAGEM: entradas analógicas cruas do AUX101 (addr 3722 = 43723-43730) ----
