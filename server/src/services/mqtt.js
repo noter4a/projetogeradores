@@ -1776,10 +1776,6 @@ export const initMqttService = (io) => {
                             if (!unifiedData.alarms) unifiedData.alarms = {};
                             unifiedData.alarms.shutdown = d.isShutdown;
                             if (d.genBreakerClosed != null) unifiedData.genBreakerClosed = d.genBreakerClosed;
-                            // O PCC 1301/HMI211 não fornece nível de combustível utilizável
-                            // (o sensor não está ligado ao AUX101 — lê 0% com tanque cheio).
-                            // Mantém null para o card exibir "-" em vez de um 0% falso.
-                            unifiedData.fuelLevel = null;
                             unifiedData.voltageL1 = d.voltageL1;
                             unifiedData.voltageL2 = d.voltageL2;
                             unifiedData.voltageL3 = d.voltageL3;
@@ -1801,6 +1797,12 @@ export const initMqttService = (io) => {
                             unifiedData.loadPercentL1 = d.loadPercentL1;
                             unifiedData.loadPercentL2 = d.loadPercentL2;
                             unifiedData.loadPercentL3 = d.loadPercentL3;
+                        }
+
+                        // Nível de combustível via AUX101 (43745). fuelLevel = valor cru
+                        // se válido, null se sem leitura — o card exibe "-" nesse caso.
+                        if (d.block === 'CUMMINS_FUEL') {
+                            unifiedData.fuelLevel = d.fuelLevel;
                         }
 
                         if (d.block === 'CUMMINS_POWER') {

@@ -22,12 +22,8 @@ export const CUMMINS_POLL_SEQUENCE = [
     // % de carga por fase — bloco menos crítico, deixado por último para não
     // atrasar os dados de motor num device com timeouts (RS485 congestionado).
     { startAddress: 57, quantity: 3, fn: 3 },  // 40058-40060: % de carga (corrente/nominal)
-    // NOTA: o nível de combustível (reg 43745 "Fuel Level %", AUX101) existe e o
-    // controlador responde, mas retorna 0% mesmo com o tanque cheio — o sensor de
-    // nível não está ligado/configurado no AUX101 (verificado em campo). Enquanto
-    // o sensor não for conectado, não há nível utilizável para ler, então não
-    // sondamos esse registrador. Para reativar: repor { startAddress: 3744,
-    // quantity: 2 } aqui e remapear CUMMINS_FUEL_PCT -> fuelLevel no mqtt.
+    // Nível de combustível via módulo AUX101 (reg 43745 "AUX101 Fuel Level").
+    { startAddress: 3744, quantity: 1, fn: 3 }, // 43745: nível de combustível (AUX101)
 ];
 
 const u16 = (regs, i) => (regs[i] ?? 0);
@@ -165,6 +161,17 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
             totalHours,
             runHours: totalHours,
         };
+    }
+
+    // ---- Nível de combustível via AUX101 (addr 3744 = 43745) ----
+    // Manual PCC1301: "AUX101 input as Fuel Level", Multiplier 1, 16-bit U, Units NA.
+    // A escala real depende de como o sensor foi configurado no AUX101 — logamos o
+    // valor cru para confirmar em campo. Trata 0 e 65535 como "sem leitura".
+    if (startAddress === 3744 && regs.length >= 1) {
+        const raw = u16(regs, 0);
+        const valid = raw > 0 && raw !== 65535;
+        console.log(`[CUMMINS-FUEL] 43745 AUX101 Fuel Level raw=${raw} (valid=${valid})`);
+        return { block: 'CUMMINS_FUEL', fuelRaw: raw, fuelLevel: valid ? raw : null };
     }
 
     console.log(`[CUMMINS-PARSER] Bloco desconhecido no endereço ${startAddress} (${regs.length} regs)`);
