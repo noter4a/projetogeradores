@@ -24,6 +24,10 @@ export const CUMMINS_POLL_SEQUENCE = [
     { startAddress: 57, quantity: 3, fn: 3 },  // 40058-40060: % de carga (corrente/nominal)
     // Nível de combustível via módulo AUX101 (reg 43745 "AUX101 Fuel Level").
     { startAddress: 3744, quantity: 1, fn: 3 }, // 43745: nível de combustível (AUX101)
+    // SONDAGEM: tensões cruas das 8 entradas analógicas do AUX101 (43723-43730).
+    // Se o sender de nível estiver fiado em qualquer canal, a tensão aparece aqui
+    // mesmo sem a entrada estar configurada como "Fuel Level" no InPower.
+    { startAddress: 3722, quantity: 8, fn: 3 }, // 43723-43730: AUX101 input 1..8 Voltage
 ];
 
 const u16 = (regs, i) => (regs[i] ?? 0);
@@ -161,6 +165,13 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
             totalHours,
             runHours: totalHours,
         };
+    }
+
+    // ---- SONDAGEM: entradas analógicas cruas do AUX101 (addr 3722 = 43723-43730) ----
+    if (startAddress === 3722 && regs.length >= 8) {
+        const vals = Array.from({ length: 8 }, (_, k) => u16(regs, k));
+        console.log(`[CUMMINS-AUX101] inputs 1..8 raw = [${vals.join(', ')}]`);
+        return { block: 'CUMMINS_AUX_INPUTS', auxInputs: vals };
     }
 
     // ---- Nível de combustível via AUX101 (addr 3744 = 43745) ----
