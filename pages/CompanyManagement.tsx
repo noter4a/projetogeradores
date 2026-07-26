@@ -120,9 +120,11 @@ const CompanyManagement: React.FC = () => {
 
   const handleOpenCredits = (company: Company) => {
     setCreditsTarget(company);
-    setCreditsAmount('30');
+    setCreditsAmount('10');
   };
 
+  // amount > 0 adiciona, amount < 0 remove. O modal permanece aberto e o saldo
+  // é atualizado ao vivo com o retorno do servidor, para permitir vários ajustes.
   const handleAddCredits = async (amount: number) => {
     if (!creditsTarget || !token || !Number.isFinite(amount) || amount === 0) return;
     setCreditsSaving(true);
@@ -137,7 +139,8 @@ const CompanyManagement: React.FC = () => {
         body: JSON.stringify({ amount }),
       });
       if (res.ok) {
-        setCreditsTarget(null);
+        const updated = await res.json();
+        setCreditsTarget(prev => (prev ? { ...prev, credits: updated.credits } : prev));
         await fetchCompanies();
       } else {
         const errData = await res.json();
@@ -394,34 +397,64 @@ const CompanyManagement: React.FC = () => {
               Saldo atual: <span className="font-bold text-white">{creditsTarget.credits ?? 0}</span> créditos
             </p>
 
-            <button
-              type="button"
-              disabled={creditsSaving}
-              onClick={() => handleAddCredits(30)}
-              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2.5 rounded-lg mb-4 disabled:opacity-50 transition-colors"
-            >
-              + 30 Créditos (Renovar Plano)
-            </button>
+            {/* Quantidade + botões de adicionar / remover */}
+            {(() => {
+              const qty = Math.max(0, Math.floor(Math.abs(Number(creditsAmount) || 0)));
+              const saldo = creditsTarget.credits ?? 0;
+              return (
+                <>
+                  <label className="block text-sm text-gray-400 mb-1">Quantidade</label>
+                  <div className="flex items-center gap-2 mb-3">
+                    <button
+                      type="button"
+                      disabled={creditsSaving || qty === 0}
+                      onClick={() => handleAddCredits(-qty)}
+                      title="Remover créditos"
+                      className="w-12 h-12 flex items-center justify-center bg-red-600 hover:bg-red-500 text-white font-bold text-2xl rounded-lg disabled:opacity-40 transition-colors shrink-0"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      value={creditsAmount}
+                      onChange={(e) => setCreditsAmount(e.target.value)}
+                      className="flex-1 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-center text-white text-lg font-bold focus:border-ciklo-orange outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={creditsSaving || qty === 0}
+                      onClick={() => handleAddCredits(qty)}
+                      title="Adicionar créditos"
+                      className="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-500 text-white font-bold text-2xl rounded-lg disabled:opacity-40 transition-colors shrink-0"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-4">
+                    {qty > 0 ? (
+                      <>Resultado: <span className="text-green-400 font-medium">{saldo + qty}</span> ao adicionar · <span className="text-red-400 font-medium">{Math.max(0, saldo - qty)}</span> ao remover</>
+                    ) : (
+                      'Informe uma quantidade e use + para adicionar ou − para remover.'
+                    )}
+                  </p>
 
-            <label className="block text-sm text-gray-400 mb-1">Quantidade customizada</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                value={creditsAmount}
-                onChange={(e) => setCreditsAmount(e.target.value)}
-                className="flex-1 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none"
-                placeholder="Ex: 30 ou -10"
-              />
-              <button
-                type="button"
-                disabled={creditsSaving}
-                onClick={() => handleAddCredits(Number(creditsAmount))}
-                className="px-4 py-2 bg-ciklo-orange hover:bg-orange-600 text-black font-bold rounded-lg disabled:opacity-50 transition-colors"
-              >
-                Aplicar
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">Use valores negativos para remover créditos manualmente.</p>
+                  {/* Atalhos rápidos */}
+                  <div className="flex gap-2">
+                    {[10, 30, 60].map(n => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setCreditsAmount(String(n))}
+                        className="flex-1 py-1.5 text-xs font-bold rounded-lg border border-gray-700 text-gray-300 hover:border-ciklo-orange hover:text-ciklo-orange transition-colors"
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
 
             <div className="flex justify-end mt-5">
               <button
