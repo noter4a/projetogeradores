@@ -111,6 +111,47 @@ async function assertGeneratorControlAccess(user, generatorId) {
     return { allowed: true };
 }
 
+// Acesso de LEITURA a dados de um gerador (histórico de carga, trajeto GPS, etc.).
+// Diferente do controle: não restringe por perfil (qualquer usuário autenticado
+// pode ler), mas mantém o isolamento por empresa — ADMIN vê tudo; os demais só
+// veem geradores da própria empresa. Evita IDOR (trocar o ID na URL e ver dados
+// de outra empresa).
+async function assertGeneratorReadAccess(user, generatorId) {
+    if (!user) {
+        return { allowed: false, status: 401, message: 'Autenticação necessária.' };
+    }
+    if (!generatorId || typeof generatorId !== 'string' || !generatorId.trim()) {
+        return { allowed: false, status: 400, message: 'ID do gerador inválido.' };
+    }
+    if (user.role === 'ADMIN') {
+        return { allowed: true };
+    }
+
+    const result = await pool.query(
+        `SELECT company_id FROM generators
+         WHERE id = $1
+            OR connection_info->>'ip' = $1
+            OR connection_info->>'connectionName' = $1
+         LIMIT 1`,
+        [generatorId.trim()]
+    );
+
+    if (result.rows.length === 0) {
+        return { allowed: false, status: 404, message: 'Gerador não encontrado.' };
+    }
+
+    const generator = result.rows[0];
+    if (
+        generator.company_id == null ||
+        user.companyId == null ||
+        Number(generator.company_id) !== Number(user.companyId)
+    ) {
+        return { allowed: false, status: 403, message: 'Acesso negado. Gerador não pertence à sua empresa.' };
+    }
+
+    return { allowed: true };
+}
+
 io.on('connection', (socket) => {
     console.log(`Client connected to Socket.IO (User: ${socket.user?.email})`);
 
@@ -1263,6 +1304,12 @@ router.get('/generators/:id/modbus-scan', authenticateToken, requireRole('ADMIN'
 // GET /api/generators/:id/readings - Historical Power Data for Charts
 router.get('/generators/:id/readings', authenticateToken, async (req, res) => {
     const { id } = req.params;
+
+    const access = await assertGeneratorReadAccess(req.user, id);
+    if (!access.allowed) {
+        return res.status(access.status).json({ message: access.message });
+    }
+
     const range = req.query.range || '24h'; // 24h, 7d, 30d
 
     let intervalSql;
@@ -1318,6 +1365,12 @@ router.get('/generators/:id/readings', authenticateToken, async (req, res) => {
 // GET /api/generators/:id/location-history - GPS trail (points only logged on ≥100m moves)
 router.get('/generators/:id/location-history', authenticateToken, async (req, res) => {
     const { id } = req.params;
+
+    const access = await assertGeneratorReadAccess(req.user, id);
+    if (!access.allowed) {
+        return res.status(access.status).json({ message: access.message });
+    }
+
     // Cap how far back we look so a very well-travelled unit can't return an
     // unbounded payload; the client draws the path in chronological order.
     const limit = Math.min(parseInt(req.query.limit, 10) || 500, 2000);
