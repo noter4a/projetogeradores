@@ -22,6 +22,13 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
+// A API fica atrás do nginx, que repassa o IP do cliente em X-Forwarded-For.
+// Sem isto, req.ip seria sempre o IP do container do nginx e o rate limit do
+// login viraria um balde único compartilhado por TODOS os usuários.
+// O valor 1 = confia em exatamente um salto (o nosso nginx); assim um cliente
+// não consegue forjar o próprio IP mandando um X-Forwarded-For qualquer.
+app.set('trust proxy', 1);
+
 // FIX #7: CORS restrito ao domínio real
 const ALLOWED_ORIGINS = [
     'https://painel.ciklogeradores.com.br',
@@ -142,7 +149,11 @@ app.use(express.json({ limit: '1mb' }));
 // FIX #17: Rate Limiting no Login
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 min
-    max: 15, // 15 tentativas por IP
+    max: 15, // 15 tentativas FALHAS por IP
+    // Só conta login que deu errado. Antes, todo login bem-sucedido também
+    // consumia a cota, então quem usava o sistema normalmente era bloqueado.
+    // O objetivo do limite é travar quem tenta adivinhar senha, não quem acerta.
+    skipSuccessfulRequests: true,
     message: { message: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
     standardHeaders: true,
     legacyHeaders: false
