@@ -1,13 +1,19 @@
 import React, { createContext, useContext, useState, PropsWithChildren, useEffect, useRef } from 'react';
 import { User } from '../types';
 
+/** login pode exigir 2FA: nesse caso não retorna User, e sim o desafio. */
+type LoginResult =
+  | { user: User; requires2FA?: false }
+  | { requires2FA: true; challengeId: string; email: string };
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isSyncing: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  verifyTwoFactor: (challengeId: string, code: string) => Promise<User>;
   logout: () => void;
-  updateProfile: (data: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; phone?: string; currentPassword?: string; newPassword?: string; twoFactorEnabled?: boolean }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>(null!);
@@ -54,18 +60,41 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
       }
 
       const data = await response.json();
-      const { user, token } = data;
 
+      // 2FA ativo: o servidor não devolve token, só o desafio.
+      if (data.requires2FA) {
+        return { requires2FA: true, challengeId: data.challengeId, email: data.email };
+      }
+
+      const { user, token } = data;
       setUser(user);
       setToken(token);
       localStorage.setItem('ciklo_auth_user', JSON.stringify(user));
       localStorage.setItem('ciklo_auth_token', token);
-      return user;
+      return { user };
 
     } catch (error) {
       console.error("Login failed", error);
       throw error;
     }
+  };
+
+  const verifyTwoFactor = async (challengeId: string, code: string) => {
+    const response = await fetch('/api/auth/verify-2fa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId, code }),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message || 'Código inválido');
+    }
+    const { user, token } = await response.json();
+    setUser(user);
+    setToken(token);
+    localStorage.setItem('ciklo_auth_user', JSON.stringify(user));
+    localStorage.setItem('ciklo_auth_token', token);
+    return user;
   };
 
   const logout = () => {
@@ -173,7 +202,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
   }, [token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, isSyncing, login, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, token, isSyncing, login, verifyTwoFactor, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

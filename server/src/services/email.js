@@ -14,6 +14,42 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+/**
+ * Envia um código OTP (6 dígitos) por e-mail. Usado tanto para 2FA no login
+ * quanto para redefinição de senha ("esqueci minha senha"). Lança em caso de
+ * falha para o chamador saber que o e-mail não saiu.
+ */
+export const sendOtpEmail = async (toEmail, code, purpose) => {
+    const isReset = purpose === 'password_reset';
+    const title = isReset ? 'Redefinição de senha' : 'Código de acesso';
+    const intro = isReset
+        ? 'Recebemos um pedido para redefinir a senha da sua conta. Use o código abaixo para continuar.'
+        : 'Use o código abaixo para concluir o seu login.';
+
+    const mailOptions = {
+        from: '"Ciklo Geradores" <alarme@ciklogeradores.com.br>',
+        to: toEmail,
+        subject: `${isReset ? '🔑' : '🔒'} ${title} — código ${code}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; background-color: #1a1a1a; color: #ffffff; padding: 20px; border-radius: 8px; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #f97316; border-bottom: 2px solid #f97316; padding-bottom: 10px;">${title}</h2>
+                <p>${intro}</p>
+                <div style="background-color: #2d2d2d; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+                    <span style="font-size: 34px; font-weight: bold; letter-spacing: 8px; color: #ffce00;">${code}</span>
+                </div>
+                <p style="color: #aaaaaa;">O código expira em <strong>10 minutos</strong>. Se você não solicitou, ignore este e-mail — sua conta segue segura.</p>
+                <p style="color: #cccccc; font-size: 12px; margin-top: 30px; text-align: center;">
+                    Este é um e-mail automático do sistema Ciklo Geradores. Por favor não responda.
+                </p>
+            </div>
+        `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL] OTP (${purpose}) enviado para ${toEmail}. Message ID: ${info.messageId}`);
+    return info;
+};
+
 export const sendAlarmEmail = async (toEmails, generatorId, generatorName, alarmDetails) => {
     if (!toEmails || toEmails.length === 0) {
         console.log('[EMAIL] No recipients provided for alarm notification.');

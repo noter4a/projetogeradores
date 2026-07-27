@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User as UserIcon, Mail, Phone, Lock, Eye, EyeOff, Check, AlertCircle, Shield } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, Lock, Eye, EyeOff, Check, AlertCircle, Shield, ShieldCheck } from 'lucide-react';
 
 const ProfileSettings: React.FC = () => {
   const { user, updateProfile } = useAuth();
@@ -18,6 +18,7 @@ const ProfileSettings: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [saving2fa, setSaving2fa] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -359,6 +360,48 @@ const ProfileSettings: React.FC = () => {
           </div>
         </div>
       </form>
+
+      {/* Two-Factor (2FA) Card */}
+      <div className="bg-ciklo-card border border-gray-800 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-3">
+          <ShieldCheck size={20} className="text-ciklo-orange" />
+          <h3 className="text-white font-bold">Verificação em duas etapas (2FA)</h3>
+        </div>
+        <div className="p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <p className="text-sm text-gray-300 font-medium">Exigir código por e-mail ao entrar</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Quando ativado, a cada login enviaremos um código de 6 dígitos para <span className="text-gray-400">{user?.email}</span>.
+                Aumenta a segurança da sua conta mesmo que a senha vaze.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={saving2fa}
+              onClick={async () => {
+                setSaving2fa(true);
+                setSuccessMsg(''); setErrorMsg('');
+                try {
+                  await updateProfile({ twoFactorEnabled: !user?.twoFactorEnabled });
+                  setSuccessMsg(!user?.twoFactorEnabled ? '2FA ativado.' : '2FA desativado.');
+                } catch {
+                  setErrorMsg('Não foi possível atualizar o 2FA.');
+                } finally {
+                  setSaving2fa(false);
+                }
+              }}
+              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 disabled:opacity-50 ${user?.twoFactorEnabled ? 'bg-green-500' : 'bg-gray-700'}`}
+              title={user?.twoFactorEnabled ? 'Desativar 2FA' : 'Ativar 2FA'}
+            >
+              <span className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${user?.twoFactorEnabled ? 'translate-x-7' : 'translate-x-1'}`} />
+            </button>
+          </div>
+          <p className={`text-xs mt-3 font-medium ${user?.twoFactorEnabled ? 'text-green-400' : 'text-gray-500'}`}>
+            {user?.twoFactorEnabled ? '● Ativado' : '○ Desativado'}
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

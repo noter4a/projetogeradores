@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import pool from './db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import { sendOtpEmail } from './services/email.js';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
@@ -91,6 +93,69 @@ async function logAudit({ user, action, targetType, targetId, targetLabel, detai
         console.error('[AUDIT] Falha ao gravar log:', e.message);
     }
 }
+
+// --- OTP por e-mail (2FA no login + redefinição de senha) ---
+// Guardado em memória: código efêmero (10 min). Um restart do servidor invalida
+// os códigos pendentes — o usuário apenas solicita de novo. challengeId é o
+// identificador opaco devolvido ao cliente; ele não revela o usuário.
+const otpChallenges = new Map(); // challengeId -> { purpose, userId, email, codeHash, expiresAt, attempts }
+const OTP_TTL_MS = 10 * 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+
+// Limpa códigos expirados a cada 5 min
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, c] of otpChallenges) {
+        if (c.expiresAt <= now) otpChallenges.delete(id);
+    }
+}, 5 * 60 * 1000);
+
+function generateOtpCode() {
+    return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+}
+
+// Cria um desafio, envia o código por e-mail e devolve o challengeId.
+// Lança se o e-mail não puder ser enviado (o chamador decide o que responder).
+async function createOtpChallenge({ purpose, userId, email }) {
+    const code = generateOtpCode();
+    const challengeId = crypto.randomBytes(24).toString('hex');
+    const codeHash = await bcrypt.hash(code, 10);
+    await sendOtpEmail(email, code, purpose);
+    otpChallenges.set(challengeId, {
+        purpose, userId, email, codeHash,
+        expiresAt: Date.now() + OTP_TTL_MS,
+        attempts: 0,
+    });
+    return challengeId;
+}
+
+// Verifica um código. Consome o desafio no sucesso ou quando estoura tentativas.
+async function verifyOtpChallenge(challengeId, code, expectedPurpose) {
+    const c = otpChallenges.get(challengeId);
+    if (!c || c.expiresAt <= Date.now() || c.purpose !== expectedPurpose) {
+        return { ok: false, error: 'Código inválido ou expirado.' };
+    }
+    if (c.attempts >= OTP_MAX_ATTEMPTS) {
+        otpChallenges.delete(challengeId);
+        return { ok: false, error: 'Muitas tentativas. Solicite um novo código.' };
+    }
+    const match = typeof code === 'string' && /^\d{6}$/.test(code) && await bcrypt.compare(code, c.codeHash);
+    if (!match) {
+        c.attempts += 1;
+        return { ok: false, error: 'Código incorreto.' };
+    }
+    otpChallenges.delete(challengeId);
+    return { ok: true, userId: c.userId, email: c.email };
+}
+
+// Rate limit dedicado para os fluxos de OTP (evita bombardear e-mail).
+const otpLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 6,
+    message: { message: 'Muitas solicitações. Tente novamente em alguns minutos.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 const CONTROL_ALLOWED_ROLES = ['ADMIN', 'TECHNICIAN', 'CLIENT'];
 
@@ -287,8 +352,9 @@ const initDb = async (retries = 15, delay = 5000) => {
                 await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)");
                 await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_alerts BOOLEAN DEFAULT false");
                 await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts BOOLEAN DEFAULT true");
+                await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT false");
             } catch (e) {
-                console.log("Migration users.phone/whatsapp_alerts/email_alerts already applied or failed:", e.message);
+                console.log("Migration users.phone/whatsapp_alerts/email_alerts/two_factor already applied or failed:", e.message);
             }
 
             // Check if admin exists, if not seed default users
@@ -633,6 +699,19 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
             return res.status(401).json({ message: 'Credenciais inválidas' });
         }
 
+        // 2b. Se 2FA está ativo, não libera o token ainda — manda código por e-mail.
+        if (user.two_factor_enabled) {
+            try {
+                const challengeId = await createOtpChallenge({ purpose: 'login_2fa', userId: user.id, email: user.email });
+                // Mascara o e-mail no retorno (ex: jo***@dominio.com) só como dica visual.
+                const masked = user.email.replace(/^(.{2}).*(@.*)$/, '$1***$2');
+                return res.json({ requires2FA: true, challengeId, email: masked });
+            } catch (mailErr) {
+                console.error('[2FA] Falha ao enviar código:', mailErr.message);
+                return res.status(502).json({ message: 'Não foi possível enviar o código por e-mail. Tente novamente.' });
+            }
+        }
+
         // 3. Generate Token
         const token = jwt.sign(
             { id: user.id, role: user.role, email: user.email, companyId: user.company_id },
@@ -670,6 +749,118 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
     }
 });
 
+// POST /auth/verify-2fa — conclui o login com o código enviado por e-mail
+router.post('/auth/verify-2fa', otpLimiter, async (req, res) => {
+    const { challengeId, code } = req.body;
+    try {
+        const result = await verifyOtpChallenge(challengeId, code, 'login_2fa');
+        if (!result.ok) {
+            return res.status(401).json({ message: result.error });
+        }
+        const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [result.userId]);
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ message: 'Usuário não encontrado.' });
+        }
+        const user = userResult.rows[0];
+        const token = jwt.sign(
+            { id: user.id, role: user.role, email: user.email, companyId: user.company_id },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+        logAudit({
+            user: { id: user.id, email: user.email },
+            action: 'auth.login',
+            details: { role: user.role, method: '2fa' },
+            ip: req.ip,
+        });
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                assignedGeneratorIds: user.assigned_generators || [],
+                companyId: user.company_id,
+                phone: user.phone,
+                whatsappAlerts: user.whatsapp_alerts,
+                emailAlerts: user.email_alerts,
+                twoFactorEnabled: user.two_factor_enabled,
+            }
+        });
+    } catch (err) {
+        console.error('Verify 2FA error:', err);
+        res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+});
+
+// POST /auth/resend-2fa — reenvia o código de um desafio de login pendente
+router.post('/auth/resend-2fa', otpLimiter, async (req, res) => {
+    const { challengeId } = req.body;
+    const existing = otpChallenges.get(challengeId);
+    if (!existing || existing.purpose !== 'login_2fa' || existing.expiresAt <= Date.now()) {
+        return res.status(400).json({ message: 'Sessão de verificação expirada. Faça login novamente.' });
+    }
+    try {
+        const newChallengeId = await createOtpChallenge({ purpose: 'login_2fa', userId: existing.userId, email: existing.email });
+        otpChallenges.delete(challengeId); // invalida o antigo
+        res.json({ challengeId: newChallengeId });
+    } catch (mailErr) {
+        console.error('[2FA] Falha ao reenviar código:', mailErr.message);
+        res.status(502).json({ message: 'Não foi possível reenviar o código.' });
+    }
+});
+
+// POST /auth/forgot-password — envia código de redefinição por e-mail.
+// Resposta SEMPRE uniforme (mesmo shape) para não revelar se o e-mail existe.
+router.post('/auth/forgot-password', otpLimiter, async (req, res) => {
+    const email = (req.body.email || '').trim().toLowerCase();
+    // challengeId aleatório sempre retornado; só vira desafio real se o usuário existir.
+    let challengeId = crypto.randomBytes(24).toString('hex');
+    try {
+        if (email) {
+            const result = await pool.query('SELECT id, email FROM users WHERE LOWER(email) = $1', [email]);
+            if (result.rows.length > 0) {
+                const user = result.rows[0];
+                // usa o próprio challengeId gerado para manter a resposta uniforme
+                const code = generateOtpCode();
+                const codeHash = await bcrypt.hash(code, 10);
+                await sendOtpEmail(user.email, code, 'password_reset');
+                otpChallenges.set(challengeId, {
+                    purpose: 'password_reset', userId: user.id, email: user.email, codeHash,
+                    expiresAt: Date.now() + OTP_TTL_MS, attempts: 0,
+                });
+                logAudit({ user: { id: user.id, email: user.email }, action: 'password.reset_requested', ip: req.ip });
+            }
+        }
+    } catch (err) {
+        console.error('Forgot password error:', err.message);
+        // Não vaza erro — resposta uniforme mesmo assim.
+    }
+    res.json({ challengeId, message: 'Se o e-mail estiver cadastrado, enviamos um código de verificação.' });
+});
+
+// POST /auth/reset-password — valida o código e troca a senha
+router.post('/auth/reset-password', otpLimiter, async (req, res) => {
+    const { challengeId, code, newPassword } = req.body;
+    if (!newPassword || String(newPassword).length < 6) {
+        return res.status(400).json({ message: 'A nova senha deve ter pelo menos 6 caracteres.' });
+    }
+    try {
+        const result = await verifyOtpChallenge(challengeId, code, 'password_reset');
+        if (!result.ok) {
+            return res.status(400).json({ message: result.error });
+        }
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, result.userId]);
+        logAudit({ user: { id: result.userId, email: result.email }, action: 'password.reset', ip: req.ip });
+        res.json({ message: 'Senha redefinida com sucesso. Faça login com a nova senha.' });
+    } catch (err) {
+        console.error('Reset password error:', err);
+        res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+});
+
 // Middleware for JWT Authentication
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -697,7 +888,7 @@ const requireRole = (...roles) => (req, res, next) => {
 router.get('/auth/profile', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT u.id, u.name, u.email, u.role, u.assigned_generators, u.company_id, u.phone, u.whatsapp_alerts, u.email_alerts,
+            `SELECT u.id, u.name, u.email, u.role, u.assigned_generators, u.company_id, u.phone, u.whatsapp_alerts, u.email_alerts, u.two_factor_enabled,
                     c.credits AS company_credits
              FROM users u
              LEFT JOIN companies c ON c.id = u.company_id
@@ -718,7 +909,8 @@ router.get('/auth/profile', authenticateToken, async (req, res) => {
             companyCredits: user.company_id ? Number(user.company_credits) : null,
             phone: user.phone,
             whatsappAlerts: user.whatsapp_alerts,
-            emailAlerts: user.email_alerts
+            emailAlerts: user.email_alerts,
+            twoFactorEnabled: user.two_factor_enabled
         });
     } catch (err) {
         console.error('Fetch profile error:', err);
@@ -728,7 +920,7 @@ router.get('/auth/profile', authenticateToken, async (req, res) => {
 
 // PUT /api/auth/profile - PROTECTED (Any authenticated user can update own profile)
 router.put('/auth/profile', authenticateToken, async (req, res) => {
-    const { name, phone, currentPassword, newPassword } = req.body;
+    const { name, phone, currentPassword, newPassword, twoFactorEnabled } = req.body;
 
     try {
         const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
@@ -749,6 +941,12 @@ router.put('/auth/profile', authenticateToken, async (req, res) => {
         if (phone !== undefined) {
             updates.push(`phone = $${paramIndex++}`);
             values.push(phone || null);
+        }
+
+        // Cada usuário liga/desliga o próprio 2FA por e-mail.
+        if (typeof twoFactorEnabled === 'boolean') {
+            updates.push(`two_factor_enabled = $${paramIndex++}`);
+            values.push(twoFactorEnabled);
         }
 
         // Password change requires current password verification
@@ -778,7 +976,7 @@ router.put('/auth/profile', authenticateToken, async (req, res) => {
         await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`, values);
 
         // Return updated user data
-        const updatedResult = await pool.query('SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts, email_alerts FROM users WHERE id = $1', [req.user.id]);
+        const updatedResult = await pool.query('SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts, email_alerts, two_factor_enabled FROM users WHERE id = $1', [req.user.id]);
         const updatedUser = updatedResult.rows[0];
 
         res.json({
@@ -790,7 +988,8 @@ router.put('/auth/profile', authenticateToken, async (req, res) => {
             companyId: updatedUser.company_id,
             phone: updatedUser.phone,
             whatsappAlerts: updatedUser.whatsapp_alerts,
-            emailAlerts: updatedUser.email_alerts
+            emailAlerts: updatedUser.email_alerts,
+            twoFactorEnabled: updatedUser.two_factor_enabled
         });
     } catch (err) {
         console.error('Profile update error:', err);

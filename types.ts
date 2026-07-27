@@ -24,6 +24,7 @@ export interface User {
   phone?: string;
   whatsappAlerts?: boolean;
   emailAlerts?: boolean;
+  twoFactorEnabled?: boolean;
   assignedGeneratorIds?: string[];
   companyId?: number;
   companyName?: string;
