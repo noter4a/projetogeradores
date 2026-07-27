@@ -15,6 +15,7 @@ import CompanyManagement from './pages/CompanyManagement';
 import Reports from './pages/Reports';
 import Maintenance from './pages/Maintenance';
 import NoCredits from './pages/NoCredits';
+import AuditLog from './pages/AuditLog';
 
 
 // Quotation Module Pages
@@ -311,6 +312,12 @@ const AppContent: React.FC = () => {
         <Route path="/companies" element={
           <AdminRoute>
             <Layout><CompanyManagement /></Layout>
+          </AdminRoute>
+        } />
+
+        <Route path="/audit" element={
+          <AdminRoute>
+            <Layout><AuditLog /></Layout>
           </AdminRoute>
         } />
 

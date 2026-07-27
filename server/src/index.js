@@ -69,6 +69,29 @@ io.use((socket, next) => {
     }
 });
 
+// Grava uma entrada na trilha de auditoria. Nunca lança — auditoria falhar
+// não pode derrubar a ação em si. `user` é o payload do JWT (id/email).
+async function logAudit({ user, action, targetType, targetId, targetLabel, details, ip }) {
+    try {
+        await pool.query(
+            `INSERT INTO audit_log (user_id, user_email, action, target_type, target_id, target_label, details, ip)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+                user?.id ?? null,
+                user?.email ?? null,
+                action,
+                targetType ?? null,
+                targetId != null ? String(targetId) : null,
+                targetLabel ?? null,
+                details ? JSON.stringify(details) : null,
+                ip ?? null,
+            ]
+        );
+    } catch (e) {
+        console.error('[AUDIT] Falha ao gravar log:', e.message);
+    }
+}
+
 const CONTROL_ALLOWED_ROLES = ['ADMIN', 'TECHNICIAN', 'CLIENT'];
 
 async function assertGeneratorControlAccess(user, generatorId) {
@@ -172,6 +195,14 @@ io.on('connection', (socket) => {
             console.log(`[API] Control Command from ${socket.user?.email}: ${action} for ${generatorId}`);
             const module = await import('./services/mqtt.js');
             module.sendControlCommand(generatorId, action);
+            logAudit({
+                user: socket.user,
+                action: 'generator.control',
+                targetType: 'generator',
+                targetId: generatorId,
+                details: { action },
+                ip: socket.handshake?.headers?.['x-forwarded-for']?.split(',').pop()?.trim() || socket.handshake?.address,
+            });
         } catch (err) {
             console.error('[API] Socket control error:', err);
             socket.emit('control_error', { generatorId, message: 'Erro ao enviar comando.' });
@@ -374,8 +405,26 @@ const initDb = async (retries = 15, delay = 5000) => {
                 );
             `);
 
+            // Create Audit Log Table — trilha de quem fez o quê (comandos de
+            // gerador, créditos, usuários, empresas). Append-only.
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id SERIAL PRIMARY KEY,
+                    user_id INT,
+                    user_email VARCHAR(255),
+                    action VARCHAR(80) NOT NULL,
+                    target_type VARCHAR(50),
+                    target_id VARCHAR(120),
+                    target_label VARCHAR(255),
+                    details JSONB,
+                    ip VARCHAR(64),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+
             // Create index for fast time-range queries
             try {
+                await client.query(`CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log (created_at DESC)`);
                 await client.query(`CREATE INDEX IF NOT EXISTS idx_readings_gen_time ON generator_readings (generator_id, recorded_at DESC)`);
                 await client.query(`CREATE INDEX IF NOT EXISTS idx_alarm_history_gen_end ON alarm_history (generator_id, end_time DESC)`);
                 await client.query(`CREATE INDEX IF NOT EXISTS idx_location_history_gen_time ON location_history (generator_id, recorded_at DESC)`);
@@ -798,7 +847,15 @@ router.delete('/users/:id', authenticateToken, async (req, res) => {
             return res.status(400).json({ message: 'Não é possível remover o próprio usuário logado.' });
         }
 
-        await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        const del = await pool.query('DELETE FROM users WHERE id = $1 RETURNING email', [id]);
+        logAudit({
+            user: req.user,
+            action: 'user.delete',
+            targetType: 'user',
+            targetId: id,
+            targetLabel: del.rows[0]?.email,
+            ip: req.ip,
+        });
         res.json({ message: 'Usuário removido com sucesso.' });
     } catch (err) {
         console.error('Delete user error:', err);
@@ -836,6 +893,14 @@ router.post('/auth/register', authenticateToken, async (req, res) => {
             [name, email, hashedPassword, role, assigned_generators || [], companyId || null, phone || null, whatsappAlerts || false, emailAlerts !== undefined ? emailAlerts : true]
         );
 
+        logAudit({
+            user: req.user,
+            action: 'user.create',
+            targetType: 'user',
+            targetLabel: email,
+            details: { role, companyId: companyId || null },
+            ip: req.ip,
+        });
         res.status(201).json({ message: 'Usuário criado com sucesso.' });
 
     } catch (err) {
@@ -913,6 +978,14 @@ router.post('/companies', authenticateToken, async (req, res) => {
             );
         }
 
+        logAudit({
+            user: req.user,
+            action: 'company.create',
+            targetType: 'company',
+            targetId: newCompany.id,
+            targetLabel: newCompany.name,
+            ip: req.ip,
+        });
         res.status(201).json(newCompany);
     } catch (err) {
         console.error('Create company error:', err);
@@ -964,6 +1037,50 @@ router.put('/companies/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// GET /api/audit - PROTECTED (Admin Only) - trilha de auditoria paginada
+router.get('/audit', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas administradores.' });
+    }
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const offset = (page - 1) * limit;
+    const action = (req.query.action || '').trim(); // filtro opcional por tipo de ação
+
+    try {
+        const where = [];
+        const params = [];
+        if (action) {
+            params.push(action);
+            where.push(`action = $${params.length}`);
+        }
+        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        const totalResult = await pool.query(`SELECT COUNT(*)::int AS total FROM audit_log ${whereSql}`, params);
+        const total = totalResult.rows[0].total;
+
+        params.push(limit, offset);
+        const result = await pool.query(
+            `SELECT id, user_email, action, target_type, target_id, target_label, details, ip, created_at
+             FROM audit_log ${whereSql}
+             ORDER BY created_at DESC
+             LIMIT $${params.length - 1} OFFSET $${params.length}`,
+            params
+        );
+
+        res.json({
+            entries: result.rows,
+            total,
+            page,
+            limit,
+            totalPages: Math.max(1, Math.ceil(total / limit)),
+        });
+    } catch (err) {
+        console.error('Get audit log error:', err);
+        res.status(500).json({ message: 'Erro ao buscar trilha de auditoria.' });
+    }
+});
+
 // PATCH /api/companies/:id/credits - PROTECTED (Admin Only) - Add credits to a company (e.g. plan renewal)
 router.patch('/companies/:id/credits', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') {
@@ -982,7 +1099,17 @@ router.patch('/companies/:id/credits', authenticateToken, async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Empresa não encontrada.' });
         }
-        res.json(result.rows[0]);
+        const company = result.rows[0];
+        logAudit({
+            user: req.user,
+            action: amount >= 0 ? 'company.credits.add' : 'company.credits.remove',
+            targetType: 'company',
+            targetId: id,
+            targetLabel: company.name,
+            details: { amount, newBalance: company.credits },
+            ip: req.ip,
+        });
+        res.json(company);
     } catch (err) {
         console.error('Update company credits error:', err);
         res.status(500).json({ message: 'Erro ao atualizar créditos da empresa.' });
@@ -1000,6 +1127,14 @@ router.delete('/companies/:id', authenticateToken, async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Empresa não encontrada.' });
         }
+        logAudit({
+            user: req.user,
+            action: 'company.delete',
+            targetType: 'company',
+            targetId: id,
+            targetLabel: result.rows[0].name,
+            ip: req.ip,
+        });
         res.json({ message: 'Empresa removida com sucesso.' });
     } catch (err) {
         console.error('Delete company error:', err);
@@ -1028,6 +1163,14 @@ router.post('/control', authenticateToken, async (req, res) => {
         const result = sendControlCommand(generatorId, action); // Returns { success, error }
 
         if (result && result.success) {
+            logAudit({
+                user: req.user,
+                action: 'generator.control',
+                targetType: 'generator',
+                targetId: generatorId,
+                details: { action },
+                ip: req.ip,
+            });
             res.json({ success: true, message: `Command ${action} sent to ${generatorId}` });
         } else {
             const errorMessage = result?.error || 'Failed to find device or connection.';

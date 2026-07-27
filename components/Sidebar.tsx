@@ -19,7 +19,8 @@ import {
   Server,
   ChevronsLeft,
   ChevronsRight,
-  UserCircle
+  UserCircle,
+  ScrollText
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -232,6 +233,20 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
               >
                 <Users size={20} className="flex-shrink-0" />
                 {!collapsed && <span className="font-medium">Controle de Contas</span>}
+              </NavLink>
+              <NavLink
+                to="/audit"
+                title={collapsed ? 'Trilha de Auditoria' : undefined}
+                className={({ isActive }) =>
+                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mt-1 ${
+                    isActive
+                      ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                      : 'hover:bg-gray-800 hover:text-white'
+                  }`
+                }
+              >
+                <ScrollText size={20} className="flex-shrink-0" />
+                {!collapsed && <span className="font-medium">Trilha de Auditoria</span>}
               </NavLink>
             </div>
           )}
@@ -495,6 +510,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                     <Users size={24} />
                   </div>
                   <span className="text-xs font-bold text-white leading-tight text-center">Controle Contas</span>
+                </NavLink>
+
+                <NavLink
+                  to="/audit"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
+                    <ScrollText size={24} />
+                  </div>
+                  <span className="text-xs font-bold text-white leading-tight text-center">Auditoria</span>
                 </NavLink>
               </div>
             </div>
