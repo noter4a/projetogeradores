@@ -609,6 +609,12 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
         if (result.rows.length === 0) {
             console.log('User not found:', email);
+            logAudit({
+                user: { email },
+                action: 'auth.login_failed',
+                details: { reason: 'usuário inexistente', email },
+                ip: req.ip,
+            });
             return res.status(401).json({ message: 'Credenciais inválidas' });
         }
 
@@ -618,6 +624,12 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
             console.log('Invalid password for:', email);
+            logAudit({
+                user: { id: user.id, email: user.email },
+                action: 'auth.login_failed',
+                details: { reason: 'senha incorreta' },
+                ip: req.ip,
+            });
             return res.status(401).json({ message: 'Credenciais inválidas' });
         }
 
@@ -627,6 +639,13 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
+
+        logAudit({
+            user: { id: user.id, email: user.email },
+            action: 'auth.login',
+            details: { role: user.role },
+            ip: req.ip,
+        });
 
         // 4. Return User Data (excluding password)
         res.json({

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ScrollText, ChevronLeft, ChevronRight, Filter, Power, Square, RotateCcw, Wallet, Building, UserPlus, UserMinus, Settings2 } from 'lucide-react';
+import { ScrollText, ChevronLeft, ChevronRight, Filter, Power, Square, RotateCcw, Wallet, Building, UserPlus, UserMinus, Settings2, LogIn, ShieldAlert } from 'lucide-react';
 
 interface AuditEntry {
   id: number;
@@ -30,6 +30,8 @@ const ACTION_META: Record<string, { label: string; color: string; Icon: any }> =
   'company.delete':         { label: 'Empresa removida',   color: 'bg-red-500/10 text-red-400 border-red-500/20', Icon: Building },
   'user.create':            { label: 'Usuário criado',     color: 'bg-teal-500/10 text-teal-400 border-teal-500/20', Icon: UserPlus },
   'user.delete':            { label: 'Usuário removido',   color: 'bg-red-500/10 text-red-400 border-red-500/20', Icon: UserMinus },
+  'auth.login':             { label: 'Login',              color: 'bg-gray-600/20 text-gray-300 border-gray-600/30', Icon: LogIn },
+  'auth.login_failed':      { label: 'Login falhou',       color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', Icon: ShieldAlert },
 };
 
 const FILTERS = [
@@ -41,6 +43,8 @@ const FILTERS = [
   { value: 'user.delete', label: 'Usuários removidos' },
   { value: 'company.create', label: 'Empresas criadas' },
   { value: 'company.delete', label: 'Empresas removidas' },
+  { value: 'auth.login', label: 'Logins' },
+  { value: 'auth.login_failed', label: 'Logins falhos' },
 ];
 
 const AuditLog: React.FC = () => {
@@ -82,6 +86,8 @@ const AuditLog: React.FC = () => {
       return `${amt} crédito(s) · saldo: ${d.newBalance ?? '?'}`;
     }
     if (e.action === 'user.create') return `perfil: ${d.role || '-'}`;
+    if (e.action === 'auth.login_failed') return d.reason || 'falha';
+    if (e.action === 'auth.login') return d.role ? `perfil: ${d.role}` : '';
     return '';
   };
 
