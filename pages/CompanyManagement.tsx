@@ -403,14 +403,14 @@ const CompanyManagement: React.FC = () => {
               const saldo = creditsTarget.credits ?? 0;
               return (
                 <>
-                  <label className="block text-sm text-gray-400 mb-1">Quantidade</label>
-                  <div className="flex items-center gap-2 mb-3">
+                  <label className="block text-sm text-gray-400 mb-1.5">Quantidade</label>
+                  <div className="flex items-stretch gap-2 mb-3 h-12">
                     <button
                       type="button"
                       disabled={creditsSaving || qty === 0}
                       onClick={() => handleAddCredits(-qty)}
                       title="Remover créditos"
-                      className="w-12 h-12 flex items-center justify-center bg-red-600 hover:bg-red-500 text-white font-bold text-2xl rounded-lg disabled:opacity-40 transition-colors shrink-0"
+                      className="w-12 shrink-0 flex items-center justify-center bg-red-600 hover:bg-red-500 text-white text-2xl leading-none rounded-lg disabled:opacity-40 transition-colors"
                     >
                       −
                     </button>
@@ -419,14 +419,14 @@ const CompanyManagement: React.FC = () => {
                       min="1"
                       value={creditsAmount}
                       onChange={(e) => setCreditsAmount(e.target.value)}
-                      className="flex-1 bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-center text-white text-lg font-bold focus:border-ciklo-orange outline-none"
+                      className="flex-1 min-w-0 bg-ciklo-black border border-gray-700 rounded-lg text-center text-white text-xl font-bold focus:border-ciklo-orange outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <button
                       type="button"
                       disabled={creditsSaving || qty === 0}
                       onClick={() => handleAddCredits(qty)}
                       title="Adicionar créditos"
-                      className="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-500 text-white font-bold text-2xl rounded-lg disabled:opacity-40 transition-colors shrink-0"
+                      className="w-12 shrink-0 flex items-center justify-center bg-green-600 hover:bg-green-500 text-white text-2xl leading-none rounded-lg disabled:opacity-40 transition-colors"
                     >
                       +
                     </button>
