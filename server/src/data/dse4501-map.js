@@ -161,6 +161,26 @@ export const DSE_NAMED_ALARMS = [
     'Mains failed to close',
     'Generator failed to open',
     'Mains failed to open',
+    // Indices 32-43: GenComm.pdf pág. 67 (continuação da tabela de página 66 acima).
+    // 'Mains failed' (índice 38) é o alarme nativo de falha de rede do próprio
+    // DSE — considera a janela de tensão/frequência com debounce interno do
+    // controlador, ao contrário da heurística de "todas as fases < 10V" usada
+    // em mqtt.js, que só detecta quedas completas e demora a reagir a quedas
+    // parciais. Índices em branco no manual (39, 41, 43) ficam com nome
+    // genérico só por completude — a condição deles vem sempre como 15
+    // (unimplemented) então decodeAlarmNibble nunca os deixa passar.
+    'Mains low voltage',
+    'Mains high voltage',
+    'Bus failed to close',
+    'Bus failed to open',
+    'Mains low frequency',
+    'Mains high frequency',
+    'Mains failed',
+    'Reserved',
+    'Mains phase rotation wrong',
+    'Reserved',
+    'Generator phase rotation wrong',
+    'Reserved',
 ];
 
 /** GenComm alarm condition nibble values */
@@ -190,6 +210,9 @@ export const DSE4501_POLL_SEQUENCE = [
     // costs zero extra round-trips on a link that's already timeout-prone.
     { startAddress: 1798, quantity: 12 },
     { startAddress: 1408, quantity: 1 },  // StatusCode (manufacturer)
-    { startAddress: 2048, quantity: 8 },  // Page 8: alarm count + conditions
+    // Page 8: alarm count + conditions. Widened de 8 pra 12 registradores pra
+    // alcançar o registrador 2058 (índice de alarme 38 = 'Mains failed', o
+    // alarme nativo de falha de rede do DSE — ver DSE_NAMED_ALARMS acima).
+    { startAddress: 2048, quantity: 12 },
     { startAddress: 3328, quantity: 1 },  // Page 13: mains/generator loading relay (breaker status)
 ];

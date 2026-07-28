@@ -2198,9 +2198,18 @@ export const initMqttService = (io) => {
                                 persistedMainsData.mainsVoltageL1, persistedMainsData.mainsVoltageL2, persistedMainsData.mainsVoltageL3,
                                 persistedMainsData.mainsVoltageL12, persistedMainsData.mainsVoltageL23, persistedMainsData.mainsVoltageL31,
                             ];
-                            const hasMainsReading = mainsVoltageReadings.some(v => v !== undefined && v !== null);
+                            // Alarme nativo 'Mains failed' do DSE (GenComm pág. 67, DSE_NAMED_ALARMS
+                            // índice 38) — o próprio controlador decide com base em janela de
+                            // tensão/frequência + debounce interno, reagindo a quedas parciais de
+                            // rede bem antes de todas as 3 fases medirem 0V. Testado em campo: o
+                            // heurístico abaixo (só fases < 10V) só disparava quando a rede caía
+                            // por completo; esse alarme cobre o caso intermediário.
+                            const dseMainsFailedAlarmActive = Array.isArray(persistedMainsData.activeAlarms)
+                                && persistedMainsData.activeAlarms.some(a => a.name === 'Mains failed');
+                            const hasMainsReading = mainsVoltageReadings.some(v => v !== undefined && v !== null) || dseMainsFailedAlarmActive;
                             if (hasMainsReading) {
-                                const mainsPresentNow = mainsVoltageReadings.some(v => (v ?? 0) > 10);
+                                const mainsPresentByVoltage = mainsVoltageReadings.some(v => (v ?? 0) > 10);
+                                const mainsPresentNow = mainsPresentByVoltage && !dseMainsFailedAlarmActive;
                                 const wasMainsPresent = mainsFailureState.has(deviceId)
                                     ? mainsFailureState.get(deviceId)
                                     : mainsPresentNow; // primeira leitura após restart: só define a base, não notifica
