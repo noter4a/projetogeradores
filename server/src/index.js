@@ -6,6 +6,7 @@ import pool from './db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import cookie from 'cookie';
 import { sendOtpEmail } from './services/email.js';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -24,6 +25,29 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+
+// SECURITY FIX (pentest VUL-02): o token deixou de ficar em localStorage no
+// frontend — qualquer XSS conseguia ler e roubar a sessão permanentemente de
+// lá. Agora o cookie httpOnly é o mecanismo principal (JS não consegue ler
+// nem escrever nele). O header "Authorization: Bearer" continua funcionando
+// como fallback — mantém compatibilidade com qualquer integração externa que
+// já use esse header diretamente (ex.: scripts de terceiros) sem quebrar nada.
+const AUTH_COOKIE_NAME = 'ciklo_auth_token';
+const AUTH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h — mesmo prazo do JWT (expiresIn: '24h')
+const authCookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // precisa ser false em dev HTTP puro
+    sameSite: 'strict',
+    path: '/',
+};
+
+/** Extrai o JWT do cookie (principal) ou do header Authorization (fallback). */
+function extractAuthToken(req) {
+    const cookies = cookie.parse(req.headers.cookie || '');
+    if (cookies[AUTH_COOKIE_NAME]) return cookies[AUTH_COOKIE_NAME];
+    const authHeader = req.headers['authorization'];
+    return authHeader && authHeader.split(' ')[1];
+}
 
 // A API fica atrás do nginx, que repassa o IP do cliente em X-Forwarded-For.
 // Sem isto, req.ip seria sempre o IP do container do nginx e o rate limit do
@@ -58,8 +82,21 @@ initGnssBridge(io);
 initSnmpAgent();
 
 // FIX #6: Socket.IO com autenticação JWT
+// Cookie httpOnly é o mecanismo principal agora (ver AUTH_COOKIE_NAME acima);
+// auth.token/query.token seguem como fallback para qualquer client que ainda
+// os use explicitamente.
 io.use((socket, next) => {
-    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    let token;
+    if (socket.handshake.headers?.cookie) {
+        try {
+            token = cookie.parse(socket.handshake.headers.cookie)[AUTH_COOKIE_NAME];
+        } catch (e) {
+            // cookie malformado — ignora e tenta o fallback abaixo
+        }
+    }
+    if (!token) {
+        token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    }
     if (!token) {
         return next(new Error('Autenticação necessária'));
     }
@@ -727,7 +764,12 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
             ip: req.ip,
         });
 
-        // 4. Return User Data (excluding password)
+        // 4. Cookie httpOnly é o mecanismo principal de sessão agora (ver
+        // AUTH_COOKIE_NAME) — o token no corpo da resposta abaixo segue por
+        // compatibilidade, mas o frontend não deve mais persisti-lo.
+        res.cookie(AUTH_COOKIE_NAME, token, { ...authCookieOptions, maxAge: AUTH_COOKIE_MAX_AGE_MS });
+
+        // 5. Return User Data (excluding password)
         res.json({
             token,
             user: {
@@ -774,6 +816,7 @@ router.post('/auth/verify-2fa', otpLimiter, async (req, res) => {
             details: { role: user.role, method: '2fa' },
             ip: req.ip,
         });
+        res.cookie(AUTH_COOKIE_NAME, token, { ...authCookieOptions, maxAge: AUTH_COOKIE_MAX_AGE_MS });
         res.json({
             token,
             user: {
@@ -810,6 +853,19 @@ router.post('/auth/resend-2fa', otpLimiter, async (req, res) => {
         console.error('[2FA] Falha ao reenviar código:', mailErr.message);
         res.status(502).json({ message: 'Não foi possível reenviar o código.' });
     }
+});
+
+// POST /auth/logout — limpa o cookie httpOnly de sessão. Precisa de um endpoint
+// dedicado porque JS não consegue apagar um cookie httpOnly sozinho (client
+// deixou de guardar o token em localStorage — ver AUTH_COOKIE_NAME acima).
+router.post('/auth/logout', (req, res) => {
+    res.clearCookie(AUTH_COOKIE_NAME, {
+        httpOnly: authCookieOptions.httpOnly,
+        secure: authCookieOptions.secure,
+        sameSite: authCookieOptions.sameSite,
+        path: authCookieOptions.path,
+    });
+    res.json({ message: 'Logout realizado.' });
 });
 
 // POST /auth/forgot-password — envia código de redefinição por e-mail.
@@ -864,8 +920,7 @@ router.post('/auth/reset-password', otpLimiter, async (req, res) => {
 
 // Middleware for JWT Authentication
 const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const token = extractAuthToken(req); // cookie httpOnly primeiro, header Bearer como fallback
 
     if (!token) return res.status(401).json({ message: 'Acesso negado. Token não fornecido.' });
 
