@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#151210" />
+    <meta name="theme-color" content="#121212" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -23,8 +23,8 @@
                 black: 'var(--ciklo-black)',
                 dark: 'var(--ciklo-dark)',
                 card: 'var(--ciklo-card)',
-                yellow: '#D9A54A',
-                orange: '#E06B34',
+                yellow: '#FACC15',
+                orange: '#F97316',
               }
             }
           }
@@ -36,9 +36,9 @@
          THEME VARIABLES
          ======================================== */
       :root {
-        --ciklo-black: #151210;
-        --ciklo-dark: #211D19;
-        --ciklo-card: #2A2521;
+        --ciklo-black: #121212;
+        --ciklo-dark: #1E1E1E;
+        --ciklo-card: #252525;
       }
 
       html.light {
@@ -58,9 +58,9 @@
 
       /* Custom Scrollbar - Dark */
       ::-webkit-scrollbar { width: 8px; }
-      ::-webkit-scrollbar-track { background: #211D19; }
+      ::-webkit-scrollbar-track { background: #1e1e1e; }
       ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
-      ::-webkit-scrollbar-thumb:hover { background: #E06B34; }
+      ::-webkit-scrollbar-thumb:hover { background: #F97316; }
 
       /* ========================================
          LIGHT MODE OVERRIDES
@@ -88,7 +88,7 @@
       html.light .text-gray-200 { color: #4b5563 !important; }
 
       /* Specific icon text for light mode */
-      html.light .text-ciklo-yellow { color: #A47730 !important; }
+      html.light .text-ciklo-yellow { color: #d97706 !important; }
 
       /* --- Background Color Overrides --- */
       html.light .bg-ciklo-black { background-color: var(--ciklo-black) !important; }
@@ -133,7 +133,7 @@
       html.light .hover\:text-white:hover { color: #111827 !important; }
 
       /* --- Ring/Focus Overrides --- */
-      html.light .focus\:border-ciklo-orange:focus { border-color: #E06B34 !important; }
+      html.light .focus\:border-ciklo-orange:focus { border-color: #F97316 !important; }
 
       /* --- Input/Select Overrides --- */
       html.light input.bg-ciklo-black,
@@ -172,7 +172,7 @@
       html.light .bg-blue-500\/10 { background-color: rgba(59,130,246,0.08) !important; }
       html.light .bg-purple-500\/10 { background-color: rgba(168,85,247,0.08) !important; }
       html.light .bg-orange-500\/10 { background-color: rgba(249,115,22,0.08) !important; }
-      html.light .bg-ciklo-orange\/10 { background-color: rgba(224,107,52,0.08) !important; }
+      html.light .bg-ciklo-orange\/10 { background-color: rgba(249,115,22,0.08) !important; }
       html.light .bg-amber-500\/10 { background-color: rgba(245,158,11,0.08) !important; }
       html.light .bg-teal-500\/10 { background-color: rgba(20,184,166,0.08) !important; }
 
@@ -205,7 +205,7 @@
       html.light .border-teal-500\/20 { border-color: rgba(20,184,166,0.15) !important; }
 
       /* --- Hover border --- */
-      html.light .hover\:border-ciklo-orange:hover { border-color: #E06B34 !important; }
+      html.light .hover\:border-ciklo-orange:hover { border-color: #F97316 !important; }
       html.light .hover\:border-gray-600:hover { border-color: #9ca3af !important; }
 
       /* --- CTA Buttons (orange/yellow gradient) stay dark text --- */

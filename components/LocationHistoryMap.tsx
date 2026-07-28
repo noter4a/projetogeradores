@@ -111,17 +111,17 @@ const LocationHistoryMap: React.FC<Props> = ({ generatorId, currentLat, currentL
       const [lat, lon] = path[0];
       map.setView([lat, lon], 15);
       L.circleMarker([lat, lon], {
-        radius: 8, color: '#E06B34', fillColor: '#E06B34', fillOpacity: 0.9, weight: 2,
+        radius: 8, color: '#f97316', fillColor: '#f97316', fillOpacity: 0.9, weight: 2,
       }).addTo(map);
     } else {
-      const line = L.polyline(path, { color: '#E06B34', weight: 4, opacity: 0.85 }).addTo(map);
+      const line = L.polyline(path, { color: '#f97316', weight: 4, opacity: 0.85 }).addTo(map);
       // Origin (green)
       L.circleMarker(path[0], {
         radius: 7, color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.9, weight: 2,
       }).bindTooltip('Início do trajeto').addTo(map);
       // Current / latest (orange)
       L.circleMarker(path[path.length - 1], {
-        radius: 8, color: '#E06B34', fillColor: '#E06B34', fillOpacity: 0.95, weight: 2,
+        radius: 8, color: '#f97316', fillColor: '#f97316', fillOpacity: 0.95, weight: 2,
       }).bindTooltip('Posição atual').addTo(map);
       map.fitBounds(line.getBounds(), { padding: [30, 30] });
     }
