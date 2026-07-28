@@ -612,16 +612,19 @@ const GeneratorDetail: React.FC = () => {
   const handleControl = (action: string) => {
     if (!canControl) return;
 
-    // DSE: trocar de modo (auto/manual) é o mesmo comando que apertar o botão
-    // físico no painel — e no Ciklo55 isso deu partida no motor sozinho, sem
-    // aviso. Não é um bug de registrador (as chaves foram conferidas contra o
-    // GenComm oficial da Deep Sea); é uma condição do próprio gerador que pode
-    // se repetir em qualquer DSE. Por decisão explícita do usuário o backend
-    // não bloqueia mais isso — só pedimos essa confirmação antes de mandar.
-    if (gen.controller?.toLowerCase() === 'dse' && (action === 'auto' || action === 'manual')) {
-      const modeLabel = action === 'auto' ? 'Automático' : 'Manual';
-      if (!window.confirm(
-        `Trocar para o modo ${modeLabel} neste controlador DSE pode dar partida no motor sozinho, sem aviso — já aconteceu antes.\n\nTem certeza que quer continuar?`
+    // DSE: no GenComm (protocolo deste controlador), "Manual mode" É DEFINIDO
+    // como "start the engine" — não é bug, é a especificação oficial da Deep
+    // Sea (GenComm.pdf, seção "Control modes", nota 3). Por isso trocar pra
+    // Manual dá partida sempre, não só às vezes. "Auto" é diferente: só parte
+    // sozinho se já houver falha de rede ou sinal de partida remota pendente.
+    // Por decisão explícita do usuário o backend não bloqueia mais isso — só
+    // pedimos essa confirmação antes de mandar.
+    if (gen.controller?.toLowerCase() === 'dse') {
+      if (action === 'manual' && !window.confirm(
+        'Trocar para o modo Manual neste controlador VAI DAR PARTIDA no motor — é assim que o modo Manual funciona neste equipamento (não é bug).\n\nTem certeza que quer continuar?'
+      )) return;
+      if (action === 'auto' && !window.confirm(
+        'Trocar para o modo Automático neste controlador. Se houver falha de rede ou sinal de partida remota pendente, o motor pode partir.\n\nTem certeza que quer continuar?'
       )) return;
     }
 
@@ -852,7 +855,7 @@ const GeneratorDetail: React.FC = () => {
                   {/* AUTO BUTTON */}
                   <button
                     disabled={gen.operationMode === 'AUTO'}
-                    title={isDseController ? 'Neste controlador, trocar de modo pode dar partida no motor — vai pedir confirmação.' : undefined}
+                    title={isDseController ? 'Neste controlador, o motor pode partir sozinho se houver falha de rede ou partida remota pendente. Vai pedir confirmação.' : undefined}
                     onClick={() => handleControl('auto')}
                     className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
                       ? 'bg-green-600 text-white cursor-default opacity-100'
@@ -865,7 +868,7 @@ const GeneratorDetail: React.FC = () => {
                   {/* MANUAL BUTTON */}
                   <button
                     disabled={gen.operationMode === 'MANUAL'}
-                    title={isDseController ? 'Neste controlador, trocar de modo pode dar partida no motor — vai pedir confirmação.' : undefined}
+                    title={isDseController ? 'Neste controlador, entrar em Manual dá partida no motor (é a definição do modo). Vai pedir confirmação.' : undefined}
                     onClick={() => handleControl('manual')}
                     className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
                       ? 'bg-green-600 text-white cursor-default opacity-100'
@@ -894,8 +897,9 @@ const GeneratorDetail: React.FC = () => {
               {isDseController && (
                 <p className="mt-2 text-[11px] text-amber-400/90 flex items-start gap-1.5">
                   <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                  Atenção: neste controlador, trocar de modo já deu partida no motor
-                  sozinho em campo. Vai pedir confirmação antes de enviar.
+                  Atenção: neste controlador, entrar em Manual dá partida no motor
+                  (é a definição do modo Manual, não um defeito). Vai pedir confirmação
+                  antes de enviar.
                 </p>
               )}
 

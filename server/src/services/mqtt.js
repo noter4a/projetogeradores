@@ -1973,6 +1973,13 @@ export const initMqttService = (io) => {
                             unifiedData.status = d.status;
                         }
 
+                        if (d.block === 'DSE_RELAYS_3328') {
+                            // null = relé não implementado neste DSE4501 (retorna código 3
+                            // "Unimplemented"); não sobrescreve o valor já conhecido nesse caso.
+                            if (d.mainsBreakerClosed != null) unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
+                            if (d.genBreakerClosed != null) unifiedData.genBreakerClosed = d.genBreakerClosed;
+                        }
+
                         if (d.block === 'DSE_ALARMS_2048') {
                             unifiedData.alarmCode = d.alarmCode;
                             unifiedData.alarmMessage = d.alarmMessage || '';

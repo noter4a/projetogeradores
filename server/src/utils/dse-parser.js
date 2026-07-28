@@ -221,15 +221,36 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
     }
 
     // ---- Block 2: Mains Voltages & Freq (Reg 1058-1072, 15 regs) ----
+    //
+    // FIX 2026-07-28: todo este bloco estava lendo 2 registradores adiantado.
+    // Conferido contra GenComm.pdf "Page 4 - Basic Instrumentation": reg 1058
+    // (offset 34) é na verdade "Generator current lag/lead", não o começo da
+    // tensão de rede. O layout real a partir de 1058 é:
+    //   offset local 0     (reg 1058)      = Generator current lag/lead (ignorado)
+    //   offset local 1     (reg 1059)      = Mains frequency
+    //   offset local 2-3   (reg 1060-1061) = Mains L1-N voltage
+    //   offset local 4-5   (reg 1062-1063) = Mains L2-N voltage
+    //   offset local 6-7   (reg 1064-1065) = Mains L3-N voltage
+    //   offset local 8-9   (reg 1066-1067) = Mains L1-L2 voltage
+    //   offset local 10-11 (reg 1068-1069) = Mains L2-L3 voltage
+    //   offset local 12-13 (reg 1070-1071) = Mains L3-L1 voltage
+    //   offset local 14    (reg 1072)      = Mains voltage phase lag/lead (ignorado)
+    // O código antigo lia tudo 2 registradores cedo demais: "L1" pegava lixo
+    // (Generator lag/lead + metade da frequência), "L2"/"L3" na verdade eram
+    // L1-N/L2-N (por isso pareciam magnitude de fase-neutro corretas), "L12"
+    // era na verdade L3-N (por isso saía ~226V em vez de ~380V — o bug
+    // reportado em campo), "L23"/"L31" eram na verdade L1-L2/L2-L3, e a
+    // frequência lia o campo de phase lag/lead (por isso sempre null/lixo).
+    // L3-L1 nunca era lido. Corrigido abaixo para os offsets reais.
     if (startAddress === 1058 && regs.length >= 15) {
-        const mainsVoltageL1 = v10(regs, 0);
-        const mainsVoltageL2 = v10(regs, 2);
-        const mainsVoltageL3 = v10(regs, 4);
-        const mainsVoltageL12 = v10(regs, 6);
-        const mainsVoltageL23 = v10(regs, 8);
-        const mainsVoltageL31 = v10(regs, 10);
-        const mainsFreqRaw = validRaw(u16(regs, 14));
+        const mainsFreqRaw = validRaw(u16(regs, 1));
         const mainsFrequency = mainsFreqRaw === null ? null : parseFloat((mainsFreqRaw / 10.0).toFixed(1));
+        const mainsVoltageL1 = v10(regs, 2);
+        const mainsVoltageL2 = v10(regs, 4);
+        const mainsVoltageL3 = v10(regs, 6);
+        const mainsVoltageL12 = v10(regs, 8);
+        const mainsVoltageL23 = v10(regs, 10);
+        const mainsVoltageL31 = v10(regs, 12);
 
         return {
             block: 'DSE_MAINS_1058',
@@ -322,6 +343,30 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
             block: 'DSE_STATUS_1408',
             status: decodeStatusFromCode(statusVal),
             statusCodeRaw: statusVal,
+        };
+    }
+
+    // ---- Block 10: Mains/Generator loading relay — breaker status (Reg 3328, Page 13) ----
+    //
+    // NOVO 2026-07-28: mainsBreakerClosed/genBreakerClosed nunca eram lidos do
+    // DSE — ficavam travados em "aberta" pra sempre (o default do schema),
+    // não importava o estado real. Conferido contra GenComm.pdf "Page 13 -
+    // Diagnostic - Digital Outputs": um único registrador com campos de 2 bits
+    // cada (código 0=De-energised, 1=Energised, 2=Reserved, 3=Unimplemented):
+    // bits 15-16 Fuel relay, 13-14 Start relay, 11-12 Mains loading relay,
+    // 9-10 Generator loading relay, 7-8 Modem power relay.
+    // Código 3 (Unimplemented) significa que este DSE4501 não reporta esse
+    // relé — nesse caso retornamos null em vez de forçar true/false errado.
+    if (startAddress === 3328 && regs.length >= 1) {
+        const raw = u16(regs, 0);
+        const mainsCode = (raw >> 10) & 0x3;
+        const genCode = (raw >> 8) & 0x3;
+        const decodeRelay = (code) => (code === 1 ? true : code === 0 ? false : null);
+
+        return {
+            block: 'DSE_RELAYS_3328',
+            mainsBreakerClosed: decodeRelay(mainsCode),
+            genBreakerClosed: decodeRelay(genCode),
         };
     }
 

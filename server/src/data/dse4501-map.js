@@ -16,18 +16,18 @@
 //              alarms, 35732=Telemetry start, 35733=Cancel telemetry start.
 //              Não foram chutados — sempre estiveram certos.
 //
-//              MAS isso não torna a troca de modo segura. O próprio GenComm.pdf
-//              (seção "Page 16 - Control Registers", nota 6) documenta:
-//              "Function codes 0 to 31 perform exactly the same function as
-//              pressing the equivalent button on the control unit." Ou seja,
-//              mandar a chave MANUAL por Modbus é idêntico a apertar o botão
-//              físico Manual no painel — e foi exatamente isso que, no Ciklo55,
-//              deu partida no motor (ver aviso em DSE_CONTROL_KEYS). A causa não
-//              é o valor do registrador; é uma condição/config do próprio gerador
-//              (DSE Configuration Suite, ou uma entrada de partida remota travada
-//              nos terminais) que faz o botão físico Manual também partir o motor
-//              nesse aparelho específico. Isso só se resolve fisicamente no painel
-//              — não tem ajuste de software que resolva.
+//              E a troca pra Manual DAR PARTIDA NÃO É BUG NEM CONFIGURAÇÃO DO
+//              GERADOR — é a própria definição do modo no GenComm.pdf (seção
+//              "Page 3 - Generating Set Status Information", notas sobre
+//              "Control modes"): "'Manual mode' means start the engine
+//              (generator). With some control units it will also be necessary
+//              to press the start button before such a manual start is
+//              initiated." Ou seja: em parte dos controladores GenComm, entrar
+//              em Manual JÁ dá partida sozinho, sem precisar de start separado
+//              — é exatamente o que este DSE4501 faz. 'Auto mode' é diferente:
+//              só dá partida com sinal de remote-start ou falha de rede (não
+//              ao simplesmente selecionar o modo). Não tem ajuste de registrador
+//              que mude isso — é o comportamento definido do modo Manual em si.
 
 export const DSE4501_MODEL = 'DSE4501';
 
@@ -39,6 +39,19 @@ export const DSE_REG_STATUS_FLAGS = 774;
 
 /** GenComm Page 8 offset 0 — alarm count + named alarm conditions */
 export const DSE_REG_ALARMS = 2048;
+
+/**
+ * GenComm Page 13 offset 0 (13*256=3328) — "Diagnostic - Digital Outputs".
+ * Confirmado em 2026-07-28 contra GenComm.pdf: um único registrador packed em
+ * campos de 2 bits (código 0=De-energised, 1=Energised, 2=Reserved,
+ * 3=Unimplemented) — bits 15-16 Fuel relay, 13-14 Start relay, 11-12 Mains
+ * loading relay, 9-10 Generator loading relay, 7-8 Modem power relay.
+ * Antes desta correção, mainsBreakerClosed/genBreakerClosed nunca eram lidos
+ * do DSE — ficavam travados no default (false = "aberta") pra sempre,
+ * independente do estado real do contator. Ver decodeDseByBlock/DSE_RELAYS_3328
+ * em dse-parser.js.
+ */
+export const DSE_REG_RELAYS = 3328;
 
 /** GenComm Page 16 offset 8 — system control key (written with one's complement at +1) */
 export const DSE_REG_SCF = 4104;
@@ -166,4 +179,5 @@ export const DSE4501_POLL_SEQUENCE = [
     { startAddress: 1798, quantity: 12 },
     { startAddress: 1408, quantity: 1 },  // StatusCode (manufacturer)
     { startAddress: 2048, quantity: 8 },  // Page 8: alarm count + conditions
+    { startAddress: 3328, quantity: 1 },  // Page 13: mains/generator loading relay (breaker status)
 ];
