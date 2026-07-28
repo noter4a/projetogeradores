@@ -620,23 +620,6 @@ const GeneratorDetail: React.FC = () => {
   const handleControl = (action: string) => {
     if (!canControl) return;
 
-    // DSE: o botão "Manual" NÃO manda a chave GenComm real de Select-Manual
-    // (que dá partida na hora, por definição do protocolo — ver mqtt.js) — a
-    // pedido do usuário, manda Stop mode em vez disso, que serve de trava
-    // contra partida automática por falha de rede sem partir sozinho ao
-    // selecionar. Tradeoff aceito: Partida depois disso é um teste ao vivo
-    // não verificado (pode não ter efeito, ver comentário em mqtt.js).
-    // "Auto" é diferente: só parte sozinho se já houver falha de rede ou
-    // sinal de partida remota pendente.
-    if (gen.controller?.toLowerCase() === 'dse') {
-      if (action === 'manual' && !window.confirm(
-        'Trocar para Manual neste controlador (não dá partida — trava contra partida automática por falha de rede).\n\nAtenção: a Partida remota depois disso nunca foi testada e pode não funcionar.\n\nTem certeza que quer continuar?'
-      )) return;
-      if (action === 'auto' && !window.confirm(
-        'Trocar para o modo Automático neste controlador. Se houver falha de rede ou sinal de partida remota pendente, o motor pode partir.\n\nTem certeza que quer continuar?'
-      )) return;
-    }
-
     setControlLoading(action);
 
     // Emit Socket.IO Command
@@ -864,7 +847,6 @@ const GeneratorDetail: React.FC = () => {
                   {/* AUTO BUTTON */}
                   <button
                     disabled={gen.operationMode === 'AUTO'}
-                    title={isDseController ? 'Neste controlador, o motor pode partir sozinho se houver falha de rede ou partida remota pendente. Vai pedir confirmação.' : undefined}
                     onClick={() => handleControl('auto')}
                     className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
                       ? 'bg-green-600 text-white cursor-default opacity-100'
@@ -877,7 +859,6 @@ const GeneratorDetail: React.FC = () => {
                   {/* MANUAL BUTTON */}
                   <button
                     disabled={gen.operationMode === 'MANUAL'}
-                    title={isDseController ? 'Neste controlador, Manual trava contra partida por falha de rede (não dá partida). Partida remota depois disso é não testada.' : undefined}
                     onClick={() => handleControl('manual')}
                     className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
                       ? 'bg-green-600 text-white cursor-default opacity-100'
@@ -902,16 +883,6 @@ const GeneratorDetail: React.FC = () => {
                   )}
                 </div>
               </div>
-
-              {isDseController && (
-                <p className="mt-2 text-[11px] text-amber-400/90 flex items-start gap-1.5">
-                  <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                  Manual, neste controlador, trava contra partida automática por falha
-                  de rede (não dá partida ao selecionar). A Partida remota depois disso
-                  ainda não foi testada e pode não ter efeito — nesse caso, use o modo
-                  Automático + Partida/Parar para ligar remotamente.
-                </p>
-              )}
 
               <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800 mt-4 relative">
                 <label className="text-xs text-gray-500 font-semibold mb-3 block text-center">Comando Remoto</label>
