@@ -1127,6 +1127,8 @@ export async function readModbusRegisterOnDemand(deviceId, { startAddress, quant
 
     try {
         const result = await modbusScanStep(device, { startAddress, quantity, fn });
+        console.log(`[MODBUS-READ] ${deviceId} FC${fn} @${startAddress} qty=${quantity} → ${result.classification.kind}` +
+            (result.classification.kind === 'data' ? ` regs=[${(result.classification.registerPreview || []).join(', ')}]` : ` (${result.classification.note || ''})`));
         return { success: true, ...result };
     } finally {
         modbusScanSessions.delete(deviceId);

@@ -740,8 +740,13 @@ const GeneratorDetail: React.FC = () => {
         setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: `Exceção Modbus ${data.classification.exceptionCode}` } : r));
       } else if (kind === 'timeout') {
         setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: 'Sem resposta (timeout)' } : r));
+      } else if (kind === 'garbage' || kind === 'short') {
+        setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: data.classification.note || 'Resposta inválida/corrompida' } : r));
       } else {
-        setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: data?.message || 'Falha na leitura' } : r));
+        // Sem classification: falha do próprio backend (dispositivo não encontrado,
+        // MQTT desconectado, endereço/quantidade inválidos etc.) — vem em `error`,
+        // não em `message`. Checar os dois evita mascarar o motivo real.
+        setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: data?.error || data?.message || 'Falha na leitura' } : r));
       }
     } catch (err) {
       setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: 'Erro de conexão' } : r));
