@@ -620,16 +620,17 @@ const GeneratorDetail: React.FC = () => {
   const handleControl = (action: string) => {
     if (!canControl) return;
 
-    // DSE: no GenComm (protocolo deste controlador), "Manual mode" É DEFINIDO
-    // como "start the engine" — não é bug, é a especificação oficial da Deep
-    // Sea (GenComm.pdf, seção "Control modes", nota 3). Por isso trocar pra
-    // Manual dá partida sempre, não só às vezes. "Auto" é diferente: só parte
-    // sozinho se já houver falha de rede ou sinal de partida remota pendente.
-    // Por decisão explícita do usuário o backend não bloqueia mais isso — só
-    // pedimos essa confirmação antes de mandar.
+    // DSE: o botão "Manual" NÃO manda a chave GenComm real de Select-Manual
+    // (que dá partida na hora, por definição do protocolo — ver mqtt.js) — a
+    // pedido do usuário, manda Stop mode em vez disso, que serve de trava
+    // contra partida automática por falha de rede sem partir sozinho ao
+    // selecionar. Tradeoff aceito: Partida depois disso é um teste ao vivo
+    // não verificado (pode não ter efeito, ver comentário em mqtt.js).
+    // "Auto" é diferente: só parte sozinho se já houver falha de rede ou
+    // sinal de partida remota pendente.
     if (gen.controller?.toLowerCase() === 'dse') {
       if (action === 'manual' && !window.confirm(
-        'Trocar para o modo Manual neste controlador VAI DAR PARTIDA no motor — é assim que o modo Manual funciona neste equipamento (não é bug).\n\nTem certeza que quer continuar?'
+        'Trocar para Manual neste controlador (não dá partida — trava contra partida automática por falha de rede).\n\nAtenção: a Partida remota depois disso nunca foi testada e pode não funcionar.\n\nTem certeza que quer continuar?'
       )) return;
       if (action === 'auto' && !window.confirm(
         'Trocar para o modo Automático neste controlador. Se houver falha de rede ou sinal de partida remota pendente, o motor pode partir.\n\nTem certeza que quer continuar?'
@@ -876,7 +877,7 @@ const GeneratorDetail: React.FC = () => {
                   {/* MANUAL BUTTON */}
                   <button
                     disabled={gen.operationMode === 'MANUAL'}
-                    title={isDseController ? 'Neste controlador, entrar em Manual dá partida no motor (é a definição do modo). Vai pedir confirmação.' : undefined}
+                    title={isDseController ? 'Neste controlador, Manual trava contra partida por falha de rede (não dá partida). Partida remota depois disso é não testada.' : undefined}
                     onClick={() => handleControl('manual')}
                     className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
                       ? 'bg-green-600 text-white cursor-default opacity-100'
@@ -905,9 +906,10 @@ const GeneratorDetail: React.FC = () => {
               {isDseController && (
                 <p className="mt-2 text-[11px] text-amber-400/90 flex items-start gap-1.5">
                   <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                  Atenção: neste controlador, entrar em Manual dá partida no motor
-                  (é a definição do modo Manual, não um defeito). Vai pedir confirmação
-                  antes de enviar.
+                  Manual, neste controlador, trava contra partida automática por falha
+                  de rede (não dá partida ao selecionar). A Partida remota depois disso
+                  ainda não foi testada e pode não ter efeito — nesse caso, use o modo
+                  Automático + Partida/Parar para ligar remotamente.
                 </p>
               )}
 

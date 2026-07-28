@@ -2842,31 +2842,33 @@ export const sendControlCommand = (deviceId, action) => {
             if (isDseController) {
                 // DSE4501 GenComm System Control Keys (Reg 4104 + one's complement at 4105)
                 //
-                // ⚠️ RISCO CONHECIDO — troca de modo NÃO travada por decisão explícita
-                // do usuário em 2026-07-28, ciente do risco abaixo (desbloqueado depois
-                // de ficar bloqueado por um dia inteiro; ver histórico do commit).
+                // "Manual" no app NÃO manda a chave GenComm "Select Manual mode"
+                // (35702) — decisão explícita do usuário em 2026-07-28. Motivo:
+                // comprovado em campo no Ciklo55 que 35702 dá partida no motor assim
+                // que selecionada (é a definição do modo no GenComm.pdf, Page 3 —
+                // não um bug, ver dse4501-map.js), e o usuário quer um "Manual" que
+                // sirva de trava contra partida automática por falha de rede SEM
+                // partir sozinho ao selecionar.
                 //
-                // Comprovado em campo no Ciklo55: com a rede sadia (382-384 V) e o
-                // controlador em AUTO (reg 772 = 1), o envio da chave MANUAL (35702)
-                // — único comando enviado, nenhum start — mudou o modo corretamente
-                // (reg 772 voltou 2) MAS TAMBÉM DEU PARTIDA no motor (rpm 0 -> 1032
-                // -> 1802, RUNNING), sem qualquer aviso ao operador.
+                // Por isso "manual" manda a chave STOP (35700) em vez de MANUAL
+                // (35702). Stop mode não responde a falha de rede nem parte ao ser
+                // selecionado — e dse4501-map.js's DSE_CONTROL_MODE já mapeia
+                // reg772=0 (Stop) de volta pra label 'MANUAL' na UI (comentário lá:
+                // "Stop mode — UI treats as manual (no auto-start)"), então o
+                // display continua mostrando "Manual" normalmente.
                 //
-                // NÃO é valor errado: conferido contra o GenComm.pdf (protocolo oficial
-                // Deep Sea, não específico de modelo) e contra
-                // 056-051_Gencomm_Control_Keys.pdf — 35700-35733 batem exatamente (ver
-                // comentário completo em dse4501-map.js). O próprio GenComm.pdf diz
-                // (Page 16, nota 6) que os function codes 0-31 fazem "exactly the same
-                // function as pressing the equivalent button on the control unit" —
-                // ou seja, mandar MANUAL por Modbus equivale a apertar o botão físico
-                // Manual no painel. A partida é uma configuração/condição do próprio
-                // gerador (DSE Configuration Suite, ou entrada de partida remota
-                // travada), não um bug de registrador — e o mesmo pode acontecer de
-                // novo em qualquer DSE que tenha essa mesma condição, não só o Ciklo55.
+                // TRADEOFF ACEITO PELO USUÁRIO: START_MANUAL (35705, "Start engine
+                // if in manual or test modes") nunca foi testado ao vivo a partir de
+                // Stop mode de verdade — o nome da chave sugere que ela só funciona
+                // estando em Manual/Test, não em Stop. Ou seja, clicar Partida depois
+                // de "Manual" pode simplesmente não fazer efeito nenhum. Se isso
+                // acontecer, a única forma de ligar remotamente continua sendo mandar
+                // a chave MANUAL real (35702) — que aí sim dá partida na hora, como
+                // sempre. Não reverta silenciosamente para 35702 aqui sem essa
+                // conversa acontecer de novo — foi escolha informada do usuário.
                 //
-                // O frontend pede confirmação explícita ("isso pode dar partida no
-                // motor") antes de enviar auto/manual num DSE — ver handleControl em
-                // GeneratorDetail.tsx — mas o backend não impõe mais bloqueio nenhum.
+                // AUTO (35701) e as chaves de telemetria (35732/35733, usadas por
+                // Partida/Parar quando o modo é Automático) continuam normais.
 
                 let key;
                 switch (action) {
@@ -2875,7 +2877,7 @@ export const sendControlCommand = (deviceId, action) => {
                         dseCommandedMode.set(deviceId, 'AUTO');
                         break;
                     case 'manual':
-                        key = DSE_CONTROL_KEYS.MANUAL;
+                        key = DSE_CONTROL_KEYS.STOP; // não é DSE_CONTROL_KEYS.MANUAL — ver comentário acima
                         dseCommandedMode.set(deviceId, 'MANUAL');
                         break;
                     case 'start': {

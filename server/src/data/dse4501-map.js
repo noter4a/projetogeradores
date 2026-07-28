@@ -28,6 +28,18 @@
 //              só dá partida com sinal de remote-start ou falha de rede (não
 //              ao simplesmente selecionar o modo). Não tem ajuste de registrador
 //              que mude isso — é o comportamento definido do modo Manual em si.
+//
+//              2026-07-28 (2ª decisão): por isso o botão "Manual" do app NÃO
+//              manda mais a chave MANUAL (35702) — manda STOP (35700) no lugar,
+//              a pedido do usuário, pra servir de trava contra partida automática
+//              por falha de rede sem partir sozinho ao selecionar (Stop mode não
+//              responde a falha de rede). Ver switch/case completo em mqtt.js.
+//              MANUAL (35702) continua correta e documentada aqui, só não é mais
+//              alcançável por nenhum botão da UI. Tradeoff aceito: START_MANUAL
+//              (35705) nunca foi testado partindo de Stop mode de verdade — pode
+//              não ter efeito nenhum (a própria chave diz "if in manual or test
+//              modes"). Se isso acontecer, só dá pra ligar remotamente mandando
+//              a chave MANUAL real — que aí sim parte na hora.
 
 export const DSE4501_MODEL = 'DSE4501';
 
