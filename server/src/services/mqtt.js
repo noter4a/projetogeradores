@@ -1997,12 +1997,22 @@ export const initMqttService = (io) => {
                         }
 
                         if (d.block === 'DSE_FLAGS_774') {
-                            if (d.shutdownAlarmActive || d.electricalTripActive) {
-                                unifiedData.alarmCode = unifiedData.alarmCode || 3;
-                                unifiedData.alarmMessage = unifiedData.alarmMessage || 'Alarme de shutdown no DSE';
-                            } else if (d.warningAlarmActive && !unifiedData.alarmCode) {
-                                unifiedData.alarmCode = 2;
-                                unifiedData.alarmMessage = unifiedData.alarmMessage || 'Alarme de aviso no DSE';
+                            // FIX 2026-07-28: este bloco (Reg 774) e o DSE_ALARMS_2048 chegam
+                            // como mensagens MQTT SEPARADAS (~8s de diferença dentro do mesmo
+                            // ciclo de sondagem, não a mesma mensagem) — cada uma com seu
+                            // próprio unifiedData={} do zero. Antes, este bloco escrevia
+                            // alarmCode=3 quando shutdownAlarmActive/electricalTripActive vinha
+                            // true, e a mensagem seguinte do 2048 SEMPRE sobrescrevia de volta
+                            // (mesmo pra 0), já que 2048 é incondicional. Resultado, confirmado
+                            // no banco: o Ciklo55 abriu e fechou "Alarme de shutdown no DSE" ~20
+                            // vezes em 10 minutos — todo ciclo de sondagem, ~40 mensagens de
+                            // WhatsApp (ativo+resolvido) enviadas sem que nada real tivesse
+                            // mudado. DSE_ALARMS_2048 (Page 8, lista de 32 alarmes nomeados com
+                            // severidade) já cobre shutdown/electrical trip/warning com mais
+                            // detalhe — vira a única fonte de alarmCode/alarmMessage pro DSE.
+                            // Mantém só o log pra diagnóstico, sem mexer em unifiedData.
+                            if (d.shutdownAlarmActive || d.electricalTripActive || d.warningAlarmActive) {
+                                console.log(`[DSE-FLAGS] ${deviceId}: shutdown=${d.shutdownAlarmActive} trip=${d.electricalTripActive} warning=${d.warningAlarmActive} (informativo — quem decide alarmCode é DSE_ALARMS_2048)`);
                             }
                         }
 
