@@ -805,7 +805,7 @@ const GeneratorDetail: React.FC = () => {
     return (
       <div className="bg-ciklo-card rounded-xl border border-gray-800 p-5">
         <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
-          <h3 className="text-white font-bold flex items-center gap-2 text-sm uppercase tracking-wider">
+          <h3 className="text-white font-bold flex items-center gap-2 text-sm">
             <Radio size={18} className="text-ciklo-orange" /> Painel de Controle Remoto
           </h3>
           <div className="flex items-center gap-2">
@@ -821,12 +821,12 @@ const GeneratorDetail: React.FC = () => {
           <div className="lg:col-span-5 space-y-6">
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="text-[10px] text-gray-500 uppercase font-bold">Modo de Operação</label>
+                <label className="text-xs text-gray-500 font-semibold">Modo de Operação</label>
                 <button
                   onClick={() => handleControl('reset')}
                   className="text-[10px] flex items-center gap-1 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-2 py-0.5 rounded border border-gray-700 transition-colors"
                 >
-                  <RotateCcw size={10} /> RESET FALHAS
+                  <RotateCcw size={10} /> Reset falhas
                 </button>
               </div>
               <div className="flex bg-gray-900/50 p-1.5 rounded-lg border border-gray-800 relative">
@@ -835,24 +835,24 @@ const GeneratorDetail: React.FC = () => {
                   <button
                     disabled={gen.operationMode === 'AUTO'}
                     onClick={() => handleControl('auto')}
-                    className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
-                      ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100'
+                    className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
+                      ? 'bg-green-600 text-white cursor-default opacity-100'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
-                    <RefreshCw size={14} className={gen.operationMode === 'AUTO' ? 'animate-spin-slow' : ''} /> AUTOMÁTICO
+                    <RefreshCw size={14} className={gen.operationMode === 'AUTO' ? 'animate-spin-slow' : ''} /> Automático
                   </button>
 
                   {/* MANUAL BUTTON */}
                   <button
                     disabled={gen.operationMode === 'MANUAL'}
                     onClick={() => handleControl('manual')}
-                    className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
-                      ? 'bg-green-600 text-white shadow-lg shadow-green-900/20 cursor-default opacity-100'
+                    className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
+                      ? 'bg-green-600 text-white cursor-default opacity-100'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
-                    <Settings size={14} className={gen.operationMode === 'MANUAL' ? 'animate-spin-slow' : ''} /> MANUAL
+                    <Settings size={14} className={gen.operationMode === 'MANUAL' ? 'animate-spin-slow' : ''} /> Manual
                   </button>
 
                   {/* INIBIDO BUTTON (KVA only) */}
@@ -860,39 +860,39 @@ const GeneratorDetail: React.FC = () => {
                     <button
                       disabled={gen.operationMode === 'INHIBITED'}
                       onClick={() => handleControl('inhibit')}
-                      className={`flex-1 py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'INHIBITED'
-                        ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/20 cursor-default opacity-100'
+                      className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'INHIBITED'
+                        ? 'bg-amber-600 text-white cursor-default opacity-100'
                         : 'text-gray-400 hover:text-white hover:bg-white/5'
                         }`}
                     >
-                      <Ban size={14} /> INIBIDO
+                      <Ban size={14} /> Inibido
                     </button>
                   )}
                 </div>
               </div>
 
               <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800 mt-4 relative">
-                <label className="text-[10px] text-gray-500 uppercase font-bold mb-3 block text-center">Comando Remoto</label>
+                <label className="text-xs text-gray-500 font-semibold mb-3 block text-center">Comando Remoto</label>
                 <div className="flex gap-3">
                   <button
                     disabled={gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
                     onClick={() => handleControl('start')}
-                    className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'
+                    className={`flex-1 py-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all border ${gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'
                       ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-500 text-white border-green-500 hover:shadow-green-900/20'
+                      : 'bg-green-600 hover:bg-green-500 text-white border-green-500'
                       }`}
                   >
-                    <Play size={18} fill="currentColor" /> PARTIDA
+                    <Play size={18} fill="currentColor" /> Partida
                   </button>
                   <button
                     disabled={gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
                     onClick={() => handleControl('stop')}
-                    className={`flex-1 py-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border shadow-lg ${gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'
+                    className={`flex-1 py-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all border ${gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'
                       ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
-                      : 'bg-red-600 hover:bg-red-500 text-white border-red-500 hover:shadow-red-900/20'
+                      : 'bg-red-600 hover:bg-red-500 text-white border-red-500'
                       }`}
                   >
-                    <Square size={18} fill="currentColor" /> PARAR
+                    <Square size={18} fill="currentColor" /> Parar
                   </button>
                 </div>
               </div>
@@ -905,7 +905,7 @@ const GeneratorDetail: React.FC = () => {
           {/* QTA (Right side - 6 cols) */}
           <div className="lg:col-span-6 flex flex-col justify-center">
             <div className="text-center mb-6">
-              <label className="text-[10px] text-gray-500 uppercase font-bold block">Status da Transferência (QTA)</label>
+              <label className="text-xs text-gray-500 font-semibold block">Status da Transferência (QTA)</label>
               <span className="text-xs font-mono text-gray-400">
                 {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' : gen.operationMode === 'INHIBITED' ? 'Modo Inibido Ativo' : 'Controle Manual Habilitado'}
               </span>
@@ -1135,7 +1135,7 @@ const GeneratorDetail: React.FC = () => {
         {/* Big Power Display */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-ciklo-orange">
-            <p className="text-gray-400 text-xs uppercase font-bold">Potência Ativa Total</p>
+            <p className="text-gray-400 text-xs font-medium">Potência Ativa Total</p>
             <p className="text-3xl font-bold text-white mt-1">
               {gen.activePowerTotal === null || gen.activePowerTotal === undefined || gen.activePowerTotal === 65535 ? '-' : Number(gen.activePowerTotal).toFixed(1)}{' '}
               {gen.activePowerTotal !== null && gen.activePowerTotal !== undefined && gen.activePowerTotal !== 65535 && (
@@ -1149,7 +1149,7 @@ const GeneratorDetail: React.FC = () => {
             )}
           </div>
           <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-blue-500">
-            <p className="text-gray-400 text-xs uppercase font-bold">Fator de Potência</p>
+            <p className="text-gray-400 text-xs font-medium">Fator de Potência</p>
             <p className="text-3xl font-bold text-white mt-1">
               {formatPowerFactor(gen.powerFactor)}{' '}
               {gen.powerFactor !== null && gen.powerFactor !== undefined && gen.powerFactor !== 655.35 && gen.powerFactor !== 6553.5 && gen.powerFactor !== 65535 && (
@@ -1165,7 +1165,7 @@ const GeneratorDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
               <div className="flex items-center gap-2 text-green-500">
                 <Power size={18} />
-                <span className="font-bold uppercase tracking-wider text-sm">Gerador</span>
+                <span className="font-bold text-sm">Gerador</span>
               </div>
               <div className="flex items-center gap-3">
                 {/* Toggle Phase-Neutral / Phase-Phase */}
@@ -1244,7 +1244,7 @@ const GeneratorDetail: React.FC = () => {
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
               <div className="flex items-center gap-2 text-gray-400">
                 <UtilityPole size={18} />
-                <span className="font-bold uppercase tracking-wider text-sm">Rede</span>
+                <span className="font-bold text-sm">Rede</span>
                 {(gen.mainsFailure || gen.mainsFeedingLoad === false || gen.mainsBreakerClosed === false) && (
                   <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-900/40 text-red-400 border border-red-800">
                     {gen.mainsFailure ? 'Falha de rede' : 'Sem alimentação'}
@@ -1563,7 +1563,7 @@ const GeneratorDetail: React.FC = () => {
         {!chartLoading && loadStats && chartDisplayData.length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-800">
             <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-              <h4 className="text-[11px] uppercase tracking-wider font-bold text-gray-500">
+              <h4 className="text-xs font-semibold text-gray-500">
                 Resumo do período
               </h4>
               <span className="text-[10px] text-gray-600 font-mono">
@@ -1575,7 +1575,7 @@ const GeneratorDetail: React.FC = () => {
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Pico máximo</p>
+                <p className="text-[11px] text-gray-500 font-medium mb-1">Pico máximo</p>
                 <p className="text-lg font-bold text-ciklo-yellow leading-tight">
                   {loadStats.peak.toFixed(1)} <span className="text-xs text-gray-500 font-normal">kW</span>
                 </p>
@@ -1587,14 +1587,14 @@ const GeneratorDetail: React.FC = () => {
               </div>
 
               <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Média</p>
+                <p className="text-[11px] text-gray-500 font-medium mb-1">Média</p>
                 <p className="text-lg font-bold text-white leading-tight">
                   {loadStats.avg.toFixed(1)} <span className="text-xs text-gray-500 font-normal">kW</span>
                 </p>
               </div>
 
               <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Fator de carga</p>
+                <p className="text-[11px] text-gray-500 font-medium mb-1">Fator de carga</p>
                 {loadStats.loadFactor != null ? (
                   <>
                     <p className={`text-lg font-bold leading-tight ${
@@ -1612,7 +1612,7 @@ const GeneratorDetail: React.FC = () => {
               </div>
 
               <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Energia</p>
+                <p className="text-[11px] text-gray-500 font-medium mb-1">Energia</p>
                 <p className="text-lg font-bold text-white leading-tight">
                   {loadStats.energyKwh >= 1000
                     ? `${(loadStats.energyKwh / 1000).toFixed(2)} `
@@ -1624,7 +1624,7 @@ const GeneratorDetail: React.FC = () => {
               </div>
 
               <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">Em operação</p>
+                <p className="text-[11px] text-gray-500 font-medium mb-1">Em operação</p>
                 <p className="text-lg font-bold text-white leading-tight">
                   {loadStats.runningHours.toFixed(1)} <span className="text-xs text-gray-500 font-normal">h</span>
                 </p>
@@ -1964,7 +1964,7 @@ const GeneratorDetail: React.FC = () => {
 
                 {/* Add Register Form */}
                 <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-4">
-                  <p className="text-xs text-gray-500 font-bold uppercase mb-3">Adicionar Parâmetro</p>
+                  <p className="text-xs text-gray-500 font-semibold mb-3">Adicionar Parâmetro</p>
                   <div className="grid grid-cols-12 gap-2">
                     <input
                       type="text"
@@ -2001,8 +2001,8 @@ const GeneratorDetail: React.FC = () => {
                 {(refLoading || refRegisters.length > 0) && (
                   <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs text-gray-500 font-bold uppercase">
-                        Registradores Conhecidos {gen.controller ? `(${gen.controller.toUpperCase()})` : ''}
+                      <p className="text-xs text-gray-500 font-semibold">
+                        Registradores conhecidos {gen.controller ? `(${gen.controller.toUpperCase()})` : ''}
                       </p>
                       {refLoading && <span className="text-[10px] text-gray-600">carregando...</span>}
                     </div>
@@ -2111,7 +2111,7 @@ const GeneratorDetail: React.FC = () => {
 
                 {/* Add Control Form */}
                 <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
-                  <p className="text-xs text-gray-500 font-bold uppercase mb-3">Configurar Novo Comando</p>
+                  <p className="text-xs text-gray-500 font-semibold mb-3">Configurar Novo Comando</p>
                   <div className="grid grid-cols-12 gap-2">
                     <input
                       type="text"

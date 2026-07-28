@@ -95,39 +95,37 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <OperatorModeToggle />
         {showOperatorUi && (
-          <span className="text-[10px] uppercase tracking-wider text-ciklo-orange font-bold bg-ciklo-orange/10 border border-ciklo-orange/30 px-2 py-1 rounded-lg">
+          <span className="text-xs text-ciklo-orange font-semibold bg-ciklo-orange/10 border border-ciklo-orange/30 px-2 py-1 rounded-lg">
             Interface de Visualização Simplificada
           </span>
         )}
       </div>
 
       {!showOperatorUi && (
-        <div className="relative overflow-hidden rounded-xl border border-gray-800 bg-gradient-to-r from-ciklo-card via-gray-900 to-ciklo-card p-4 shadow-lg">
-          <div className="relative flex flex-wrap items-center justify-between gap-4">
+        <div className="rounded-xl border border-gray-800 bg-ciklo-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-ciklo-orange/20 border border-ciklo-orange/30 flex items-center justify-center">
-                <Radio size={20} className="text-ciklo-orange" />
-              </div>
+              <Radio size={20} className="text-ciklo-orange" />
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold">Centro de Operações</p>
+                <p className="text-xs text-gray-500 font-medium">Centro de Operações</p>
                 <h2 className="text-lg font-bold text-white">Monitoramento em tempo real</h2>
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <div className="px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/25 min-w-[100px]">
-                <p className="text-[10px] text-green-400/80 uppercase font-bold">Rodando</p>
+              <div className="px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20 min-w-[100px]">
+                <p className="text-xs text-green-400/80 font-medium">Rodando</p>
                 <p className="text-xl font-mono font-bold text-green-400">{runningGens}</p>
               </div>
-              <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/25 min-w-[100px]">
-                <p className="text-[10px] text-red-400/80 uppercase font-bold">Alarmes</p>
+              <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 min-w-[100px]">
+                <p className="text-xs text-red-400/80 font-medium">Alarmes</p>
                 <p className="text-xl font-mono font-bold text-red-400">{alarmGens}</p>
               </div>
-              <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/25 min-w-[100px]">
-                <p className="text-[10px] text-blue-400/80 uppercase font-bold">Conectados</p>
+              <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 min-w-[100px]">
+                <p className="text-xs text-blue-400/80 font-medium">Conectados</p>
                 <p className="text-xl font-mono font-bold text-blue-400">{connectedGens}</p>
               </div>
               <div className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 min-w-[100px]">
-                <p className="text-[10px] text-gray-500 uppercase font-bold">Offline</p>
+                <p className="text-xs text-gray-500 font-medium">Offline</p>
                 <p className="text-xl font-mono font-bold text-gray-400">{offlineGens}</p>
               </div>
             </div>
@@ -139,19 +137,19 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="rounded-xl bg-green-500/10 border border-green-500/30 p-3 text-center">
             <p className="text-2xl font-mono font-bold text-green-400">{runningGens}</p>
-            <p className="text-[10px] text-green-400/80 uppercase font-bold">Rodando</p>
+            <p className="text-[10px] text-green-400/80 font-medium">Rodando</p>
           </div>
           <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-3 text-center">
             <p className="text-2xl font-mono font-bold text-red-400">{alarmGens}</p>
-            <p className="text-[10px] text-red-400/80 uppercase font-bold">Alarmes</p>
+            <p className="text-[10px] text-red-400/80 font-medium">Alarmes</p>
           </div>
           <div className="rounded-xl bg-blue-500/10 border border-blue-500/30 p-3 text-center">
             <p className="text-2xl font-mono font-bold text-blue-400">{connectedGens}</p>
-            <p className="text-[10px] text-blue-400/80 uppercase font-bold">Conectados</p>
+            <p className="text-[10px] text-blue-400/80 font-medium">Conectados</p>
           </div>
           <div className="rounded-xl bg-gray-800 border border-gray-700 p-3 text-center">
             <p className="text-2xl font-mono font-bold text-gray-300">{offlineGens}</p>
-            <p className="text-[10px] text-gray-500 uppercase font-bold">Offline</p>
+            <p className="text-[10px] text-gray-500 font-medium">Offline</p>
           </div>
         </div>
       )}
@@ -255,7 +253,7 @@ const Dashboard: React.FC = () => {
               <div
                 key={gen.id}
                 onClick={() => navigate(`/generator/${gen.id}`)}
-                className={`bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden hover:border-ciklo-orange transition-all duration-300 cursor-pointer group hover:shadow-xl hover:shadow-orange-900/10 relative ${cardStatusGlow(gen.status)}`}
+                className={`bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden hover:border-ciklo-orange transition-all duration-300 cursor-pointer group relative ${cardStatusGlow(gen.status)}`}
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-6 gap-4">
@@ -309,7 +307,7 @@ const Dashboard: React.FC = () => {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
+                      <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1 mb-1">
                         <Fuel size={10} /> Combustível
                       </p>
                       <div className="flex items-end gap-1">
@@ -326,7 +324,7 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
+                      <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1 mb-1">
                         <Zap size={10} /> Carga
                       </p>
                       <span className="text-lg font-bold text-white">{gen.activePower}</span>
@@ -334,7 +332,7 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
+                      <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1 mb-1">
                         <Activity size={10} /> Tensão
                       </p>
                       <span className="text-lg font-bold text-white">
@@ -344,7 +342,7 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold flex items-center gap-1 mb-1">
+                      <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1 mb-1">
                         <Clock size={10} /> Horas
                       </p>
                       <span className="text-lg font-bold text-white">{Number(gen.totalHours || 0).toFixed(2)}</span>
