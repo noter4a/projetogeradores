@@ -2206,15 +2206,30 @@ export const initMqttService = (io) => {
                             // Alarme nativo 'Mains failed' do DSE (GenComm pág. 67, DSE_NAMED_ALARMS
                             // índice 38) — o próprio controlador decide com base em janela de
                             // tensão/frequência + debounce interno, reagindo a quedas parciais de
-                            // rede bem antes de todas as 3 fases medirem 0V. Testado em campo: o
-                            // heurístico abaixo (só fases < 10V) só disparava quando a rede caía
-                            // por completo; esse alarme cobre o caso intermediário.
+                            // rede bem antes de todas as 3 fases medirem 0V. Confirmado em campo
+                            // (Ciklo55, 2026-07-28) que esse alarme fica sempre "not_active" nesse
+                            // controlador — provavelmente desabilitado na config interna do DSE, algo
+                            // só ajustável no painel/DSE Configuration Suite, fora do nosso alcance
+                            // remoto — então não dá pra confiar só nele.
                             const dseMainsFailedAlarmActive = Array.isArray(persistedMainsData.activeAlarms)
                                 && persistedMainsData.activeAlarms.some(a => a.name === 'Mains failed');
+                            // Checagem por desbalanço, feita por nós (não pelo DSE): pega a maior
+                            // leitura entre as 6 (fase-neutro + fase-fase) como referência de "rede
+                            // saudável" e falha se qualquer leitura reportada cair abaixo de 50%
+                            // dela. Pedido do usuário depois de confirmar ao vivo que o Ciklo55
+                            // ficou com L2 de rede zerada (223V/0V/224V) sem que nem o alarme nativo
+                            // do DSE nem o heurístico antigo ("alguma fase > 10V" — que dá presente
+                            // se só 1 das 6 estiver de pé) pegassem. 50% é uma margem folgada pra
+                            // não confundir com queda de tensão normal por carga pesada, mas ainda
+                            // pega uma fase inteira caída enquanto as outras seguem de pé.
+                            const definedMainsReadings = mainsVoltageReadings.filter(v => v !== undefined && v !== null);
+                            const maxMainsReading = definedMainsReadings.length > 0 ? Math.max(...definedMainsReadings) : 0;
+                            const mainsPhaseImbalanceDetected = maxMainsReading > 10
+                                && definedMainsReadings.some(v => v < maxMainsReading * 0.5);
                             const hasMainsReading = mainsVoltageReadings.some(v => v !== undefined && v !== null) || dseMainsFailedAlarmActive;
                             if (hasMainsReading) {
                                 const mainsPresentByVoltage = mainsVoltageReadings.some(v => (v ?? 0) > 10);
-                                const mainsPresentNow = mainsPresentByVoltage && !dseMainsFailedAlarmActive;
+                                const mainsPresentNow = mainsPresentByVoltage && !dseMainsFailedAlarmActive && !mainsPhaseImbalanceDetected;
                                 const wasMainsPresent = mainsFailureState.has(deviceId)
                                     ? mainsFailureState.get(deviceId)
                                     : mainsPresentNow; // primeira leitura após restart: só define a base, não notifica
@@ -2238,7 +2253,12 @@ export const initMqttService = (io) => {
                                     }
 
                                     if (!mainsPresentNow) {
-                                        console.log(`[MQTT-MAINS] ${resolvedGenId}: falha de rede detectada`);
+                                        const reason = dseMainsFailedAlarmActive
+                                            ? 'alarme nativo DSE'
+                                            : mainsPhaseImbalanceDetected
+                                                ? 'desbalanço de fase'
+                                                : 'todas as fases abaixo de 10V';
+                                        console.log(`[MQTT-MAINS] ${resolvedGenId}: falha de rede detectada (${reason})`);
                                         notifyUsersAboutMainsFailure(pool, resolvedGenId, resolvedGenName);
                                     } else {
                                         console.log(`[MQTT-MAINS] ${resolvedGenId}: rede normalizada`);
