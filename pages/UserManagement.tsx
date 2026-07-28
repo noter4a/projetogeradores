@@ -118,7 +118,10 @@ const UserManagement: React.FC = () => {
           name: formData.name,
           email: formData.email,
           // Only update password if provided, otherwise keep existing
-          password: formData.password || existingUser.password || '123456',
+          // Vazio = "não trocar" (tratado no UserContext); nunca substituir por
+          // uma senha padrão previsível. existingUser.password nunca vem da API
+          // (GET /api/users não retorna hash nenhum) — não é fallback real.
+          password: formData.password,
           role: formData.role as UserRole,
           assignedGeneratorIds: [],
           companyId: formData.companyId,
@@ -133,7 +136,10 @@ const UserManagement: React.FC = () => {
         id: `USR-${Date.now()}`,
         name: formData.name,
         email: formData.email,
-        password: formData.password || '123456',
+        // required={!editingId} no campo já bloqueia envio vazio pela UI, mas a
+        // validação real é do backend — nunca substituir por senha previsível
+        // aqui (era exatamente essa a VUL-01 do pentest).
+        password: formData.password,
         role: formData.role as UserRole,
         assignedGeneratorIds: [],
         companyId: formData.companyId,

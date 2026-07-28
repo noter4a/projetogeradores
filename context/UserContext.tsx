@@ -120,8 +120,13 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
           phone: updatedUser.phone || null,
           whatsappAlerts: updatedUser.whatsappAlerts || false,
           emailAlerts: updatedUser.emailAlerts !== undefined ? updatedUser.emailAlerts : true,
-          // Only send password if it's meant to be changed (handled by backend check)
-          credentials_password: updatedUser.password === '123456' ? undefined : updatedUser.password
+          // Só manda a senha se o admin realmente digitou algo novo — nunca usar
+          // um valor mágico como "não mudou" (era exatamente isso que causava a
+          // VUL-01/03 do pentest: '123456' virava senha real sempre que o campo
+          // ficava vazio). Renomeado de credentials_password -> newPassword: o
+          // nome antigo levou o pentest a achar que eram credenciais de
+          // dispositivo/Modbus — é só a senha de login do próprio usuário.
+          newPassword: updatedUser.password ? updatedUser.password : undefined
         })
       });
       await fetchUsers(); // Refresh list

@@ -1031,7 +1031,14 @@ router.put('/users/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado.' });
     }
     const { id } = req.params;
-    const { name, email, role, assignedGeneratorIds, credentials_password, companyId, phone, whatsappAlerts, emailAlerts } = req.body;
+    // newPassword: renomeado de credentials_password (nome antigo confundiu o
+    // pentest, fazendo parecer credencial de dispositivo/Modbus — é só a senha
+    // de login do próprio usuário).
+    const { name, email, role, assignedGeneratorIds, newPassword, companyId, phone, whatsappAlerts, emailAlerts } = req.body;
+
+    if (newPassword && newPassword.length < 6) {
+        return res.status(400).json({ message: 'A nova senha deve ter pelo menos 6 caracteres.' });
+    }
 
     try {
         // Update basic info
@@ -1041,9 +1048,9 @@ router.put('/users/:id', authenticateToken, async (req, res) => {
         );
 
         // Update password if provided
-        if (credentials_password && credentials_password.length >= 6) {
+        if (newPassword) {
             const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash(credentials_password, salt);
+            const hashedPassword = await bcrypt.hash(newPassword, salt);
             await pool.query("UPDATE users SET password=$1 WHERE id=$2", [hashedPassword, id]);
         }
 
@@ -1093,6 +1100,9 @@ router.post('/auth/register', authenticateToken, async (req, res) => {
 
     if (!name || !email || !password || !role) {
         return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
+    }
+    if (password.length < 6) {
+        return res.status(400).json({ message: 'A senha deve ter pelo menos 6 caracteres.' });
     }
 
     try {
