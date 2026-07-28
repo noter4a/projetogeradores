@@ -98,7 +98,7 @@ const FleetManagement: React.FC = () => {
         </div>
         <button 
           onClick={() => navigate('/add-generator')}
-          className="bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold px-6 py-3 rounded-lg shadow-lg shadow-orange-900/20 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
+          className="bg-ciklo-orange hover:bg-orange-600 text-black font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
         >
           <PlusCircle size={20} />
           Novo Gerador
@@ -145,7 +145,7 @@ const FleetManagement: React.FC = () => {
         )}
       </div>
 
-      <div className="bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden shadow-xl">
+      <div className="bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-[#1a1a1a] text-gray-500 text-[11px] uppercase tracking-wider font-bold border-b border-gray-800">

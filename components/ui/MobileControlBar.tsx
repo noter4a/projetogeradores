@@ -52,7 +52,7 @@ const MobileControlBar: React.FC<MobileControlBarProps> = ({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden print:hidden">
-      <div className="mx-2 mb-2 rounded-2xl border border-gray-700/80 bg-ciklo-card/95 backdrop-blur-xl shadow-2xl shadow-black/50 p-2">
+      <div className="mx-2 mb-2 rounded-2xl border border-gray-700/80 bg-ciklo-card/95 backdrop-blur-xl shadow-lg p-2">
         <div className="grid grid-cols-4 gap-1.5 mb-1.5">
           <button
             disabled={operationMode === 'AUTO' || !!controlLoading}
@@ -112,7 +112,7 @@ const MobileControlBar: React.FC<MobileControlBarProps> = ({
             <span className="relative z-10">{stopProgress > 0 ? `${Math.ceil((STOP_HOLD_MS - (stopProgress / 100) * STOP_HOLD_MS) / 1000)}s` : 'STOP'}</span>
           </button>
         </div>
-        <p className="text-center text-[9px] text-gray-500 font-mono uppercase tracking-widest">
+        <p className="text-center text-[9px] text-gray-500 font-mono">
           {stopProgress > 0
             ? 'Segure para confirmar parada'
             : status === GeneratorStatus.RUNNING

@@ -97,7 +97,7 @@ const Proposals: React.FC = () => {
           </div>
           <button
             onClick={() => navigate('/sales/new-proposal')}
-            className="bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold px-4 py-2 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5"
+            className="bg-ciklo-orange hover:bg-orange-600 text-black font-bold px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
           >
             <Plus size={20} />
             Nova Proposta

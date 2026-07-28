@@ -126,7 +126,7 @@ const ClientSearchSelect: React.FC<ClientSearchSelectProps> = ({
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-2 w-full bg-ciklo-card border border-gray-700 rounded-lg shadow-2xl shadow-black/50 overflow-hidden">
+        <div className="absolute z-50 mt-2 w-full bg-ciklo-card border border-gray-700 rounded-lg shadow-lg overflow-hidden">
           <div className="p-2 border-b border-gray-800 sticky top-0 bg-ciklo-card">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />

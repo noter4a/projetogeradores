@@ -120,7 +120,7 @@ const ProfileSettings: React.FC = () => {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Page Header */}
       <div className="flex items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-ciklo-orange to-ciklo-yellow flex items-center justify-center text-2xl font-bold text-black shadow-lg shadow-orange-500/20">
+        <div className="w-16 h-16 rounded-2xl bg-ciklo-orange flex items-center justify-center text-2xl font-bold text-black">
           {user?.name?.charAt(0)?.toUpperCase() || '?'}
         </div>
         <div>
@@ -229,7 +229,7 @@ const ProfileSettings: React.FC = () => {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-ciklo-orange to-ciklo-yellow text-black font-bold rounded-xl hover:shadow-lg hover:shadow-orange-500/25 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-3 bg-ciklo-orange hover:bg-orange-600 text-black font-bold rounded-xl active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {saving ? (
                   <>
@@ -342,7 +342,7 @@ const ProfileSettings: React.FC = () => {
               <button
                 type="submit"
                 disabled={savingPassword || !currentPassword || !newPassword || newPassword !== confirmPassword || newPassword.length < 6}
-                className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-ciklo-orange to-ciklo-yellow text-black font-bold rounded-xl hover:shadow-lg hover:shadow-orange-500/25 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-8 py-3 bg-ciklo-orange hover:bg-orange-600 text-black font-bold rounded-xl active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {savingPassword ? (
                   <>

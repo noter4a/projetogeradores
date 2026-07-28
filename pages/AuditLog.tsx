@@ -115,7 +115,7 @@ const AuditLog: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden shadow-xl">
+      <div className="bg-ciklo-card rounded-xl border border-gray-800 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-[#1a1a1a] text-gray-500 text-[11px] uppercase tracking-wider font-bold border-b border-gray-800">

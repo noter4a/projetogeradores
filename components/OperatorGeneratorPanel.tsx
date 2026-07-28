@@ -31,7 +31,7 @@ const OperatorGeneratorPanel: React.FC<OperatorGeneratorPanelProps> = ({ gen }) 
   return (
     <div className="space-y-3">
       <div className={`rounded-2xl border p-5 text-center ${statusColor[gen.status]}`}>
-        <p className="text-[10px] uppercase tracking-[0.25em] font-bold opacity-70 mb-1">Status</p>
+        <p className="text-xs font-semibold opacity-70 mb-1">Status</p>
         <p className="text-3xl font-black font-mono tracking-tight">{statusLabel[gen.status]}</p>
         <p className="text-sm mt-1 opacity-80">{gen.operationMode || 'AUTO'}</p>
       </div>

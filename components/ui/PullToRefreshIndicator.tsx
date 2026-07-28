@@ -29,7 +29,7 @@ const PullToRefreshIndicator: React.FC<PullToRefreshIndicatorProps> = ({
           opacity: Math.max(0.35, progress),
         }}
       />
-      <p className="text-[10px] font-mono uppercase tracking-wider text-gray-500">
+      <p className="text-[10px] font-mono text-gray-500">
         {statusText || 'Puxe para atualizar'}
       </p>
     </div>

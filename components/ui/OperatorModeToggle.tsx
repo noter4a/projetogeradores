@@ -20,7 +20,7 @@ const OperatorModeToggle: React.FC = () => {
       <HardHat size={16} className={operatorMode ? 'text-ciklo-orange' : 'text-gray-500'} />
       <span className="flex flex-col items-start leading-tight">
         <span>Modo Simplificado</span>
-        <span className={`text-[9px] font-normal uppercase tracking-wider ${operatorMode ? 'text-ciklo-orange/80' : 'text-gray-600'}`}>
+        <span className={`text-[9px] font-normal ${operatorMode ? 'text-ciklo-orange/80' : 'text-gray-600'}`}>
           {operatorMode ? 'Ligado' : 'Desligado'}
         </span>
       </span>

@@ -87,7 +87,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
             {!collapsed && (
               <div className="overflow-hidden">
                 <h1 className="text-xl font-bold text-white tracking-wide">CIKLO</h1>
-                <p className="text-[10px] text-ciklo-yellow uppercase tracking-widest font-semibold">Geradores</p>
+                <p className="text-[10px] text-ciklo-yellow font-semibold">Geradores</p>
               </div>
             )}
           </div>
@@ -107,7 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
           <div className="border-b border-gray-800">
             <NavLink to="/profile" className="block p-4 pb-2 group">
               <div className="flex items-center gap-3 p-3 bg-ciklo-dark rounded-lg border border-gray-700 group-hover:border-ciklo-orange/40 transition-all duration-200">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-ciklo-orange to-ciklo-yellow flex items-center justify-center text-xs font-bold text-black flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-ciklo-orange flex items-center justify-center text-xs font-bold text-black flex-shrink-0">
                   {user?.name.charAt(0)}
                 </div>
                 <div className="overflow-hidden flex-1">
@@ -126,7 +126,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
         ) : (
           <div className="border-b border-gray-800">
             <NavLink to="/profile" className="p-3 flex justify-center group">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-ciklo-orange to-ciklo-yellow flex items-center justify-center text-xs font-bold text-black group-hover:shadow-lg group-hover:shadow-orange-500/30 transition-all" title={`${user?.name} - Meu Perfil`}>
+              <div className="w-9 h-9 rounded-full bg-ciklo-orange flex items-center justify-center text-xs font-bold text-black transition-all" title={`${user?.name} - Meu Perfil`}>
                 {user?.name.charAt(0)}
               </div>
             </NavLink>
@@ -142,7 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
         <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-4'} space-y-2 overflow-y-auto`}>
           {user?.role !== UserRole.ORCAMENTOS && (
             <div className="mb-6">
-              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Monitoramento</p>}
+              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 mb-2">Monitoramento</p>}
               {navItems.map((item) => (
                 <NavLink
                   key={item.path}
@@ -151,7 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                   className={({ isActive }) =>
                     `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 ${
                       isActive
-                        ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                        ? 'bg-ciklo-orange text-white'
                         : 'hover:bg-gray-800 hover:text-white'
                     }`
                   }
@@ -166,7 +166,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
           {/* Sales & Quotation Module */}
           {(user?.role === UserRole.ADMIN || user?.role === UserRole.ORCAMENTOS) && (
             <div className="mb-6">
-              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Vendas & Orçamentos</p>}
+              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 mb-2">Vendas & Orçamentos</p>}
               {collapsed && <div className="border-t border-gray-800 my-3"></div>}
               {salesItems.map((item) => (
                 <NavLink
@@ -176,7 +176,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                   className={({ isActive }) =>
                     `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mb-1 ${
                       isActive
-                        ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                        ? 'bg-ciklo-orange text-white'
                         : 'hover:bg-gray-800 hover:text-white'
                     }`
                   }
@@ -191,14 +191,14 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
           {/* Administration */}
           {user?.role === UserRole.ADMIN && (
             <div className={`pt-4 mt-4 border-t border-gray-800`}>
-              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Administração</p>}
+              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 mb-2">Administração</p>}
               <NavLink
                 to="/fleet"
                 title={collapsed ? 'Gerenciar Grupos Geradores' : undefined}
                 className={({ isActive }) =>
                   `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 ${
                     isActive
-                      ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                      ? 'bg-ciklo-orange text-white'
                       : 'hover:bg-gray-800 hover:text-white'
                   }`
                 }
@@ -212,7 +212,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                 className={({ isActive }) =>
                   `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mb-1 ${
                     isActive
-                      ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                      ? 'bg-ciklo-orange text-white'
                       : 'hover:bg-gray-800 hover:text-white'
                   }`
                 }
@@ -226,7 +226,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                 className={({ isActive }) =>
                   `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 ${
                     isActive
-                      ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                      ? 'bg-ciklo-orange text-white'
                       : 'hover:bg-gray-800 hover:text-white'
                   }`
                 }
@@ -240,7 +240,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                 className={({ isActive }) =>
                   `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mt-1 ${
                     isActive
-                      ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                      ? 'bg-ciklo-orange text-white'
                       : 'hover:bg-gray-800 hover:text-white'
                   }`
                 }
@@ -283,7 +283,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
             className={({ isActive }) =>
               `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 w-full rounded-lg transition-all duration-200 ${
                 isActive
-                  ? 'bg-ciklo-orange text-white shadow-lg shadow-orange-500/20'
+                  ? 'bg-ciklo-orange text-white'
                   : 'text-gray-400 hover:bg-gray-800 hover:text-white'
               }`
             }
@@ -310,7 +310,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
             <img src="/favicon.png" alt="Ciklo" className="w-10 h-10 rounded-xl object-cover" />
             <div>
               <h1 className="text-xl font-bold text-white tracking-wide">CIKLO</h1>
-              <p className="text-[10px] text-ciklo-yellow uppercase tracking-widest font-semibold">Geradores</p>
+              <p className="text-[10px] text-ciklo-yellow font-semibold">Geradores</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -329,14 +329,14 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
         <div className="flex-1 p-6">
           {currentView === 'main' && (
             <div className="space-y-4">
-              <div className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              <div className="text-sm font-semibold text-gray-400 mb-2">
                 Olá, {user?.name.split(' ')[0]}! Escolha uma opção:
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {user?.role !== UserRole.ORCAMENTOS && (
                   <button
                     onClick={() => changeView('generators')}
-                    className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                    className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                       <Server size={28} className="fill-current" />
@@ -348,7 +348,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                 {(user?.role === UserRole.ADMIN || user?.role === UserRole.ORCAMENTOS) && (
                   <button
                     onClick={() => changeView('sales')}
-                    className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                    className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                       <Wallet size={28} />
@@ -360,7 +360,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                 {user?.role === UserRole.ADMIN && (
                   <button
                     onClick={() => changeView('admin')}
-                    className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                    className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                   >
                     <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                       <Settings2 size={28} />
@@ -372,7 +372,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                 {/* Meu Perfil card - visible to all */}
                 <NavLink
                   to="/profile"
-                  className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <UserCircle size={28} />
@@ -400,7 +400,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
               <div className="grid grid-cols-2 gap-4">
                 <NavLink
                   to="/dashboard"
-                  className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <LayoutDashboard size={28} />
@@ -410,7 +410,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
                 <NavLink
                   to="/alarms"
-                  className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <AlertTriangle size={28} />
@@ -432,7 +432,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
               <div className="grid grid-cols-2 gap-4">
                 <NavLink
                   to="/sales/clients"
-                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <Users size={24} />
@@ -442,7 +442,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
                 <NavLink
                   to="/sales/catalog"
-                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <BookOpen size={24} />
@@ -452,7 +452,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
                 <NavLink
                   to="/sales/new-proposal"
-                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <FileText size={24} />
@@ -462,7 +462,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
                 <NavLink
                   to="/sales/proposals"
-                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <FolderOpen size={24} />
@@ -484,7 +484,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
               <div className="grid grid-cols-2 gap-4">
                 <NavLink
                   to="/fleet"
-                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <Settings2 size={24} />
@@ -494,7 +494,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
                 <NavLink
                   to="/companies"
-                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <Building size={24} />
@@ -504,7 +504,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
                 <NavLink
                   to="/users"
-                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <Users size={24} />
@@ -514,7 +514,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
                 <NavLink
                   to="/audit"
-                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square shadow-xl text-center group"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
                 >
                   <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
                     <ScrollText size={24} />
@@ -536,7 +536,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
               {theme === 'dark' ? <Sun size={18} className="text-ciklo-yellow" /> : <Moon size={18} className="text-blue-400" />}
               <span>{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
             </div>
-            <span className="text-[10px] text-gray-500 uppercase font-bold">Alternar</span>
+            <span className="text-[10px] text-gray-500 font-semibold">Alternar</span>
           </button>
 
           <a

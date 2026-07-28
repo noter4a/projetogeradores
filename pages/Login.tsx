@@ -133,7 +133,7 @@ const Login: React.FC = () => {
 
   const inputCls = 'w-full bg-ciklo-black border border-gray-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-600 focus:border-ciklo-orange focus:ring-1 focus:ring-ciklo-orange outline-none transition-all';
   const codeInputCls = 'w-full bg-ciklo-black border border-gray-700 rounded-lg py-3 px-4 text-center text-2xl font-bold tracking-[0.5em] text-white placeholder-gray-700 focus:border-ciklo-orange outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
-  const primaryBtn = 'w-full bg-gradient-to-r from-ciklo-orange to-orange-600 hover:from-orange-500 hover:to-orange-600 text-white font-bold py-3.5 rounded-lg shadow-lg shadow-orange-900/20 transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:hover:translate-y-0';
+  const primaryBtn = 'w-full bg-ciklo-orange hover:bg-orange-600 text-white font-bold py-3.5 rounded-lg transition-colors duration-200 disabled:opacity-50';
 
   const messages = (
     <>
@@ -143,21 +143,17 @@ const Login: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-ciklo-black flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-ciklo-yellow via-ciklo-orange to-ciklo-yellow" />
-      <div className="absolute -top-40 -right-40 w-96 h-96 bg-ciklo-orange opacity-5 rounded-full blur-3xl" />
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-ciklo-yellow opacity-5 rounded-full blur-3xl" />
-
-      <div className="w-full max-w-md z-10">
+    <div className="min-h-screen bg-ciklo-black flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br from-ciklo-yellow to-ciklo-orange mb-6 shadow-xl shadow-orange-500/20">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-ciklo-orange mb-6">
             <Zap size={32} className="text-black fill-black" />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">CIKLO GERADORES</h1>
           <p className="text-gray-400 text-sm">Monitoramento Inteligente & Controle Remoto</p>
         </div>
 
-        <div className="bg-ciklo-card border border-gray-800 rounded-2xl p-8 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-ciklo-card border border-gray-800 rounded-2xl p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {/* ===== LOGIN ===== */}
           {step === 'login' && (
             <>

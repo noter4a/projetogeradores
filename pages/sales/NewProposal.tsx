@@ -488,7 +488,7 @@ const NewProposal: React.FC = () => {
             <button 
               onClick={() => handleSave('ENVIADA')}
               disabled={saving}
-              className="w-full bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold py-3 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-transform transform hover:-translate-y-0.5 disabled:opacity-50"
+              className="w-full bg-ciklo-orange hover:bg-orange-600 text-black font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
             >
               <Save size={20} />
               {saving ? 'Salvando...' : (isEditMode ? 'Salvar Alterações' : 'Salvar Proposta')}

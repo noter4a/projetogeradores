@@ -432,7 +432,7 @@ const AddGenerator: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="px-8 py-3 bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold rounded-lg shadow-lg shadow-orange-900/20 transform hover:-translate-y-0.5 transition-all flex items-center gap-2"
+            className="px-8 py-3 bg-ciklo-orange hover:bg-orange-600 text-black font-bold rounded-lg transition-colors flex items-center gap-2"
           >
             {loading ? (
               <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
@@ -448,7 +448,7 @@ const AddGenerator: React.FC = () => {
       {/* Confirmation modal — shown only when editing and there are changes */}
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-ciklo-card border border-gray-700 rounded-2xl shadow-2xl shadow-black/50 max-w-md w-full p-6 space-y-4">
+          <div className="bg-ciklo-card border border-gray-700 rounded-2xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-xl bg-ciklo-orange/15 border border-ciklo-orange/30 flex items-center justify-center shrink-0">
                 <AlertTriangle className="text-ciklo-orange" size={24} />
@@ -482,7 +482,7 @@ const AddGenerator: React.FC = () => {
                 type="button"
                 onClick={doSave}
                 disabled={loading}
-                className="px-6 py-2.5 bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold rounded-lg shadow-lg flex items-center gap-2 disabled:opacity-50 transition-all"
+                className="px-6 py-2.5 bg-ciklo-orange hover:bg-orange-600 text-black font-bold rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
               >
                 <Save size={18} /> Sim, atualizar
               </button>

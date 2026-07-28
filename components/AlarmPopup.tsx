@@ -104,7 +104,7 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
 
   return (
     <div className={`fixed ${topOffset} left-0 right-0 z-40 px-3 pt-2 pointer-events-none`}>
-      <div className="mx-auto max-w-2xl pointer-events-auto rounded-xl border border-red-500/35 bg-gray-950/95 shadow-2xl shadow-red-900/20 backdrop-blur-md overflow-hidden">
+      <div className="mx-auto max-w-2xl pointer-events-auto rounded-xl border border-red-500/35 bg-gray-950/95 shadow-lg backdrop-blur-md overflow-hidden">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-red-500/20 bg-red-950/40">
           <div className="p-2 bg-red-500/15 rounded-full shrink-0">
             <AlertOctagon className="text-red-400 w-5 h-5 animate-pulse" />
@@ -113,7 +113,7 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
             <p className="text-sm font-bold text-white">
               {alarms.length === 1 ? 'Alarme detectado' : `${alarms.length} alarmes ativos`}
             </p>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider">Você pode continuar navegando</p>
+            <p className="text-[10px] text-gray-400">Você pode continuar navegando</p>
           </div>
           <button
             type="button"
@@ -142,7 +142,7 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
               >
                 <div className="flex justify-between items-start gap-2">
                   <div className="min-w-0">
-                    <p className="text-[10px] text-ciklo-orange font-bold uppercase tracking-wider">
+                    <p className="text-[10px] text-ciklo-orange font-bold">
                       {resolveGeneratorName(alarm.generator_id)}
                     </p>
                     <p className="text-sm text-white font-medium leading-snug">{alarm.alarm_message}</p>

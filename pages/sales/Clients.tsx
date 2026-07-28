@@ -153,7 +153,7 @@ const Clients: React.FC = () => {
             </div>
             <button
               onClick={handleOpenAdd}
-              className="bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold px-4 py-2 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5"
+              className="bg-ciklo-orange hover:bg-orange-600 text-black font-bold px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
             >
               <Plus size={20} />
               Novo Cliente
@@ -179,7 +179,7 @@ const Clients: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-ciklo-yellow uppercase tracking-wider border-b border-gray-800 pb-2">Dados Principais</h4>
+                <h4 className="text-sm font-semibold text-ciklo-yellow border-b border-gray-800 pb-2">Dados Principais</h4>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Razão Social / Nome *</label>
                   <input type="text" required value={formData.razao_social} onChange={e => setFormData({...formData, razao_social: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none" placeholder="Ex: Empresa Ltda" />
@@ -195,7 +195,7 @@ const Clients: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-ciklo-yellow uppercase tracking-wider border-b border-gray-800 pb-2">Contato</h4>
+                <h4 className="text-sm font-semibold text-ciklo-yellow border-b border-gray-800 pb-2">Contato</h4>
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Nome do Contato</label>
                   <div className="relative"><input type="text" value={formData.contato} onChange={e => setFormData({...formData, contato: e.target.value})} className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none" /></div>
@@ -211,7 +211,7 @@ const Clients: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-ciklo-yellow uppercase tracking-wider border-b border-gray-800 pb-2">Endereço</h4>
+                <h4 className="text-sm font-semibold text-ciklo-yellow border-b border-gray-800 pb-2">Endereço</h4>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="col-span-2">
                     <label className="block text-sm text-gray-400 mb-1">CEP</label>

@@ -38,15 +38,15 @@ const OperatorDashboardCard: React.FC<OperatorDashboardCardProps> = ({ gen }) =>
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">
         <div className="rounded-lg bg-ciklo-dark border border-gray-800 py-2">
-          <p className="text-[9px] text-gray-500 uppercase font-bold">Carga</p>
+          <p className="text-[10px] text-gray-500 font-medium">Carga</p>
           <p className="text-sm font-mono font-bold text-white">{gen.activePower ?? '—'}<span className="text-[10px] text-gray-500"> kW</span></p>
         </div>
         <div className="rounded-lg bg-ciklo-dark border border-gray-800 py-2">
-          <p className="text-[9px] text-gray-500 uppercase font-bold">Tensão</p>
+          <p className="text-[10px] text-gray-500 font-medium">Tensão</p>
           <p className="text-sm font-mono font-bold text-white">{avgVoltage || '—'}<span className="text-[10px] text-gray-500"> V</span></p>
         </div>
         <div className="rounded-lg bg-ciklo-dark border border-gray-800 py-2">
-          <p className="text-[9px] text-gray-500 uppercase font-bold">Combustível</p>
+          <p className="text-[10px] text-gray-500 font-medium">Combustível</p>
           <p className="text-sm font-mono font-bold text-white">
             {gen.fuelLevel == null || gen.fuelLevel === 65535 ? '—' : `${gen.fuelLevel}%`}
           </p>

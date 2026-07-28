@@ -110,7 +110,7 @@ const Maintenance: React.FC = () => {
                </div>
             </div>
 
-            <button className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-900/20">
+            <button className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors">
               <Save size={20} /> SALVAR CHECKLIST
             </button>
           </div>

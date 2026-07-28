@@ -181,12 +181,12 @@ const LocationHistoryMap: React.FC<Props> = ({ generatorId, currentLat, currentL
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-4">
           <div>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Posição Atual</p>
+            <p className="text-[11px] text-gray-500 font-medium">Posição Atual</p>
             <p className="text-sm font-mono text-white">{last[0].toFixed(5)}, {last[1].toFixed(5)}</p>
           </div>
           {hasMoved && (
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold flex items-center gap-1">
+              <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1">
                 <Route size={11} /> Distância percorrida
               </p>
               <p className="text-sm font-mono text-ciklo-orange">{formatDistance(totalDistance)}</p>

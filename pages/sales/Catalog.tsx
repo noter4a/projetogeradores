@@ -232,7 +232,7 @@ const Catalog: React.FC = () => {
           </div>
           <button
             onClick={handleOpenAdd}
-            className="whitespace-nowrap bg-gradient-to-r from-ciklo-yellow to-ciklo-orange hover:from-orange-500 hover:to-orange-600 text-black font-bold px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-transform hover:-translate-y-0.5"
+            className="whitespace-nowrap bg-ciklo-orange hover:bg-orange-600 text-black font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
             <Plus size={20} />
             Adicionar Item
