@@ -726,7 +726,11 @@ const GeneratorDetail: React.FC = () => {
     setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: true, error: undefined } : r));
     try {
       const token = localStorage.getItem('ciklo_auth_token');
-      const res = await fetch(`/api/generators/${gen!.id}/modbus-read`, {
+      // Mesmo padrão do controle remoto: gen.ip é o identificador usado pelo
+      // polling (ex: "Ciklo55"); gen.id (GEN-xxx) é só a chave do banco. O
+      // backend já resolve os dois, mas mandar o certo evita ambiguidade.
+      const targetId = gen!.ip || gen!.id;
+      const res = await fetch(`/api/generators/${targetId}/modbus-read`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ startAddress: addr, quantity: 1, fn: 3 }),

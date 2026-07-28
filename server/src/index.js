@@ -1705,7 +1705,19 @@ router.post('/generators/:id/modbus-read', authenticateToken, requireRole('ADMIN
     }
 
     try {
-        const result = await readModbusRegisterOnDemand(id, { startAddress, quantity, fn });
+        // dr164Devices (a lista de polling em mqtt.js) é indexada pelo IP/nome de
+        // conexão do modem (ex: "Ciklo55"), não pelo id do banco (GEN-xxx) — o
+        // mesmo motivo pelo qual o controle remoto do gerador já usa `gen.ip ||
+        // gen.id` no frontend. Resolve aqui também para aceitar qualquer forma.
+        const resolved = await pool.query(
+            `SELECT COALESCE(connection_info->>'ip', connection_info->>'connectionName', id) AS device_id
+             FROM generators
+             WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1
+             LIMIT 1`,
+            [id]
+        );
+        const deviceId = resolved.rows[0]?.device_id || id;
+        const result = await readModbusRegisterOnDemand(deviceId, { startAddress, quantity, fn });
         logAudit({
             user: req.user,
             action: 'generator.modbus_read',
