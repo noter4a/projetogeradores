@@ -91,12 +91,14 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
     if (startAddress === 1024 && regs.length >= 28) {
         const oilPressureRaw = u16(regs, 0);
         const coolantTempRaw = u16(regs, 1);
+        const oilTempRaw = u16(regs, 2);
         const fuelLevel = u16(regs, 3);
         const batteryRaw = u16(regs, 5);
         const rpm = u16(regs, 6);
         const frequencyRaw = u16(regs, 7);
 
         const engineTemp = s16(coolantTempRaw);
+        const oilTemp = s16(oilTempRaw);
         const oilPressure = parseFloat((oilPressureRaw / 100.0).toFixed(2));
         const batteryVoltage = parseFloat((batteryRaw / 10.0).toFixed(1));
         const frequency = parseFloat((frequencyRaw / 10.0).toFixed(1));
@@ -117,6 +119,7 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
             block: 'DSE_ENGINE_GEN_1024',
             oilPressure,
             engineTemp,
+            oilTemp,
             fuelLevel,
             batteryVoltage,
             rpm,
@@ -134,12 +137,14 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
     if (startAddress === 1024 && regs.length >= 14) {
         const oilPressureRaw = u16(regs, 0);
         const coolantTempRaw = u16(regs, 1);
+        const oilTempRaw = u16(regs, 2); // /Engine/OilTemperature (reg 1026) — was fetched but never decoded
         const fuelLevel = u16(regs, 3);
         const batteryRaw = u16(regs, 5);
         const rpm = u16(regs, 6);
         const frequencyRaw = u16(regs, 7);
 
         const engineTemp = s16(coolantTempRaw);
+        const oilTemp = s16(oilTempRaw);
         const oilPressure = parseFloat((oilPressureRaw / 100.0).toFixed(2));
         const batteryVoltage = parseFloat((batteryRaw / 10.0).toFixed(1));
         const frequency = parseFloat((frequencyRaw / 10.0).toFixed(1));
@@ -151,7 +156,7 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
 
         return {
             block: 'DSE_ENGINE_GEN_1024_PART1',
-            oilPressure, engineTemp, fuelLevel, batteryVoltage, rpm, frequency,
+            oilPressure, engineTemp, oilTemp, fuelLevel, batteryVoltage, rpm, frequency,
             voltageL1, voltageL2, voltageL3, avgVoltage,
         };
     }
@@ -253,16 +258,32 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
         };
     }
 
-    // ---- Block 7: Run Hours (Reg 1798-1799, 2 regs) ----
+    // ---- Block 7: Run Hours (1798-1799) + Total Energy (1800-1801) + Engine
+    // Starts (1808-1809). Widened read (see DSE4501_POLL_SEQUENCE) — energy and
+    // starts are decoded only if the response actually carries that many
+    // registers, so this stays backward-compatible with a bare 2-register read.
     if (startAddress === 1798 && regs.length >= 2) {
         const runTimeSeconds = u32(regs, 0);
         const runHours = parseFloat((runTimeSeconds / 3600.0).toFixed(2));
 
-        return {
+        const result = {
             block: 'DSE_RUNHOURS_1798',
             runHours,
             totalHours: runHours,
         };
+
+        if (regs.length >= 4) {
+            // /Ac/Energy/Forward (reg 1800-1801), scale 10 -> kWh
+            const energyRaw = u32(regs, 2);
+            result.totalEnergy = parseFloat((energyRaw / 10.0).toFixed(1));
+        }
+
+        if (regs.length >= 12) {
+            // /Engine/Starts (reg 1808-1809), scale 1
+            result.startAttempts = u32(regs, 10);
+        }
+
+        return result;
     }
 
     // ---- Block 8: StatusCode (Reg 1408, 1 reg) ----

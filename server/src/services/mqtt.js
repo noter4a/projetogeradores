@@ -1837,6 +1837,7 @@ export const initMqttService = (io) => {
                         if (d.block === 'DSE_ENGINE_GEN_1024' || d.block === 'DSE_ENGINE_GEN_1024_PART1') {
                             unifiedData.oilPressure = d.oilPressure;
                             unifiedData.engineTemp = d.engineTemp;
+                            if (d.oilTemp != null) unifiedData.oilTemp = d.oilTemp;
                             unifiedData.fuelLevel = d.fuelLevel;
                             unifiedData.batteryVoltage = d.batteryVoltage;
                             unifiedData.rpm = d.rpm;
@@ -1877,6 +1878,8 @@ export const initMqttService = (io) => {
                         if (d.block === 'DSE_RUNHOURS_1798') {
                             unifiedData.runHours = d.runHours;
                             unifiedData.totalHours = d.totalHours;
+                            if (d.totalEnergy != null) unifiedData.activeEnergy = d.totalEnergy;
+                            if (d.startAttempts != null) unifiedData.startAttempts = d.startAttempts;
                         }
 
                         if (d.block === 'DSE_POWER_PHASE_1052') {

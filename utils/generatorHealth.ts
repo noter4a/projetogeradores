@@ -16,7 +16,7 @@ const OFFLINE_ZERO_FIELDS: (keyof Generator)[] = [
   'currentL1', 'currentL2', 'currentL3', 'avgCurrent',
   'frequency', 'powerFactor', 'activePower', 'apparentPower', 'reactivePower',
   'loadPercent', 'loadPercentL1', 'loadPercentL2', 'loadPercentL3',
-  'rpm', 'oilPressure', 'engineTemp', 'fuelLevel', 'batteryVoltage',
+  'rpm', 'oilPressure', 'engineTemp', 'oilTemp', 'fuelLevel', 'batteryVoltage',
   'mainsVoltageL1', 'mainsVoltageL2', 'mainsVoltageL3',
   'mainsVoltageL12', 'mainsVoltageL23', 'mainsVoltageL31',
   'mainsFrequency', 'mainsCurrentL1', 'mainsCurrentL2', 'mainsCurrentL3',

@@ -989,6 +989,14 @@ const GeneratorDetail: React.FC = () => {
               {gen.engineTemp === null || gen.engineTemp === undefined || gen.engineTemp === 65535 ? '-' : `${gen.engineTemp}°C`}
             </span>
           </div>
+          {gen.oilTemp != null && (
+            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+              <div className="flex items-center gap-2 text-gray-400">
+                <Thermometer size={18} /> Temp. Óleo
+              </div>
+              <span className="text-xl font-bold text-white">{gen.oilTemp}°C</span>
+            </div>
+          )}
           <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
             <div className="flex items-center gap-2 text-gray-400">
               <Droplets size={18} /> Nível Combustível
@@ -1013,6 +1021,14 @@ const GeneratorDetail: React.FC = () => {
               {Number(gen.totalHours || 0).toFixed(2)} h
             </span>
           </div>
+          {gen.activeEnergy != null && (
+            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
+              <div className="flex items-center gap-2 text-gray-400">
+                <Zap size={18} /> Energia Total Gerada
+              </div>
+              <span className="text-xl font-bold text-white">{Number(gen.activeEnergy).toFixed(1)} kWh</span>
+            </div>
+          )}
           {gen.loadPercent != null && (
             <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
               <div className="flex items-center gap-2 text-gray-400">

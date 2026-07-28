@@ -106,7 +106,11 @@ export const DSE4501_POLL_SEQUENCE = [
     { startAddress: 774, quantity: 1 },   // Page 3: status/alarm flags
     { startAddress: 1536, quantity: 2 },  // Page 6: total active power
     { startAddress: 1558, quantity: 1 },  // Page 6: engine load
-    { startAddress: 1798, quantity: 2 },  // Page 7: operating hours (seconds)
+    // Page 7: operating hours (1798-1799) + total energy (1800-1801, /Ac/Energy/
+    // Forward) + engine starts (1808-1809, /Engine/Starts) in one read — widened
+    // from the original 2-register read since 1798-1809 is contiguous, so this
+    // costs zero extra round-trips on a link that's already timeout-prone.
+    { startAddress: 1798, quantity: 12 },
     { startAddress: 1408, quantity: 1 },  // StatusCode (manufacturer)
     { startAddress: 2048, quantity: 8 },  // Page 8: alarm count + conditions
 ];

@@ -50,6 +50,7 @@ export interface Generator {
   companyName?: string;
   fuelLevel: number;
   engineTemp: number; // Celsius
+  oilTemp?: number; // Celsius — separate from coolant temp; only some controllers (e.g. DSE4501) report it
   oilPressure: number; // Bar
   batteryVoltage: number; // Volts
   rpm: number;
