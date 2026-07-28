@@ -18,7 +18,7 @@ import {
 import { decodeKvaPayload } from '../utils/kva-parser.js';
 import { decodeCumminsPayload, CUMMINS_POLL_SEQUENCE, isCumminsController } from '../utils/cummins-parser.js';
 import { decodeDsePayload } from '../utils/dse-parser.js';
-import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS } from '../data/dse4501-map.js';
+import { DSE4501_POLL_SEQUENCE, DSE_CONTROL_KEYS, DSE_REG_SCF } from '../data/dse4501-map.js';
 import {
     buildK30XlDirectScanPlan,
     buildFineScanAround,
@@ -1184,6 +1184,60 @@ export async function readModbusRegisterOnDemand(deviceId, { startAddress, quant
             startDR164DevicePolling(device);
         }
     }
+}
+
+// Escreve um valor bruto num registrador Modbus, sob pedido do usuário — mesma
+// ideia da leitura avulsa acima (testar qualquer endereço sem o software do
+// fabricante), mas pra escrita. Caso de uso original: simular falha de rede
+// remotamente no DSE via GenComm 'Remote Mains Fail Enable' (chave 35793,
+// GenComm.pdf pág. 90), sem precisar desligar a rede de verdade.
+//
+// Usa o mesmo mecanismo (fire-and-forget, sem aguardar/validar resposta) já
+// comprovado em produção pelo comando de controle do DSE (sendControlCommand,
+// função 16 / Write Multiple Registers) — não o pipeline de leitura avulsa,
+// porque a resposta de uma escrita (eco do endereço/quantidade, sem dado) tem
+// formato diferente do que classifyModbusResponse espera (que assume um
+// byteCount + registradores, formato de LEITURA) e seria classificada como
+// "garbage" mesmo numa escrita bem-sucedida.
+//
+// Caso especial: o registrador de comando do DSE (4104, DSE_REG_SCF) exige por
+// especificação do próprio GenComm que o complemento de 1 do valor seja escrito
+// junto no registrador seguinte (4105) — sem isso o controlador rejeita o
+// comando. Detectado automaticamente aqui pra qualquer escrita nesse endereço,
+// não só pelas chaves pré-definidas (DSE_CONTROL_KEYS) usadas no controle
+// remoto normal.
+export async function writeModbusRegisterOnDemand(deviceId, { address, value }) {
+    const device = dr164Devices.find(d => d.id === deviceId);
+    if (!device) {
+        return { success: false, error: `Device '${deviceId}' not found in DR164 polling list` };
+    }
+    if (!client || !client.connected) {
+        return { success: false, error: 'MQTT client not connected' };
+    }
+    if (modbusScanSessions.get(deviceId)?.status === 'running') {
+        return { success: false, error: 'Uma varredura Modbus já está em andamento para este gerador. Tente novamente ao concluir.' };
+    }
+    if (!Number.isInteger(address) || address < 0 || address > 65535) {
+        return { success: false, error: 'Endereço inválido.' };
+    }
+    if (!Number.isInteger(value) || value < 0 || value > 65535) {
+        return { success: false, error: 'Valor inválido (0-65535).' };
+    }
+
+    const isDseController = device.controller === 'dse';
+    const values = (isDseController && address === DSE_REG_SCF)
+        ? [value, 65535 - value]
+        : [value];
+
+    const topic = `devices/command/${deviceId}`;
+    const buf = createModbusWriteMultipleRequest(device.slaveId, address, values);
+
+    pausedDevices.add(deviceId);
+    client.publish(topic, buf);
+    console.log(`[MODBUS-WRITE] ${deviceId} @${address} <- [${values.join(', ')}] Hex: ${buf.toString('hex').toUpperCase()}`);
+    scheduleDr164PollResume(deviceId, 'MODBUS-WRITE');
+
+    return { success: true, note: 'Comando de escrita enviado (sem confirmação de leitura do equipamento).' };
 }
 
 // ==========================================

@@ -194,6 +194,9 @@ interface ModbusRegister {
   type: 'READ' | 'WRITE';
   reading?: boolean;
   error?: string;
+  newValue?: string;
+  writing?: boolean;
+  writeError?: string;
 }
 
 interface ModbusRegisterRef {
@@ -755,6 +758,46 @@ const GeneratorDetail: React.FC = () => {
       }
     } catch (err) {
       setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: 'Erro de conexão' } : r));
+    }
+  };
+
+  // Escreve um valor num registrador de verdade no gerador. Ao contrário da
+  // leitura, isso envia um comando real ao equipamento (ex: simular falha de
+  // rede no DSE) — por isso pede confirmação antes de mandar, e não tenta ler
+  // de volta o valor escrito automaticamente (o backend não aguarda/valida a
+  // resposta de escrita, só confirma que o comando foi enviado).
+  const writeRegisterValue = async (registerId: string, address: string) => {
+    const reg = modbusRegisters.find(r => r.id === registerId);
+    const rawValue = reg?.newValue ?? '';
+    const addr = parseInt(address, 10);
+    const val = parseInt(rawValue, 10);
+    if (!Number.isInteger(addr)) {
+      setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, writeError: 'Endereço inválido' } : r));
+      return;
+    }
+    if (!Number.isInteger(val) || val < 0 || val > 65535) {
+      setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, writeError: 'Valor inválido (0-65535)' } : r));
+      return;
+    }
+    if (!window.confirm(`Confirma o envio do valor ${val} pro endereço ${addr}? Isso manda um comando real pro equipamento.`)) {
+      return;
+    }
+    setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, writing: true, writeError: undefined } : r));
+    try {
+      const targetId = gen!.ip || gen!.id;
+      const res = await fetch(`/api/generators/${targetId}/modbus-write`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: addr, value: val }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, writing: false, writeError: undefined, newValue: '' } : r));
+      } else {
+        setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, writing: false, writeError: data?.message || data?.error || 'Falha na escrita' } : r));
+      }
+    } catch (err) {
+      setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, writing: false, writeError: 'Erro de conexão' } : r));
     }
   };
 
@@ -2214,22 +2257,30 @@ const GeneratorDetail: React.FC = () => {
                               </button>
                               <input
                                 type="text"
-                                disabled
-                                className="w-16 bg-black border border-gray-700 rounded p-1 text-xs text-gray-600 text-right cursor-not-allowed"
+                                inputMode="numeric"
+                                value={reg.newValue ?? ''}
+                                onChange={(e) => setModbusRegisters(prev => prev.map(r => r.id === reg.id ? { ...r, newValue: e.target.value, writeError: undefined } : r))}
+                                onKeyDown={(e) => { if (e.key === 'Enter') writeRegisterValue(reg.id, reg.address); }}
+                                disabled={reg.writing}
+                                className="w-16 bg-black border border-gray-700 rounded p-1 text-xs text-white text-right disabled:opacity-40"
                                 placeholder="Novo"
-                                title="Escrita ainda não implementada — por ora só leitura"
+                                title={reg.writeError || 'Valor a escrever (0-65535)'}
                               />
                               <button
-                                disabled
-                                className="p-1.5 bg-gray-700 text-gray-500 rounded cursor-not-allowed"
-                                title="Escrita ainda não implementada — por ora só leitura"
+                                onClick={() => writeRegisterValue(reg.id, reg.address)}
+                                disabled={reg.writing || !reg.newValue}
+                                className="p-1.5 bg-ciklo-orange hover:bg-orange-500 text-black rounded disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                                title="Enviar valor pro equipamento"
                               >
-                                <Send size={14} />
+                                <Send size={14} className={reg.writing ? 'animate-pulse' : ''} />
                               </button>
                               <button onClick={() => handleRemoveRegister(reg.id)} className="text-gray-600 hover:text-red-500 ml-1">
                                 <Trash2 size={14} />
                               </button>
                             </div>
+                            {reg.writeError && (
+                              <div className="text-red-400 text-[10px] mt-1">{reg.writeError}</div>
+                            )}
                           </td>
                         </tr>
                       ))}

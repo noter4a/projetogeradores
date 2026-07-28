@@ -12,7 +12,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { initMqttService, updatePollingList, runModbusScan, getModbusScanStatus, readModbusRegisterOnDemand } from './services/mqtt.js';
+import { initMqttService, updatePollingList, runModbusScan, getModbusScanStatus, readModbusRegisterOnDemand, writeModbusRegisterOnDemand } from './services/mqtt.js';
 import { initTcpBridge, initGnssBridge } from './services/tcp-bridge.js';
 import { initSnmpAgent } from './services/snmp-agent.js';
 import { getRegisterReference } from './data/register-reference.js';
@@ -1798,6 +1798,58 @@ router.post('/generators/:id/modbus-read', authenticateToken, requireRole('ADMIN
     } catch (err) {
         console.error('Modbus on-demand read error:', err);
         res.status(500).json({ message: 'Erro ao ler registrador.' });
+    }
+});
+
+// POST /api/generators/:id/modbus-write — escrita avulsa de um registrador, pra
+// testes remotos (ex: simular falha de rede no DSE via GenComm 'Remote Mains
+// Fail Enable', chave 35793, sem precisar desligar a rede de verdade). Mesmo
+// controle de acesso do /control (assertGeneratorControlAccess) — escrever num
+// registrador arbitrário é pelo menos tão sensível quanto os comandos normais
+// de start/stop, então não usa o assertGeneratorReadAccess mais permissivo do
+// /modbus-read.
+router.post('/generators/:id/modbus-write', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const access = await assertGeneratorControlAccess(req.user, id);
+    if (!access.allowed) {
+        return res.status(access.status).json({ message: access.message });
+    }
+
+    const address = parseInt(req.body.address, 10);
+    const value = parseInt(req.body.value, 10);
+
+    if (!Number.isInteger(address)) {
+        return res.status(400).json({ message: 'Endereço inválido.' });
+    }
+    if (!Number.isInteger(value)) {
+        return res.status(400).json({ message: 'Valor inválido.' });
+    }
+
+    try {
+        const resolved = await pool.query(
+            `SELECT COALESCE(connection_info->>'ip', connection_info->>'connectionName', id) AS device_id
+             FROM generators
+             WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1
+             LIMIT 1`,
+            [id]
+        );
+        const deviceId = resolved.rows[0]?.device_id || id;
+        const result = await writeModbusRegisterOnDemand(deviceId, { address, value });
+        logAudit({
+            user: req.user,
+            action: 'generator.modbus_write',
+            targetType: 'generator',
+            targetId: id,
+            details: { address, value, success: result.success },
+            ip: req.ip,
+        });
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        res.json(result);
+    } catch (err) {
+        console.error('Modbus on-demand write error:', err);
+        res.status(500).json({ message: 'Erro ao escrever registrador.' });
     }
 });
 
