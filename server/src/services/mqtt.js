@@ -2036,6 +2036,11 @@ export const initMqttService = (io) => {
                             unifiedData.alarmMessage = d.alarmMessage || '';
                             if (!unifiedData.alarms) unifiedData.alarms = {};
                             unifiedData.alarms.startFailure = d.isStartFailure;
+                            // Precisa ir pro unifiedData (não só pro alarmMessage concatenado)
+                            // pra que o detector de falha de rede em MAINS FAILURE / RESTORED,
+                            // mais abaixo, consiga achar o alarme nomeado 'Mains failed' por
+                            // nome em vez de re-parsear a string.
+                            unifiedData.activeAlarms = d.activeAlarms;
                         }
                     }
                 });
