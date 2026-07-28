@@ -2888,9 +2888,22 @@ export const sendControlCommand = (deviceId, action) => {
                             : DSE_CONTROL_KEYS.TELEMETRY_START;
                         break;
                     }
-                    case 'stop':
-                        key = DSE_CONTROL_KEYS.TELEMETRY_STOP;
+                    case 'stop': {
+                        // Espelha o 'start': TELEMETRY_STOP (35733, "Cancel telemetry
+                        // start in AUTO mode") é pareada com TELEMETRY_START — confirmado
+                        // em campo (2026-07-28) que ela não para o motor quando ele foi
+                        // ligado via START_MANUAL (35705) estando em Stop mode de verdade
+                        // (nosso "Manual"). STOP (35700, "Select Stop mode") é a parada
+                        // geral do protocolo — funciona independente de como o motor foi
+                        // ligado. Mesma chave que o botão "Manual" já manda pra entrar
+                        // nesse estado (pedido explícito do usuário).
+                        const mode = dseCommandedMode.get(deviceId)
+                            || currentGeneratorsState[deviceId]?.data?.operationMode;
+                        key = (mode === 'MANUAL')
+                            ? DSE_CONTROL_KEYS.STOP
+                            : DSE_CONTROL_KEYS.TELEMETRY_STOP;
                         break;
+                    }
                     case 'reset':
                     case 'ack':
                         key = DSE_CONTROL_KEYS.RESET_ALARMS;
