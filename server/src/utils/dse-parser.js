@@ -24,6 +24,34 @@ const s32 = (regs, i) => {
 
 const s16 = (val) => (val > 32767 ? val - 65536 : val);
 
+// Live traffic from a real unit showed near-max raw codes (0xFFFB, 0x7FFB,
+// exactly 0x7FFF) on sensors that are almost certainly not fitted on this
+// genset (oil pressure, oil temperature, magnetic pickup/RPM, mains voltage
+// and frequency — the same class of "not wired" gap we found on the Cummins
+// mains side). We don't have DSE's official sentinel-code table in the repo,
+// so rather than hardcoding those exact values, treat the whole implausible
+// top-of-range neighborhood as "not fitted": every real reading for these
+// fields sits far below this threshold (e.g. oil pressure raw maxes out
+// around 1000 for 1000 kPa; this rejects six-figure-bar and 65,000+ RPM
+// nonsense while never touching a genuine reading).
+const NOT_FITTED_THRESHOLD = 32000;
+const validRaw = (raw) => (raw >= NOT_FITTED_THRESHOLD ? null : raw);
+
+/** u32 from two registers, but null if the high word alone looks like a
+ * "not fitted" sentinel — a real reading never needs a high word this large
+ * (e.g. any plausible voltage fits entirely in the low word, high word = 0). */
+const u32OrNull = (regs, i) => {
+    const high = u16(regs, i);
+    if (high >= NOT_FITTED_THRESHOLD) return null;
+    return (high * 65536) + u16(regs, i + 1);
+};
+
+/** u32-then-scale helper used for every ×0.1 voltage/current field — null propagates. */
+const v10 = (regs, i) => {
+    const raw = u32OrNull(regs, i);
+    return raw === null ? null : parseFloat((raw / 10.0).toFixed(1));
+};
+
 function decodeStatusFromCode(statusVal) {
     if (DSE_STATUS_CODE[statusVal]) return DSE_STATUS_CODE[statusVal];
     if (statusVal >= 1 && statusVal <= 7) return 'STARTING';
@@ -89,30 +117,30 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
 
     // ---- Block 1: Engine + Gen Voltages & Currents (Reg 1024-1051, 28 regs) ----
     if (startAddress === 1024 && regs.length >= 28) {
-        const oilPressureRaw = u16(regs, 0);
+        const oilPressureRaw = validRaw(u16(regs, 0));
         const coolantTempRaw = u16(regs, 1);
-        const oilTempRaw = u16(regs, 2);
+        const oilTempRaw = validRaw(u16(regs, 2));
         const fuelLevel = u16(regs, 3);
         const batteryRaw = u16(regs, 5);
-        const rpm = u16(regs, 6);
-        const frequencyRaw = u16(regs, 7);
+        const rpm = validRaw(u16(regs, 6));
+        const frequencyRaw = validRaw(u16(regs, 7));
 
         const engineTemp = s16(coolantTempRaw);
-        const oilTemp = s16(oilTempRaw);
-        const oilPressure = parseFloat((oilPressureRaw / 100.0).toFixed(2));
+        const oilTemp = oilTempRaw === null ? null : s16(oilTempRaw);
+        const oilPressure = oilPressureRaw === null ? null : parseFloat((oilPressureRaw / 100.0).toFixed(2));
         const batteryVoltage = parseFloat((batteryRaw / 10.0).toFixed(1));
-        const frequency = parseFloat((frequencyRaw / 10.0).toFixed(1));
+        const frequency = frequencyRaw === null ? null : parseFloat((frequencyRaw / 10.0).toFixed(1));
 
-        const voltageL1 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));
-        const voltageL2 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));
-        const voltageL3 = parseFloat((u32(regs, 12) / 10.0).toFixed(1));
-        const voltageL12 = parseFloat((u32(regs, 14) / 10.0).toFixed(1));
-        const voltageL23 = parseFloat((u32(regs, 16) / 10.0).toFixed(1));
-        const voltageL31 = parseFloat((u32(regs, 18) / 10.0).toFixed(1));
-        const currentL1 = parseFloat((u32(regs, 20) / 10.0).toFixed(1));
-        const currentL2 = parseFloat((u32(regs, 22) / 10.0).toFixed(1));
-        const currentL3 = parseFloat((u32(regs, 24) / 10.0).toFixed(1));
-        const avgVal = (voltageL1 + voltageL2 + voltageL3) / 3;
+        const voltageL1 = v10(regs, 8);
+        const voltageL2 = v10(regs, 10);
+        const voltageL3 = v10(regs, 12);
+        const voltageL12 = v10(regs, 14);
+        const voltageL23 = v10(regs, 16);
+        const voltageL31 = v10(regs, 18);
+        const currentL1 = v10(regs, 20);
+        const currentL2 = v10(regs, 22);
+        const currentL3 = v10(regs, 24);
+        const avgVal = ((voltageL1 || 0) + (voltageL2 || 0) + (voltageL3 || 0)) / 3;
         const avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
 
         return {
@@ -135,23 +163,23 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
 
     // ---- Block 1a: Engine + Gen Voltages L-N (Reg 1024-1037, 14 regs) ----
     if (startAddress === 1024 && regs.length >= 14) {
-        const oilPressureRaw = u16(regs, 0);
+        const oilPressureRaw = validRaw(u16(regs, 0));
         const coolantTempRaw = u16(regs, 1);
-        const oilTempRaw = u16(regs, 2); // /Engine/OilTemperature (reg 1026) — was fetched but never decoded
+        const oilTempRaw = validRaw(u16(regs, 2)); // /Engine/OilTemperature (reg 1026) — was fetched but never decoded
         const fuelLevel = u16(regs, 3);
         const batteryRaw = u16(regs, 5);
-        const rpm = u16(regs, 6);
-        const frequencyRaw = u16(regs, 7);
+        const rpm = validRaw(u16(regs, 6));
+        const frequencyRaw = validRaw(u16(regs, 7));
 
         const engineTemp = s16(coolantTempRaw);
-        const oilTemp = s16(oilTempRaw);
-        const oilPressure = parseFloat((oilPressureRaw / 100.0).toFixed(2));
+        const oilTemp = oilTempRaw === null ? null : s16(oilTempRaw);
+        const oilPressure = oilPressureRaw === null ? null : parseFloat((oilPressureRaw / 100.0).toFixed(2));
         const batteryVoltage = parseFloat((batteryRaw / 10.0).toFixed(1));
-        const frequency = parseFloat((frequencyRaw / 10.0).toFixed(1));
-        const voltageL1 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));
-        const voltageL2 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));
-        const voltageL3 = parseFloat((u32(regs, 12) / 10.0).toFixed(1));
-        const avgVal = (voltageL1 + voltageL2 + voltageL3) / 3;
+        const frequency = frequencyRaw === null ? null : parseFloat((frequencyRaw / 10.0).toFixed(1));
+        const voltageL1 = v10(regs, 8);
+        const voltageL2 = v10(regs, 10);
+        const voltageL3 = v10(regs, 12);
+        const avgVal = ((voltageL1 || 0) + (voltageL2 || 0) + (voltageL3 || 0)) / 3;
         const avgVoltage = isNaN(avgVal) ? 0 : Math.round(avgVal);
 
         return {
@@ -163,12 +191,12 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
 
     // ---- Block 1b: Gen Voltages L-L & Currents (Reg 1038-1051, 14 regs) ----
     if (startAddress === 1038 && regs.length >= 14) {
-        const voltageL12 = parseFloat((u32(regs, 0) / 10.0).toFixed(1));
-        const voltageL23 = parseFloat((u32(regs, 2) / 10.0).toFixed(1));
-        const voltageL31 = parseFloat((u32(regs, 4) / 10.0).toFixed(1));
-        const currentL1 = parseFloat((u32(regs, 6) / 10.0).toFixed(1));
-        const currentL2 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));
-        const currentL3 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));
+        const voltageL12 = v10(regs, 0);
+        const voltageL23 = v10(regs, 2);
+        const voltageL31 = v10(regs, 4);
+        const currentL1 = v10(regs, 6);
+        const currentL2 = v10(regs, 8);
+        const currentL3 = v10(regs, 10);
 
         return {
             block: 'DSE_ENGINE_GEN_1038_PART2',
@@ -194,14 +222,14 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
 
     // ---- Block 2: Mains Voltages & Freq (Reg 1058-1072, 15 regs) ----
     if (startAddress === 1058 && regs.length >= 15) {
-        const mainsVoltageL1 = parseFloat((u32(regs, 0) / 10.0).toFixed(1));
-        const mainsVoltageL2 = parseFloat((u32(regs, 2) / 10.0).toFixed(1));
-        const mainsVoltageL3 = parseFloat((u32(regs, 4) / 10.0).toFixed(1));
-        const mainsVoltageL12 = parseFloat((u32(regs, 6) / 10.0).toFixed(1));
-        const mainsVoltageL23 = parseFloat((u32(regs, 8) / 10.0).toFixed(1));
-        const mainsVoltageL31 = parseFloat((u32(regs, 10) / 10.0).toFixed(1));
-        const mainsFreqRaw = u16(regs, 14);
-        const mainsFrequency = parseFloat((mainsFreqRaw / 10.0).toFixed(1));
+        const mainsVoltageL1 = v10(regs, 0);
+        const mainsVoltageL2 = v10(regs, 2);
+        const mainsVoltageL3 = v10(regs, 4);
+        const mainsVoltageL12 = v10(regs, 6);
+        const mainsVoltageL23 = v10(regs, 8);
+        const mainsVoltageL31 = v10(regs, 10);
+        const mainsFreqRaw = validRaw(u16(regs, 14));
+        const mainsFrequency = mainsFreqRaw === null ? null : parseFloat((mainsFreqRaw / 10.0).toFixed(1));
 
         return {
             block: 'DSE_MAINS_1058',

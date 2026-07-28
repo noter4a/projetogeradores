@@ -1239,15 +1239,19 @@ export const initMqttService = (io) => {
             const isSgc420Device = isSgc420Controller(deviceController);
             const isAgc150Device = isAgc150Controller(deviceController);
             const isCumminsDeviceController = isCumminsController(deviceController);
+            const isDseDeviceController = deviceController === 'dse';
             const agc150Profile = isAgc150Device ? resolveDeviceAgc150Profile(deviceId) : null;
-            // Cummins has its own decoder (cumminsResults below). It must NOT also fall
-            // through to the SGC-120 decoder — that would read Cummins registers as if
-            // they were SGC-120 ones and inject garbage (e.g. an 8.9M-hour run time
-            // from misreading the battery/oil registers), which then overwrites the
-            // correct Cummins values during the merge.
+            // Cummins and DSE4501 have their own decoders (cumminsResults/dseResults
+            // below). They must NOT also fall through to the SGC-120 decoder — that
+            // reads their raw register bytes as if they were SGC-120 registers and
+            // injects garbage that then overwrites (or fights with, cycle to cycle)
+            // the correct values during the merge. This exact bug previously caused
+            // Cummins run-time to read 8.9M hours; for DSE4501 it caused status to
+            // flip-flop between RUNNING/STOPPED and left stale SGC-era fields
+            // (reg77_hex/reg78_hex/mainsFeedingLoad/running) polluting the state.
             const results = isAgc150Device ? decodeAgc150Payload(payload, { profile: agc150Profile })
                 : isSgc420Device ? decodeSgc420Payload(payload)
-                : isCumminsDeviceController ? []
+                : (isCumminsDeviceController || isDseDeviceController) ? []
                 : decodeSgc120Payload(payload);
 
             // Check if this device uses a KVA or DSE controller
