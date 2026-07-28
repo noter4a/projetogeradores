@@ -104,8 +104,9 @@ export interface Generator {
   mainsCurrentL2?: number;
   mainsCurrentL3?: number;
 
-  mainsBreakerClosed?: boolean;
-  genBreakerClosed?: boolean;
+  /** null = controlador não reporta o contator (ex: DSE4501 devolve "Unimplemented" via GenComm) */
+  mainsBreakerClosed?: boolean | null;
+  genBreakerClosed?: boolean | null;
   /** AGC150: true when mains breaker closed and no mains failure — load-side feed active */
   mainsFeedingLoad?: boolean;
   genFeedingLoad?: boolean;

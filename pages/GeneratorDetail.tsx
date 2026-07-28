@@ -1005,45 +1005,65 @@ const GeneratorDetail: React.FC = () => {
                     <text x="50" y="30" textAnchor="middle" fill={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#6b7280"} fontSize="14" fontWeight="bold" letterSpacing="2">CARGA</text>
                   </g>
 
-                  <g
-                    className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED' ? 'cursor-not-allowed opacity-50' : ''}`}
-                    onClick={() => { if (gen.operationMode !== 'AUTO' && gen.operationMode !== 'INHIBITED') handleControl('toggleMains'); }}
-                  >
-                    <rect x="120" y="30" width="60" height="60" fill="transparent" />
-                    <line
-                      x1="130" y1="80" x2="170" y2="80"
-                      stroke={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"}
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      className="transition-all duration-500 ease-in-out"
-                      transform={gen.mainsBreakerClosed ? "rotate(0 130 80)" : "rotate(-35 130 80)"}
-                    />
-                    <circle cx="130" cy="80" r="4" fill="#fff" />
-                    <circle cx="170" cy="80" r="4" fill="#fff" />
-                    <text x="150" y="110" textAnchor="middle" fontSize="10" fill={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"} fontWeight="bold">
-                      {gen.mainsBreakerClosed ? 'FECHADO' : 'ABERTO'}
-                    </text>
-                  </g>
+                  {/* mainsBreakerClosed/genBreakerClosed vêm null quando o próprio
+                      controlador não reporta o contator (ex: este DSE4501 devolve
+                      "Unimplemented" pro relé de rede e de gerador via GenComm — não
+                      é falha de leitura, o equipamento não expõe esse dado). Um
+                      terceiro estado cinza "INDISPONÍVEL" evita mostrar ABERTO
+                      (vermelho) quando na verdade é "não sei". */}
+                  {(() => {
+                    const mainsUnknown = gen.mainsBreakerClosed == null;
+                    const mainsColor = mainsUnknown ? '#6b7280' : gen.mainsBreakerClosed ? '#22c55e' : '#ef4444';
+                    const mainsLabel = mainsUnknown ? 'INDISPONÍVEL' : gen.mainsBreakerClosed ? 'FECHADO' : 'ABERTO';
+                    return (
+                      <g
+                        className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED' ? 'cursor-not-allowed opacity-50' : ''}`}
+                        onClick={() => { if (gen.operationMode !== 'AUTO' && gen.operationMode !== 'INHIBITED') handleControl('toggleMains'); }}
+                      >
+                        <rect x="120" y="30" width="60" height="60" fill="transparent" />
+                        <line
+                          x1="130" y1="80" x2="170" y2="80"
+                          stroke={mainsColor}
+                          strokeWidth="6"
+                          strokeLinecap="round"
+                          className="transition-all duration-500 ease-in-out"
+                          transform={gen.mainsBreakerClosed ? "rotate(0 130 80)" : "rotate(-35 130 80)"}
+                        />
+                        <circle cx="130" cy="80" r="4" fill="#fff" />
+                        <circle cx="170" cy="80" r="4" fill="#fff" />
+                        <text x="150" y="110" textAnchor="middle" fontSize="10" fill={mainsColor} fontWeight="bold">
+                          {mainsLabel}
+                        </text>
+                      </g>
+                    );
+                  })()}
 
-                  <g
-                    className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED' ? 'cursor-not-allowed opacity-50' : ''}`}
-                    onClick={() => { if (gen.operationMode !== 'AUTO' && gen.operationMode !== 'INHIBITED') handleControl('toggleGen'); }}
-                  >
-                    <rect x="320" y="30" width="60" height="60" fill="transparent" />
-                    <line
-                      x1="370" y1="80" x2="330" y2="80"
-                      stroke={gen.genBreakerClosed ? "#22c55e" : "#ef4444"}
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      className="transition-all duration-500 ease-in-out"
-                      transform={gen.genBreakerClosed ? "rotate(0 370 80)" : "rotate(35 370 80)"}
-                    />
-                    <circle cx="370" cy="80" r="4" fill="#fff" />
-                    <circle cx="330" cy="80" r="4" fill="#fff" />
-                    <text x="350" y="110" textAnchor="middle" fontSize="10" fill={gen.genBreakerClosed ? "#22c55e" : "#ef4444"} fontWeight="bold">
-                      {gen.genBreakerClosed ? 'FECHADO' : 'ABERTO'}
-                    </text>
-                  </g>
+                  {(() => {
+                    const genUnknown = gen.genBreakerClosed == null;
+                    const genColor = genUnknown ? '#6b7280' : gen.genBreakerClosed ? '#22c55e' : '#ef4444';
+                    const genLabel = genUnknown ? 'INDISPONÍVEL' : gen.genBreakerClosed ? 'FECHADO' : 'ABERTO';
+                    return (
+                      <g
+                        className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED' ? 'cursor-not-allowed opacity-50' : ''}`}
+                        onClick={() => { if (gen.operationMode !== 'AUTO' && gen.operationMode !== 'INHIBITED') handleControl('toggleGen'); }}
+                      >
+                        <rect x="320" y="30" width="60" height="60" fill="transparent" />
+                        <line
+                          x1="370" y1="80" x2="330" y2="80"
+                          stroke={genColor}
+                          strokeWidth="6"
+                          strokeLinecap="round"
+                          className="transition-all duration-500 ease-in-out"
+                          transform={gen.genBreakerClosed ? "rotate(0 370 80)" : "rotate(35 370 80)"}
+                        />
+                        <circle cx="370" cy="80" r="4" fill="#fff" />
+                        <circle cx="330" cy="80" r="4" fill="#fff" />
+                        <text x="350" y="110" textAnchor="middle" fontSize="10" fill={genColor} fontWeight="bold">
+                          {genLabel}
+                        </text>
+                      </g>
+                    );
+                  })()}
                 </svg>
 
                 <div className="absolute top-0 right-0">
