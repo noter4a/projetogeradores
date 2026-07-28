@@ -1,5 +1,17 @@
 // DSE4501 / GenComm Modbus register map
-// Based on dse_registers.json, GenComm standard (Page 3/4/8/16) and DSE4501 compact controller.
+//
+// PROCEDÊNCIA (importante — leia antes de confiar em qualquer valor daqui):
+//
+//   LEITURA  — os registradores de leitura (772, 1024-1073, 1408, 1536, 1558,
+//              1798-1809, 2048...) vêm de dse_registers.json, na raiz do projeto,
+//              e conferem com o que o equipamento devolve em campo. Confiáveis.
+//
+//   ESCRITA  — as DSE_CONTROL_KEYS abaixo NÃO têm fonte verificável neste projeto.
+//              O cabeçalho antigo dizia "Based on dse_registers.json", o que era
+//              falso: aquele arquivo só tem registradores de leitura, nenhuma chave
+//              de controle e nenhum 4104. Esses valores nunca foram conferidos
+//              contra a documentação GenComm real da Deep Sea.
+//              Isso não é teórico — ver o aviso em DSE_CONTROL_KEYS.
 
 export const DSE4501_MODEL = 'DSE4501';
 
@@ -15,16 +27,34 @@ export const DSE_REG_ALARMS = 2048;
 /** GenComm Page 16 offset 8 — system control key (written with one's complement at +1) */
 export const DSE_REG_SCF = 4104;
 
+/**
+ * ⚠️ CHAVES NÃO VERIFICADAS — NÃO CONFIE SEM CONFERIR NO MANUAL GenComm.
+ *
+ * Comprovado em campo (Ciklo55, 2026-07-28): enviar MANUAL (35702) com a rede
+ * sadia (382-384 V) e o controlador em AUTO (reg 772 = 1) trocou o modo
+ * corretamente (reg 772 passou a 2) MAS TAMBÉM DEU PARTIDA no motor
+ * (rpm 0 -> 1032 -> 1802, RUNNING) — sendo esse o único comando enviado,
+ * nenhum start. Ou seja, a chave aciona o motor como efeito colateral.
+ *
+ * Por isso AUTO e MANUAL estão BLOQUEADOS em mqtt.js. Só reabilite depois de
+ * conferir estes valores no manual GenComm da Deep Sea (o equivalente ao
+ * A029X159 da Cummins) — chutar valor novo aqui repete exatamente o erro que
+ * fez um motor partir sozinho.
+ *
+ * Verificado ao vivo e funcionando: TELEMETRY_STOP (parada com o cooldown
+ * normal do DSE, 1802 rpm -> 44 -> parado).
+ * Nunca exercitados/validados: TEST_ON_LOAD, MUTE_ALARM, TELEMETRY_START.
+ */
 export const DSE_CONTROL_KEYS = {
-    STOP: 35700,
-    AUTO: 35701,
-    MANUAL: 35702,
-    TEST_ON_LOAD: 35703,
-    START_MANUAL: 35705,
-    MUTE_ALARM: 35706,
-    RESET_ALARMS: 35707,
-    TELEMETRY_START: 35732,
-    TELEMETRY_STOP: 35733,
+    STOP: 35700,           // não verificado
+    AUTO: 35701,           // não verificado — BLOQUEADO em mqtt.js
+    MANUAL: 35702,         // NÃO VERIFICADO — dá partida no motor. BLOQUEADO.
+    TEST_ON_LOAD: 35703,   // não verificado — nunca usado pela UI
+    START_MANUAL: 35705,   // não verificado
+    MUTE_ALARM: 35706,     // não verificado — nunca usado pela UI
+    RESET_ALARMS: 35707,   // não verificado
+    TELEMETRY_START: 35732, // não verificado
+    TELEMETRY_STOP: 35733,  // verificado ao vivo: para o motor corretamente
 };
 
 /** GenComm control mode values (register 772) */

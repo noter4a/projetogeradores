@@ -2834,16 +2834,35 @@ export const sendControlCommand = (deviceId, action) => {
 
             if (isDseController) {
                 // DSE4501 GenComm System Control Keys (Reg 4104 + one's complement at 4105)
+                //
+                // ⚠️ SEGURANÇA — troca de modo BLOQUEADA (2026-07-28).
+                // Verificado em campo no Ciklo55: com a rede sadia (382-384 V) e o
+                // controlador em AUTO (reg 772 = 1), o envio da chave MANUAL (35702)
+                // — único comando enviado, nenhum start — mudou o modo corretamente
+                // (reg 772 voltou 2) MAS TAMBÉM DEU PARTIDA no motor (rpm 0 -> 1032
+                // -> 1802, RUNNING). Ou seja, essa chave aciona o motor como efeito
+                // colateral, sem qualquer aviso ao operador.
+                //
+                // A raiz do problema é que estas chaves (35700-35733) NÃO têm fonte
+                // verificável no projeto: o cabeçalho de dse4501-map.js cita
+                // dse_registers.json, mas aquele arquivo só contém registradores de
+                // LEITURA — nenhuma chave de controle, nenhum 4104. Os valores de
+                // escrita nunca foram conferidos contra a documentação GenComm real.
+                //
+                // Partida/parada seguem liberadas (a parada foi verificada ao vivo:
+                // 1802 rpm -> 44 -> parado, com o cooldown normal do DSE). Só a troca
+                // de modo está bloqueada até as chaves serem conferidas no manual
+                // GenComm da Deep Sea. NÃO reabilitar sem essa verificação.
+                if (action === 'auto' || action === 'manual') {
+                    console.warn(`[DSE-CMD] BLOQUEADO: '${action}' em ${deviceId} — chave de modo não verificada (dá partida no motor).`);
+                    return {
+                        success: false,
+                        error: 'Troca de modo desabilitada neste controlador DSE: o comando não está verificado e pode dar partida no motor. Altere o modo no painel do gerador.'
+                    };
+                }
+
                 let key;
                 switch (action) {
-                    case 'auto':
-                        key = DSE_CONTROL_KEYS.AUTO;
-                        dseCommandedMode.set(deviceId, 'AUTO');
-                        break;
-                    case 'manual':
-                        key = DSE_CONTROL_KEYS.MANUAL;
-                        dseCommandedMode.set(deviceId, 'MANUAL');
-                        break;
                     case 'start': {
                         const mode = dseCommandedMode.get(deviceId)
                             || currentGeneratorsState[deviceId]?.data?.operationMode;

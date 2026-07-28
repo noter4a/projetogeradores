@@ -10,6 +10,9 @@ interface MobileControlBarProps {
   controlLoading: string | null;
   canStart: boolean;
   canStop: boolean;
+  /** Desabilita AUTO/MANUAL quando a troca de modo não é confiável no controlador
+   *  (hoje: DSE — a chave de modo dava partida no motor). Partida/parada seguem. */
+  modeLocked?: boolean;
   onControl: (action: string) => void;
 }
 
@@ -19,6 +22,7 @@ const MobileControlBar: React.FC<MobileControlBarProps> = ({
   controlLoading,
   canStart,
   canStop,
+  modeLocked = false,
   onControl,
 }) => {
   const [stopProgress, setStopProgress] = useState(0);
@@ -55,24 +59,28 @@ const MobileControlBar: React.FC<MobileControlBarProps> = ({
       <div className="mx-2 mb-2 rounded-2xl border border-gray-700/80 bg-ciklo-card/95 backdrop-blur-xl shadow-lg p-2">
         <div className="grid grid-cols-4 gap-1.5 mb-1.5">
           <button
-            disabled={operationMode === 'AUTO' || !!controlLoading}
+            disabled={operationMode === 'AUTO' || !!controlLoading || modeLocked}
             onClick={() => onControl('auto')}
             className={`py-2.5 rounded-xl text-[10px] font-bold flex flex-col items-center gap-0.5 transition-all ${
               operationMode === 'AUTO'
                 ? 'bg-green-600 text-white'
-                : 'bg-gray-800 text-gray-400 active:bg-gray-700'
+                : modeLocked
+                  ? 'bg-gray-900 text-gray-700 opacity-50'
+                  : 'bg-gray-800 text-gray-400 active:bg-gray-700'
             }`}
           >
             <RefreshCw size={14} className={operationMode === 'AUTO' ? 'animate-spin-slow' : ''} />
             AUTO
           </button>
           <button
-            disabled={operationMode === 'MANUAL' || !!controlLoading}
+            disabled={operationMode === 'MANUAL' || !!controlLoading || modeLocked}
             onClick={() => onControl('manual')}
             className={`py-2.5 rounded-xl text-[10px] font-bold flex flex-col items-center gap-0.5 transition-all ${
               operationMode === 'MANUAL'
                 ? 'bg-green-600 text-white'
-                : 'bg-gray-800 text-gray-400 active:bg-gray-700'
+                : modeLocked
+                  ? 'bg-gray-900 text-gray-700 opacity-50'
+                  : 'bg-gray-800 text-gray-400 active:bg-gray-700'
             }`}
           >
             <Settings size={14} />

@@ -802,6 +802,11 @@ const GeneratorDetail: React.FC = () => {
 
   const renderRemoteControl = () => {
     if (!canControl) return null;
+    // Troca de modo bloqueada no DSE: a chave GenComm de modo não foi verificada
+    // contra documentação e, em campo, deu partida no motor sozinha (ver o bloqueio
+    // e o histórico completo em server/src/services/mqtt.js). O backend recusa o
+    // comando de qualquer jeito — aqui só evitamos oferecer um botão que falha.
+    const isDseModeLocked = gen.controller?.toLowerCase() === 'dse';
     return (
       <div className="bg-ciklo-card rounded-xl border border-gray-800 p-5">
         <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
@@ -833,11 +838,14 @@ const GeneratorDetail: React.FC = () => {
                 <div className="flex-1 flex gap-2">
                   {/* AUTO BUTTON */}
                   <button
-                    disabled={gen.operationMode === 'AUTO'}
+                    disabled={gen.operationMode === 'AUTO' || isDseModeLocked}
+                    title={isDseModeLocked ? 'Troca de modo desabilitada neste controlador DSE — altere o modo no painel do gerador.' : undefined}
                     onClick={() => handleControl('auto')}
                     className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
                       ? 'bg-green-600 text-white cursor-default opacity-100'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      : isDseModeLocked
+                        ? 'text-gray-600 cursor-not-allowed opacity-50'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
                     <RefreshCw size={14} className={gen.operationMode === 'AUTO' ? 'animate-spin-slow' : ''} /> Automático
@@ -845,11 +853,14 @@ const GeneratorDetail: React.FC = () => {
 
                   {/* MANUAL BUTTON */}
                   <button
-                    disabled={gen.operationMode === 'MANUAL'}
+                    disabled={gen.operationMode === 'MANUAL' || isDseModeLocked}
+                    title={isDseModeLocked ? 'Troca de modo desabilitada neste controlador DSE — altere o modo no painel do gerador.' : undefined}
                     onClick={() => handleControl('manual')}
                     className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
                       ? 'bg-green-600 text-white cursor-default opacity-100'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      : isDseModeLocked
+                        ? 'text-gray-600 cursor-not-allowed opacity-50'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
                     <Settings size={14} className={gen.operationMode === 'MANUAL' ? 'animate-spin-slow' : ''} /> Manual
@@ -870,6 +881,15 @@ const GeneratorDetail: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              {isDseModeLocked && (
+                <p className="mt-2 text-[11px] text-amber-400/90 flex items-start gap-1.5">
+                  <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                  Troca de modo desabilitada neste controlador: o comando fazia o motor
+                  dar partida sozinho. Altere o modo no painel do gerador. Partida e
+                  parada remotas seguem funcionando.
+                </p>
+              )}
 
               <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800 mt-4 relative">
                 <label className="text-xs text-gray-500 font-semibold mb-3 block text-center">Comando Remoto</label>
@@ -2211,6 +2231,7 @@ const GeneratorDetail: React.FC = () => {
           controlLoading={controlLoading}
           canStart={canStartMobile}
           canStop={canStopMobile}
+          modeLocked={gen.controller?.toLowerCase() === 'dse'}
           onControl={handleControl}
         />
       )}
