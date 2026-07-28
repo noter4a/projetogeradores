@@ -598,13 +598,21 @@ const GeneratorDetail: React.FC = () => {
 
   if (!gen) return <div className="text-white p-6">Gerador não encontrado ou foi removido.</div>;
 
+  // DSE: GenComm tem uma chave dedicada — "Telemetry start/cancel if in auto
+  // mode" (35732/35733, TELEMETRY_START/TELEMETRY_STOP em mqtt.js) — feita
+  // exatamente pra dar partida/parada sob demanda SEM sair do modo Automático.
+  // É o caminho certo pra "quero só apertar Partida, sem trocar de modo",
+  // já que trocar pra Manual sempre dá partida (é a definição do modo, não
+  // um bug — ver dse4501-map.js). Por isso o AUTO não desabilita Partida/
+  // Parar para este controlador, ao contrário dos demais.
+  const isDseGen = gen.controller?.toLowerCase() === 'dse';
   const canStartMobile =
     gen.status !== GeneratorStatus.RUNNING &&
-    gen.operationMode !== 'AUTO' &&
+    (isDseGen || gen.operationMode !== 'AUTO') &&
     gen.operationMode !== 'INHIBITED';
   const canStopMobile =
     gen.status !== GeneratorStatus.STOPPED &&
-    gen.operationMode !== 'AUTO' &&
+    (isDseGen || gen.operationMode !== 'AUTO') &&
     gen.operationMode !== 'INHIBITED';
 
   // Permissions are declared at the component scope level
@@ -906,26 +914,42 @@ const GeneratorDetail: React.FC = () => {
               <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800 mt-4 relative">
                 <label className="text-xs text-gray-500 font-semibold mb-3 block text-center">Comando Remoto</label>
                 <div className="flex gap-3">
-                  <button
-                    disabled={gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
-                    onClick={() => handleControl('start')}
-                    className={`flex-1 py-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all border ${gen.status === GeneratorStatus.RUNNING || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'
-                      ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-500 text-white border-green-500'
-                      }`}
-                  >
-                    <Play size={18} fill="currentColor" /> Partida
-                  </button>
-                  <button
-                    disabled={gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'}
-                    onClick={() => handleControl('stop')}
-                    className={`flex-1 py-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all border ${gen.status === GeneratorStatus.STOPPED || gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED'
-                      ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
-                      : 'bg-red-600 hover:bg-red-500 text-white border-red-500'
-                      }`}
-                  >
-                    <Square size={18} fill="currentColor" /> Parar
-                  </button>
+                  {(() => {
+                    // DSE: "Telemetry start/cancel if in auto mode" (35732/35733)
+                    // dá partida/parada sob demanda sem sair do modo Automático —
+                    // por isso AUTO não desabilita Partida/Parar aqui, diferente
+                    // dos demais controladores. Ver mesma lógica em canStartMobile.
+                    const startDisabled = gen.status === GeneratorStatus.RUNNING
+                      || (!isDseController && gen.operationMode === 'AUTO')
+                      || gen.operationMode === 'INHIBITED';
+                    const stopDisabled = gen.status === GeneratorStatus.STOPPED
+                      || (!isDseController && gen.operationMode === 'AUTO')
+                      || gen.operationMode === 'INHIBITED';
+                    return (
+                      <>
+                        <button
+                          disabled={startDisabled}
+                          onClick={() => handleControl('start')}
+                          className={`flex-1 py-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all border ${startDisabled
+                            ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
+                            : 'bg-green-600 hover:bg-green-500 text-white border-green-500'
+                            }`}
+                        >
+                          <Play size={18} fill="currentColor" /> Partida
+                        </button>
+                        <button
+                          disabled={stopDisabled}
+                          onClick={() => handleControl('stop')}
+                          className={`flex-1 py-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all border ${stopDisabled
+                            ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
+                            : 'bg-red-600 hover:bg-red-500 text-white border-red-500'
+                            }`}
+                        >
+                          <Square size={18} fill="currentColor" /> Parar
+                        </button>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
