@@ -192,6 +192,16 @@ interface ModbusRegister {
   value: string;
   unit: string;
   type: 'READ' | 'WRITE';
+  reading?: boolean;
+  error?: string;
+}
+
+interface ModbusRegisterRef {
+  address: number;
+  name: string;
+  unit: string;
+  access: string;
+  notes?: string;
 }
 
 const GeneratorDetail: React.FC = () => {
@@ -258,14 +268,9 @@ const GeneratorDetail: React.FC = () => {
   // Tab State
   const [activeTab, setActiveTab] = useState<'operational' | 'modbus'>('operational');
 
-  // Modbus State (Starts Empty/Zero)
-  const [modbusRegisters, setModbusRegisters] = useState<ModbusRegister[]>([
-    { id: '1', address: '40001', name: 'Rotação do Motor', value: '0', unit: 'RPM', type: 'READ' },
-    { id: '2', address: '40002', name: 'Pressão de Óleo', value: '0', unit: 'Bar', type: 'READ' },
-    { id: '3', address: '40003', name: 'Temperatura Água', value: '0', unit: '°C', type: 'READ' },
-    { id: '4', address: '40100', name: 'Comando Partida', value: '0', unit: 'Bool', type: 'WRITE' },
-    { id: '5', address: '40101', name: 'Set Point Carga', value: '0', unit: 'kW', type: 'WRITE' },
-  ]);
+  // Modbus State — começa vazio; cada linha é lida de verdade do equipamento
+  // ao ser adicionada (ver readRegisterValue), sem valores de exemplo fixos.
+  const [modbusRegisters, setModbusRegisters] = useState<ModbusRegister[]>([]);
 
   // Inputs for adding new READ registers
   const [readAddress, setReadAddress] = useState('');
@@ -275,6 +280,25 @@ const GeneratorDetail: React.FC = () => {
   // Inputs for adding new WRITE registers
   const [writeAddress, setWriteAddress] = useState('');
   const [writeName, setWriteName] = useState('');
+
+  // Tabela de referência de registradores conhecidos para o controlador deste
+  // gerador (busca uma vez ao abrir a aba avançada).
+  const [refRegisters, setRefRegisters] = useState<ModbusRegisterRef[]>([]);
+  const [refLoading, setRefLoading] = useState(false);
+  const [refFilter, setRefFilter] = useState('');
+
+  useEffect(() => {
+    if (activeTab !== 'modbus' || !id || refRegisters.length > 0) return;
+    setRefLoading(true);
+    const token = localStorage.getItem('ciklo_auth_token');
+    fetch(`/api/generators/${id}/modbus-registers`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.json())
+      .then(data => setRefRegisters(data.registers || []))
+      .catch(() => setRefRegisters([]))
+      .finally(() => setRefLoading(false));
+  }, [activeTab, id]);
 
   // View Mode for Voltages (Phase-Neutral vs Phase-Phase)
   const [voltageViewMode, setVoltageViewMode] = useState<'PN' | 'PP'>('PP');
@@ -689,6 +713,41 @@ const GeneratorDetail: React.FC = () => {
 
 
 
+  // Lê um registrador de verdade no gerador (pausa o polling normal por um
+  // instante, faz UMA leitura Modbus e retoma — mesmo mecanismo já usado pela
+  // varredura de descoberta). Atualiza a linha correspondente com o valor real
+  // ou o motivo da falha (timeout / exceção Modbus).
+  const readRegisterValue = async (registerId: string, address: string) => {
+    const addr = parseInt(address, 10);
+    if (!Number.isInteger(addr)) {
+      setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: 'Endereço inválido' } : r));
+      return;
+    }
+    setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: true, error: undefined } : r));
+    try {
+      const token = localStorage.getItem('ciklo_auth_token');
+      const res = await fetch(`/api/generators/${gen!.id}/modbus-read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ startAddress: addr, quantity: 1, fn: 3 }),
+      });
+      const data = await res.json();
+      const kind = data?.classification?.kind;
+      if (res.ok && kind === 'data') {
+        const raw = data.classification.registers?.[0];
+        setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, value: String(raw ?? '-'), error: undefined } : r));
+      } else if (kind === 'exception') {
+        setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: `Exceção Modbus ${data.classification.exceptionCode}` } : r));
+      } else if (kind === 'timeout') {
+        setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: 'Sem resposta (timeout)' } : r));
+      } else {
+        setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: data?.message || 'Falha na leitura' } : r));
+      }
+    } catch (err) {
+      setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: false, error: 'Erro de conexão' } : r));
+    }
+  };
+
   const handleAddReadParameter = () => {
     if (!readAddress || !readName) return;
 
@@ -698,10 +757,11 @@ const GeneratorDetail: React.FC = () => {
       name: readName,
       unit: readUnit,
       type: 'READ',
-      value: '0' // Initial value
+      value: '-',
     };
 
-    setModbusRegisters([...modbusRegisters, newRegister]);
+    setModbusRegisters(prev => [...prev, newRegister]);
+    readRegisterValue(newRegister.id, newRegister.address);
     setReadAddress('');
     setReadName('');
     setReadUnit('');
@@ -716,21 +776,17 @@ const GeneratorDetail: React.FC = () => {
       name: writeName,
       unit: '',
       type: 'WRITE',
-      value: '0'
+      value: '-',
     };
 
-    setModbusRegisters([...modbusRegisters, newRegister]);
+    setModbusRegisters(prev => [...prev, newRegister]);
+    readRegisterValue(newRegister.id, newRegister.address);
     setWriteAddress('');
     setWriteName('');
   };
 
   const handleRemoveRegister = (id: string) => {
     setModbusRegisters(modbusRegisters.filter(r => r.id !== id));
-  };
-
-  const handleWriteRegister = (id: string, newValue: string) => {
-    // TODO: Implement Real Modbus Write Command
-    console.log(`[Real Write] Register ${id} -> ${newValue}`);
   };
 
 
@@ -1898,12 +1954,12 @@ const GeneratorDetail: React.FC = () => {
                 </h3>
 
                 {/* Add Register Form */}
-                <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
+                <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-4">
                   <p className="text-xs text-gray-500 font-bold uppercase mb-3">Adicionar Parâmetro</p>
                   <div className="grid grid-cols-12 gap-2">
                     <input
                       type="text"
-                      placeholder="Endereço (Ex: 40001)"
+                      placeholder="Endereço (Ex: 1024)"
                       value={readAddress}
                       onChange={(e) => setReadAddress(e.target.value)}
                       className="col-span-3 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
@@ -1931,7 +1987,64 @@ const GeneratorDetail: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Register List - UPDATED TO SHOW ALL REGISTERS */}
+                {/* Reference table — known registers for THIS generator's controller,
+                    click a row to prefill the form above instead of guessing addresses. */}
+                {(refLoading || refRegisters.length > 0) && (
+                  <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-gray-500 font-bold uppercase">
+                        Registradores Conhecidos {gen.controller ? `(${gen.controller.toUpperCase()})` : ''}
+                      </p>
+                      {refLoading && <span className="text-[10px] text-gray-600">carregando...</span>}
+                    </div>
+                    {refRegisters.length > 0 && (
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Buscar por nome ou endereço..."
+                          value={refFilter}
+                          onChange={(e) => setRefFilter(e.target.value)}
+                          className="w-full bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white mb-2"
+                        />
+                        <div className="max-h-48 overflow-auto border border-gray-800 rounded">
+                          <table className="w-full text-left text-xs">
+                            <tbody className="divide-y divide-gray-800">
+                              {refRegisters
+                                .filter(r =>
+                                  !refFilter ||
+                                  r.name.toLowerCase().includes(refFilter.toLowerCase()) ||
+                                  String(r.address).includes(refFilter)
+                                )
+                                .map((r, i) => (
+                                  <tr
+                                    key={i}
+                                    onClick={() => {
+                                      setReadAddress(String(r.address));
+                                      setReadName(r.name);
+                                      setReadUnit(r.unit === '-' ? '' : r.unit);
+                                    }}
+                                    className="hover:bg-gray-800/60 cursor-pointer"
+                                    title={r.notes || ''}
+                                  >
+                                    <td className="p-2 font-mono text-gray-400 whitespace-nowrap">{r.address}</td>
+                                    <td className="p-2 text-white">{r.name}</td>
+                                    <td className="p-2 text-gray-500 whitespace-nowrap">{r.unit}</td>
+                                    <td className="p-2 text-right whitespace-nowrap">
+                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${r.access.startsWith('ESCRITA') ? 'bg-orange-500/10 text-orange-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                                        {r.access === 'LEITURA/ESCRITA' ? 'R/W' : r.access.startsWith('ESCRITA') ? 'W' : 'R'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Register List */}
                 <div className="flex-1 overflow-auto">
                   <table className="w-full text-left">
                     <thead className="bg-gray-800 text-gray-500 text-[10px] uppercase">
@@ -1943,21 +2056,37 @@ const GeneratorDetail: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800 text-sm">
-                      {modbusRegisters.map(reg => (
+                      {modbusRegisters.filter(r => r.type === 'READ').map(reg => (
                         <tr key={reg.id} className="hover:bg-gray-800/30">
                           <td className="p-3 font-mono text-gray-400">{reg.address}</td>
                           <td className="p-3 text-white">{reg.name}</td>
                           <td className="p-3 text-right font-mono font-bold text-ciklo-yellow">
-                            {reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span>
+                            {reg.reading ? (
+                              <span className="text-gray-500 font-normal text-xs">lendo...</span>
+                            ) : reg.error ? (
+                              <span className="text-red-400 font-normal text-xs" title={reg.error}>{reg.error}</span>
+                            ) : (
+                              <>{reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span></>
+                            )}
                           </td>
                           <td className="p-3 text-right">
-                            <button onClick={() => handleRemoveRegister(reg.id)} className="text-gray-600 hover:text-red-500">
-                              <Trash2 size={14} />
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => readRegisterValue(reg.id, reg.address)}
+                                disabled={reg.reading}
+                                className="text-gray-500 hover:text-blue-400 disabled:opacity-40"
+                                title="Ler novamente"
+                              >
+                                <RefreshCw size={13} className={reg.reading ? 'animate-spin' : ''} />
+                              </button>
+                              <button onClick={() => handleRemoveRegister(reg.id)} className="text-gray-600 hover:text-red-500">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
-                      {modbusRegisters.length === 0 && (
+                      {modbusRegisters.filter(r => r.type === 'READ').length === 0 && (
                         <tr><td colSpan={4} className="p-4 text-center text-gray-600 text-xs">Nenhum parâmetro monitorado</td></tr>
                       )}
                     </tbody>
@@ -2010,35 +2139,40 @@ const GeneratorDetail: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800 text-sm">
-                      {modbusRegisters.map(reg => (
+                      {modbusRegisters.filter(r => r.type === 'WRITE').map(reg => (
                         <tr key={reg.id} className="hover:bg-gray-800/30">
                           <td className="p-3 font-mono text-gray-400">{reg.address}</td>
                           <td className="p-3 text-white">{reg.name}</td>
                           <td className="p-3 text-right font-mono font-bold text-ciklo-yellow">
-                            {reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span>
+                            {reg.reading ? (
+                              <span className="text-gray-500 font-normal text-xs">lendo...</span>
+                            ) : reg.error ? (
+                              <span className="text-red-400 font-normal text-xs" title={reg.error}>{reg.error}</span>
+                            ) : (
+                              <>{reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span></>
+                            )}
                           </td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => readRegisterValue(reg.id, reg.address)}
+                                disabled={reg.reading}
+                                className="text-gray-500 hover:text-blue-400 disabled:opacity-40"
+                                title="Ler novamente"
+                              >
+                                <RefreshCw size={13} className={reg.reading ? 'animate-spin' : ''} />
+                              </button>
                               <input
                                 type="text"
-                                className="w-16 bg-black border border-gray-600 rounded p-1 text-xs text-white text-right"
+                                disabled
+                                className="w-16 bg-black border border-gray-700 rounded p-1 text-xs text-gray-600 text-right cursor-not-allowed"
                                 placeholder="Novo"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleWriteRegister(reg.id, (e.target as HTMLInputElement).value);
-                                    (e.target as HTMLInputElement).value = '';
-                                  }
-                                }}
+                                title="Escrita ainda não implementada — por ora só leitura"
                               />
                               <button
-                                className="p-1.5 bg-green-600 hover:bg-green-500 text-white rounded"
-                                onClick={(e) => {
-                                  const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                                  if (input) {
-                                    handleWriteRegister(reg.id, input.value);
-                                    input.value = '';
-                                  }
-                                }}
+                                disabled
+                                className="p-1.5 bg-gray-700 text-gray-500 rounded cursor-not-allowed"
+                                title="Escrita ainda não implementada — por ora só leitura"
                               >
                                 <Send size={14} />
                               </button>

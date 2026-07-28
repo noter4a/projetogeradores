@@ -11,9 +11,10 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { initMqttService, updatePollingList, runModbusScan, getModbusScanStatus } from './services/mqtt.js';
+import { initMqttService, updatePollingList, runModbusScan, getModbusScanStatus, readModbusRegisterOnDemand } from './services/mqtt.js';
 import { initTcpBridge, initGnssBridge } from './services/tcp-bridge.js';
 import { initSnmpAgent } from './services/snmp-agent.js';
+import { getRegisterReference } from './data/register-reference.js';
 import alarmRoutes from './routes/alarms.js';
 import crmRoutes from './routes/crm.js';
 import catalogRoutes from './routes/catalog.js';
@@ -1658,6 +1659,69 @@ router.post('/generators/:id/modbus-scan', authenticateToken, requireRole('ADMIN
 // GET /api/generators/:id/modbus-scan — scan progress (Admin)
 router.get('/generators/:id/modbus-scan', authenticateToken, requireRole('ADMIN'), (req, res) => {
     res.json(getModbusScanStatus(req.params.id));
+});
+
+// GET /api/generators/:id/modbus-registers — tabela de referência de registradores
+// conhecidos para o controlador deste gerador (Admin/Técnico — mesmo gate da aba
+// "Controle Avançado" no frontend).
+router.get('/generators/:id/modbus-registers', authenticateToken, requireRole('ADMIN', 'TECHNICIAN'), async (req, res) => {
+    const { id } = req.params;
+    const access = await assertGeneratorReadAccess(req.user, id);
+    if (!access.allowed) {
+        return res.status(access.status).json({ message: access.message });
+    }
+    try {
+        const result = await pool.query(
+            `SELECT connection_info->>'controller' AS controller FROM generators
+             WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1
+             LIMIT 1`,
+            [id]
+        );
+        const controller = result.rows[0]?.controller || null;
+        res.json({ controller, registers: getRegisterReference(controller) });
+    } catch (err) {
+        console.error('Get modbus register reference error:', err);
+        res.status(500).json({ message: 'Erro ao buscar referência de registradores.' });
+    }
+});
+
+// POST /api/generators/:id/modbus-read — leitura avulsa de um registrador, para
+// inspecionar qualquer endereço sem abrir o software do fabricante. Pausa o
+// polling normal por um instante, faz UMA leitura Modbus e retoma — mesmo
+// mecanismo já usado (e testado em produção) pela varredura de descoberta.
+router.post('/generators/:id/modbus-read', authenticateToken, requireRole('ADMIN', 'TECHNICIAN'), async (req, res) => {
+    const { id } = req.params;
+    const access = await assertGeneratorReadAccess(req.user, id);
+    if (!access.allowed) {
+        return res.status(access.status).json({ message: access.message });
+    }
+
+    const startAddress = parseInt(req.body.startAddress, 10);
+    const quantity = parseInt(req.body.quantity, 10) || 1;
+    const fn = parseInt(req.body.fn, 10) || 3;
+
+    if (!Number.isInteger(startAddress)) {
+        return res.status(400).json({ message: 'Endereço inválido.' });
+    }
+
+    try {
+        const result = await readModbusRegisterOnDemand(id, { startAddress, quantity, fn });
+        logAudit({
+            user: req.user,
+            action: 'generator.modbus_read',
+            targetType: 'generator',
+            targetId: id,
+            details: { startAddress, quantity, fn, kind: result.classification?.kind },
+            ip: req.ip,
+        });
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        res.json(result);
+    } catch (err) {
+        console.error('Modbus on-demand read error:', err);
+        res.status(500).json({ message: 'Erro ao ler registrador.' });
+    }
 });
 
 

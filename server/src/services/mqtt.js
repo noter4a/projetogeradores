@@ -1090,6 +1090,59 @@ export function getModbusScanStatus(deviceId) {
     };
 }
 
+/**
+ * On-demand single-register read for the "Controle Avançado" tab — lets an
+ * operator inspect any address without opening the manufacturer's own
+ * software. Reuses the exact same single-shot request/response primitive as
+ * modbusScanStep (a full scan is just this called in a loop), so the same
+ * pause/resume-polling and response-classification logic already proven by
+ * the scan feature backs this too — no separate wire protocol.
+ */
+export async function readModbusRegisterOnDemand(deviceId, { startAddress, quantity = 1, fn = 3 }) {
+    const device = dr164Devices.find(d => d.id === deviceId);
+    if (!device) {
+        return { success: false, error: `Device '${deviceId}' not found in DR164 polling list` };
+    }
+    if (!client || !client.connected) {
+        return { success: false, error: 'MQTT client not connected' };
+    }
+    if (modbusScanSessions.get(deviceId)?.status === 'running') {
+        return { success: false, error: 'Uma varredura Modbus já está em andamento para este gerador. Tente novamente ao concluir.' };
+    }
+    if (!Number.isInteger(startAddress) || startAddress < 0 || startAddress > 65535) {
+        return { success: false, error: 'Endereço inválido.' };
+    }
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 32) {
+        return { success: false, error: 'Quantidade inválida (1-32).' };
+    }
+
+    pausedDevices.add(deviceId);
+    stopDR164DevicePolling(deviceId);
+    dr164ConsecutiveTimeouts.set(deviceId, 0);
+    // Minimal session stub: modbusScanStep/handleDR164BinaryResponse only need
+    // `status === 'running'` (to know to classify the response) and a place
+    // to stash `lastCapture` — a real scan session's extra bookkeeping
+    // (results array, progress counters, report file) isn't needed for one read.
+    modbusScanSessions.set(deviceId, { deviceId, status: 'running', lastCapture: null });
+
+    try {
+        const result = await modbusScanStep(device, { startAddress, quantity, fn });
+        return { success: true, ...result };
+    } finally {
+        modbusScanSessions.delete(deviceId);
+        pausedDevices.delete(deviceId);
+        dr164PendingRequests.delete(deviceId);
+        const resolver = dr164ResponseResolvers.get(deviceId);
+        if (resolver) {
+            dr164ResponseResolvers.delete(deviceId);
+            resolver('read-done');
+        }
+        if (client?.connected) {
+            startDR164DevicePolling(device);
+        }
+    }
+}
+
 // ==========================================
 // END DR164 SUPPORT
 // ==========================================
