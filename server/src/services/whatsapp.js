@@ -59,8 +59,9 @@ export const sendAlarmWhatsApp = async (phone, generatorName, alarmMessage, stat
  * Uses status 'RESOLVIDO' to indicate the alarm has been cleared.
  * @param {string} phone - Phone number with country code (e.g. 5554999999999)
  * @param {string} generatorName - Name of the generator
+ * @param {string} [message] - Description text (defaults to the generic alarm-cleared message)
  */
-export const sendAlarmResolvedWhatsApp = async (phone, generatorName) => {
+export const sendAlarmResolvedWhatsApp = async (phone, generatorName, message = 'Alarmes normalizados') => {
     if (!twilioClient) {
         console.warn('[WHATSAPP] Twilio client not initialized. Skipping WhatsApp resolved notification.');
         return;
@@ -80,18 +81,18 @@ export const sendAlarmResolvedWhatsApp = async (phone, generatorName) => {
     const fullPhone = phone.startsWith('55') ? phone : `55${phone}`;
 
     try {
-        const message = await twilioClient.messages.create({
+        const sentMessage = await twilioClient.messages.create({
             from: `whatsapp:${from}`,
             to: `whatsapp:+${fullPhone}`,
             contentSid: contentSid,
             contentVariables: JSON.stringify({
                 1: generatorName,
                 2: dateTime,
-                3: 'Alarmes normalizados',
+                3: message,
                 4: 'RESOLVIDO'
             })
         });
-        console.log(`[WHATSAPP] ✅ Resolved message sent to +${fullPhone} (SID: ${message.sid})`);
+        console.log(`[WHATSAPP] ✅ Resolved message sent to +${fullPhone} (SID: ${sentMessage.sid})`);
     } catch (err) {
         console.error(`[WHATSAPP] ❌ Failed to send resolved to +${fullPhone}:`, err.message);
     }

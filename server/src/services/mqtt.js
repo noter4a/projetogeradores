@@ -55,8 +55,8 @@ const notifyUsersAboutAlarm = async (clientPool, generatorId, generatorName, ala
 const notifyUsersAlarmResolved = async (clientPool, generatorId, generatorName) => {
     try {
         const res = await clientPool.query(
-            `SELECT u.phone, u.whatsapp_alerts FROM users u 
-             LEFT JOIN generators g ON g.company_id = u.company_id 
+            `SELECT u.phone, u.whatsapp_alerts FROM users u
+             LEFT JOIN generators g ON g.company_id = u.company_id
              WHERE (u.role = 'ADMIN' OR g.id = $1) AND u.phone IS NOT NULL AND u.whatsapp_alerts = true`,
             [generatorId]
         );
@@ -65,6 +65,47 @@ const notifyUsersAlarmResolved = async (clientPool, generatorId, generatorName) 
         }
     } catch (err) {
         console.error('[MQTT] Failed sending alarm resolved WhatsApp:', err.message);
+    }
+};
+
+// Falha/normalização de rede elétrica — WhatsApp apenas (usuário pediu especificamente
+// isso, não e-mail). Detecta via presença de tensão de rede, a mesma checagem já usada
+// no diagrama unifilar (isMainsPresent em GeneratorDetail.tsx), então funciona pra
+// qualquer controlador que meça tensão de rede (SGC120/420, AGC150, DSE, KVA...), não só
+// um. mainsFailureState guarda o último estado conhecido por gerador só em memória —
+// reinicia com o servidor, o que na pior hipótese perde 1 notificação de borda logo após
+// um deploy, não gera falso alarme recorrente.
+const mainsFailureState = new Map(); // deviceId -> boolean (true = rede presente)
+
+const notifyUsersAboutMainsFailure = async (clientPool, generatorId, generatorName) => {
+    try {
+        const res = await clientPool.query(
+            `SELECT u.phone FROM users u
+             LEFT JOIN generators g ON g.company_id = u.company_id
+             WHERE (u.role = 'ADMIN' OR g.id = $1) AND u.phone IS NOT NULL AND u.whatsapp_alerts = true`,
+            [generatorId]
+        );
+        for (const user of res.rows) {
+            await sendAlarmWhatsApp(user.phone, generatorName, 'Falha de rede elétrica (queda de energia da concessionária)', 'ATIVO');
+        }
+    } catch (err) {
+        console.error('[MQTT] Failed sending mains-failure WhatsApp:', err.message);
+    }
+};
+
+const notifyUsersMainsRestored = async (clientPool, generatorId, generatorName) => {
+    try {
+        const res = await clientPool.query(
+            `SELECT u.phone FROM users u
+             LEFT JOIN generators g ON g.company_id = u.company_id
+             WHERE (u.role = 'ADMIN' OR g.id = $1) AND u.phone IS NOT NULL AND u.whatsapp_alerts = true`,
+            [generatorId]
+        );
+        for (const user of res.rows) {
+            await sendAlarmResolvedWhatsApp(user.phone, generatorName, 'Rede elétrica normalizada');
+        }
+    } catch (err) {
+        console.error('[MQTT] Failed sending mains-restored WhatsApp:', err.message);
     }
 };
 
@@ -2133,6 +2174,52 @@ export const initMqttService = (io) => {
                     // 4. Persist to Database (So it survives refresh)
                     (async () => {
                         try {
+                            // --- MAINS FAILURE / RESTORED (WhatsApp only) ---
+                            // Mesma checagem de "rede presente" usada no diagrama unifilar
+                            // (isMainsPresent), então vale pra qualquer controlador que
+                            // meça tensão de rede — não só um. Requer pelo menos uma
+                            // leitura real (não undefined) pra evitar notificar geradores
+                            // que nunca medem tensão de rede.
+                            const mainsVoltageReadings = [
+                                mergedData.mainsVoltageL1, mergedData.mainsVoltageL2, mergedData.mainsVoltageL3,
+                                mergedData.mainsVoltageL12, mergedData.mainsVoltageL23, mergedData.mainsVoltageL31,
+                            ];
+                            const hasMainsReading = mainsVoltageReadings.some(v => v !== undefined && v !== null);
+                            if (hasMainsReading) {
+                                const mainsPresentNow = mainsVoltageReadings.some(v => (v ?? 0) > 10);
+                                const wasMainsPresent = mainsFailureState.has(deviceId)
+                                    ? mainsFailureState.get(deviceId)
+                                    : mainsPresentNow; // primeira leitura após restart: só define a base, não notifica
+                                mainsFailureState.set(deviceId, mainsPresentNow);
+
+                                const mainsTransitioned = wasMainsPresent !== mainsPresentNow;
+                                if (mainsTransitioned) {
+                                    let resolvedGenId = deviceId;
+                                    let resolvedGenName = deviceId;
+                                    try {
+                                        const resGen = await pool.query(
+                                            "SELECT id, name FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
+                                            [deviceId]
+                                        );
+                                        if (resGen.rows.length > 0) {
+                                            resolvedGenId = resGen.rows[0].id;
+                                            resolvedGenName = resGen.rows[0].name;
+                                        }
+                                    } catch (err) {
+                                        console.error('[MQTT] Failed to resolve Generator ID for mains notify:', err.message);
+                                    }
+
+                                    if (!mainsPresentNow) {
+                                        console.log(`[MQTT-MAINS] ${resolvedGenId}: falha de rede detectada`);
+                                        notifyUsersAboutMainsFailure(pool, resolvedGenId, resolvedGenName);
+                                    } else {
+                                        console.log(`[MQTT-MAINS] ${resolvedGenId}: rede normalizada`);
+                                        notifyUsersMainsRestored(pool, resolvedGenId, resolvedGenName);
+                                    }
+                                }
+                            }
+                            // --------------------------------------------------
+
                             // --- ALARM HISTORY PERSISTENCE (Robust / Self-Healing) ---
                             if (unifiedData.alarmCode !== undefined) {
                                 const newAlarm = unifiedData.alarmCode;
