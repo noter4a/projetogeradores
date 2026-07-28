@@ -1,17 +1,33 @@
 // DSE4501 / GenComm Modbus register map
 //
-// PROCEDÊNCIA (importante — leia antes de confiar em qualquer valor daqui):
+// PROCEDÊNCIA:
 //
 //   LEITURA  — os registradores de leitura (772, 1024-1073, 1408, 1536, 1558,
 //              1798-1809, 2048...) vêm de dse_registers.json, na raiz do projeto,
 //              e conferem com o que o equipamento devolve em campo. Confiáveis.
 //
-//   ESCRITA  — as DSE_CONTROL_KEYS abaixo NÃO têm fonte verificável neste projeto.
-//              O cabeçalho antigo dizia "Based on dse_registers.json", o que era
-//              falso: aquele arquivo só tem registradores de leitura, nenhuma chave
-//              de controle e nenhum 4104. Esses valores nunca foram conferidos
-//              contra a documentação GenComm real da Deep Sea.
-//              Isso não é teórico — ver o aviso em DSE_CONTROL_KEYS.
+//   ESCRITA  — as DSE_CONTROL_KEYS abaixo foram checadas em 2026-07-28 contra o
+//              GenComm.pdf (Deep Sea Electronics, "GenComm standard for use with
+//              generating set control equipment", v2.267, o protocolo oficial —
+//              não é específico de um modelo, cobre toda a família DSE Gencomm) e
+//              contra 056-051_Gencomm_Control_Keys.pdf. Os valores batem exatamente
+//              com os dois documentos: 35700=Stop, 35701=Auto, 35702=Manual,
+//              35703=Test on load, 35705=Start manual, 35706=Mute, 35707=Reset
+//              alarms, 35732=Telemetry start, 35733=Cancel telemetry start.
+//              Não foram chutados — sempre estiveram certos.
+//
+//              MAS isso não torna a troca de modo segura. O próprio GenComm.pdf
+//              (seção "Page 16 - Control Registers", nota 6) documenta:
+//              "Function codes 0 to 31 perform exactly the same function as
+//              pressing the equivalent button on the control unit." Ou seja,
+//              mandar a chave MANUAL por Modbus é idêntico a apertar o botão
+//              físico Manual no painel — e foi exatamente isso que, no Ciklo55,
+//              deu partida no motor (ver aviso em DSE_CONTROL_KEYS). A causa não
+//              é o valor do registrador; é uma condição/config do próprio gerador
+//              (DSE Configuration Suite, ou uma entrada de partida remota travada
+//              nos terminais) que faz o botão físico Manual também partir o motor
+//              nesse aparelho específico. Isso só se resolve fisicamente no painel
+//              — não tem ajuste de software que resolva.
 
 export const DSE4501_MODEL = 'DSE4501';
 
@@ -28,33 +44,40 @@ export const DSE_REG_ALARMS = 2048;
 export const DSE_REG_SCF = 4104;
 
 /**
- * ⚠️ CHAVES NÃO VERIFICADAS — NÃO CONFIE SEM CONFERIR NO MANUAL GenComm.
+ * ✅ Valores conferidos contra GenComm.pdf e 056-051_Gencomm_Control_Keys.pdf
+ * (2026-07-28) — batem exatamente. Não são chute.
  *
- * Comprovado em campo (Ciklo55, 2026-07-28): enviar MANUAL (35702) com a rede
- * sadia (382-384 V) e o controlador em AUTO (reg 772 = 1) trocou o modo
- * corretamente (reg 772 passou a 2) MAS TAMBÉM DEU PARTIDA no motor
- * (rpm 0 -> 1032 -> 1802, RUNNING) — sendo esse o único comando enviado,
- * nenhum start. Ou seja, a chave aciona o motor como efeito colateral.
+ * ⚠️ MAS AUTO e MANUAL continuam BLOQUEADOS em mqtt.js. Comprovado em campo
+ * (Ciklo55): enviar MANUAL (35702) com a rede sadia (382-384 V) e o controlador
+ * em AUTO (reg 772 = 1) trocou o modo corretamente (reg 772 passou a 2) MAS
+ * TAMBÉM DEU PARTIDA no motor (rpm 0 -> 1032 -> 1802, RUNNING) — sendo esse o
+ * único comando enviado, nenhum start.
  *
- * Por isso AUTO e MANUAL estão BLOQUEADOS em mqtt.js. Só reabilite depois de
- * conferir estes valores no manual GenComm da Deep Sea (o equivalente ao
- * A029X159 da Cummins) — chutar valor novo aqui repete exatamente o erro que
- * fez um motor partir sozinho.
+ * O GenComm.pdf documenta (Page 16, nota 6) que os function codes 0-31 fazem
+ * "exactly the same function as pressing the equivalent button on the control
+ * unit" — ou seja, essa chave equivale a apertar o botão físico Manual no
+ * painel. A causa da partida não é o valor do registrador (que está correto);
+ * é uma configuração/condição do próprio DSE4501 nesse gerador específico
+ * (DSE Configuration Suite, ou uma entrada de partida remota travada nos
+ * terminais). Só reabilite depois de checar isso fisicamente no painel —
+ * mudar o número aqui não resolve, porque o número já está certo.
  *
  * Verificado ao vivo e funcionando: TELEMETRY_STOP (parada com o cooldown
  * normal do DSE, 1802 rpm -> 44 -> parado).
- * Nunca exercitados/validados: TEST_ON_LOAD, MUTE_ALARM, TELEMETRY_START.
+ * Nunca exercitados/validados em campo (valor confere com a doc, mas o
+ * comportamento real no equipamento não foi testado): TEST_ON_LOAD,
+ * MUTE_ALARM, TELEMETRY_START.
  */
 export const DSE_CONTROL_KEYS = {
-    STOP: 35700,           // não verificado
-    AUTO: 35701,           // não verificado — BLOQUEADO em mqtt.js
-    MANUAL: 35702,         // NÃO VERIFICADO — dá partida no motor. BLOQUEADO.
-    TEST_ON_LOAD: 35703,   // não verificado — nunca usado pela UI
-    START_MANUAL: 35705,   // não verificado
-    MUTE_ALARM: 35706,     // não verificado — nunca usado pela UI
-    RESET_ALARMS: 35707,   // não verificado
-    TELEMETRY_START: 35732, // não verificado
-    TELEMETRY_STOP: 35733,  // verificado ao vivo: para o motor corretamente
+    STOP: 35700,
+    AUTO: 35701,            // valor correto — BLOQUEADO em mqtt.js (ver acima)
+    MANUAL: 35702,           // valor correto — dá partida no motor. BLOQUEADO.
+    TEST_ON_LOAD: 35703,     // valor correto, nunca usado pela UI
+    START_MANUAL: 35705,
+    MUTE_ALARM: 35706,       // valor correto, nunca usado pela UI
+    RESET_ALARMS: 35707,
+    TELEMETRY_START: 35732,
+    TELEMETRY_STOP: 35733,   // verificado ao vivo: para o motor corretamente
 };
 
 /** GenComm control mode values (register 772) */

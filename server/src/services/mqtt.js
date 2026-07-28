@@ -2843,21 +2843,27 @@ export const sendControlCommand = (deviceId, action) => {
                 // -> 1802, RUNNING). Ou seja, essa chave aciona o motor como efeito
                 // colateral, sem qualquer aviso ao operador.
                 //
-                // A raiz do problema é que estas chaves (35700-35733) NÃO têm fonte
-                // verificável no projeto: o cabeçalho de dse4501-map.js cita
-                // dse_registers.json, mas aquele arquivo só contém registradores de
-                // LEITURA — nenhuma chave de controle, nenhum 4104. Os valores de
-                // escrita nunca foram conferidos contra a documentação GenComm real.
+                // NÃO é valor errado: conferido em 2026-07-28 contra o GenComm.pdf
+                // (protocolo oficial Deep Sea, não específico de modelo) e contra
+                // 056-051_Gencomm_Control_Keys.pdf — 35700-35733 batem exatamente
+                // (ver comentário completo em dse4501-map.js). O próprio GenComm.pdf
+                // diz (Page 16, nota 6) que os function codes 0-31 fazem "exactly
+                // the same function as pressing the equivalent button on the
+                // control unit" — ou seja, mandar MANUAL por Modbus equivale a
+                // apertar o botão físico Manual no painel. A partida é uma
+                // configuração/condição do próprio gerador (DSE Configuration
+                // Suite, ou entrada de partida remota travada), não um bug de
+                // registrador — e só se resolve fisicamente no painel.
                 //
                 // Partida/parada seguem liberadas (a parada foi verificada ao vivo:
                 // 1802 rpm -> 44 -> parado, com o cooldown normal do DSE). Só a troca
-                // de modo está bloqueada até as chaves serem conferidas no manual
-                // GenComm da Deep Sea. NÃO reabilitar sem essa verificação.
+                // de modo está bloqueada até alguém checar no painel físico por que
+                // entrar em Manual dá partida. NÃO reabilitar sem checar isso lá.
                 if (action === 'auto' || action === 'manual') {
-                    console.warn(`[DSE-CMD] BLOQUEADO: '${action}' em ${deviceId} — chave de modo não verificada (dá partida no motor).`);
+                    console.warn(`[DSE-CMD] BLOQUEADO: '${action}' em ${deviceId} — entrar nesse modo dá partida no motor (comportamento do próprio gerador, não do Modbus).`);
                     return {
                         success: false,
-                        error: 'Troca de modo desabilitada neste controlador DSE: o comando não está verificado e pode dar partida no motor. Altere o modo no painel do gerador.'
+                        error: 'Troca de modo desabilitada neste controlador DSE: entrar nesse modo dá partida no motor sem aviso (comportamento do próprio gerador). Altere o modo no painel físico.'
                     };
                 }
 
