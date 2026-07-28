@@ -8,7 +8,7 @@ import { normalizeSearch as normalize } from '../utils/formatters';
 
 const UserManagement: React.FC = () => {
   const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();
-  const { user: currentUser, token } = useAuth();
+  const { user: currentUser } = useAuth();
   const { generators } = useGenerators();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -16,15 +16,14 @@ const UserManagement: React.FC = () => {
 
   // Fetch Companies list
   useEffect(() => {
-    if (token) {
-      fetch('/api/companies', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+    if (currentUser) {
+      // Cookie httpOnly autentica sozinho — sem token manual.
+      fetch('/api/companies')
         .then(res => res.json())
         .then(data => setCompanies(data))
         .catch(err => console.error('Error fetching companies:', err));
     }
-  }, [token]);
+  }, [currentUser]);
 
   // Filters
   const [search, setSearch] = useState('');

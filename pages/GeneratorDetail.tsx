@@ -290,10 +290,8 @@ const GeneratorDetail: React.FC = () => {
   useEffect(() => {
     if (activeTab !== 'modbus' || !id || refRegisters.length > 0) return;
     setRefLoading(true);
-    const token = localStorage.getItem('ciklo_auth_token');
-    fetch(`/api/generators/${id}/modbus-registers`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    // Cookie httpOnly autentica sozinho — sem token manual.
+    fetch(`/api/generators/${id}/modbus-registers`)
       .then(res => res.json())
       .then(data => setRefRegisters(data.registers || []))
       .catch(() => setRefRegisters([]))
@@ -433,10 +431,8 @@ const GeneratorDetail: React.FC = () => {
     if (!id) return;
     setChartLoading(true);
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
-      const res = await fetch(`/api/generators/${id}/readings?range=${chartRange}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // Cookie httpOnly autentica sozinho — sem token manual.
+      const res = await fetch(`/api/generators/${id}/readings?range=${chartRange}`);
       if (res.ok) {
         const data = await res.json();
         const formatted = data.map((row: any) => {
@@ -647,13 +643,10 @@ const GeneratorDetail: React.FC = () => {
     const targetId = gen.ip || gen.id;
 
     // Use HTTP API (Relative path works for both Dev Proxy and Nginx Prod)
-    const token = localStorage.getItem('ciklo_auth_token');
+    // Cookie httpOnly autentica sozinho — sem token manual.
     fetch('/api/control', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ generatorId: targetId, action })
     })
       .then(res => {
@@ -697,11 +690,10 @@ const GeneratorDetail: React.FC = () => {
     // Optimistic UI update
     setGen(prev => (prev ? { ...prev, pollingPaused: nextPaused } : prev));
 
-    const token = localStorage.getItem('ciklo_auth_token');
     try {
       const res = await fetch(`/api/generators/${encodeURIComponent(gen.id)}/polling`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paused: nextPaused }),
       });
       const data = await res.json().catch(() => ({}));
@@ -734,14 +726,14 @@ const GeneratorDetail: React.FC = () => {
     }
     setModbusRegisters(prev => prev.map(r => r.id === registerId ? { ...r, reading: true, error: undefined } : r));
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
       // Mesmo padrão do controle remoto: gen.ip é o identificador usado pelo
       // polling (ex: "Ciklo55"); gen.id (GEN-xxx) é só a chave do banco. O
       // backend já resolve os dois, mas mandar o certo evita ambiguidade.
+      // Cookie httpOnly autentica sozinho — sem token manual.
       const targetId = gen!.ip || gen!.id;
       const res = await fetch(`/api/generators/${targetId}/modbus-read`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ startAddress: addr, quantity: 1, fn: 3 }),
       });
       const data = await res.json();

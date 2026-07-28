@@ -55,18 +55,16 @@ const NewProposal: React.FC = () => {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const token = localStorage.getItem('ciklo_auth_token');
-        const headers = { 'Authorization': `Bearer ${token}` };
-
+        // Cookie httpOnly autentica sozinho — sem token manual.
         const [resClients, resGen, resMot, resAlt, resMod, resAcc, resDim, resTen] = await Promise.all([
-          fetch('/api/crm', { headers }),
-          fetch('/api/catalog/geradores', { headers }),
-          fetch('/api/catalog/motores', { headers }),
-          fetch('/api/catalog/alternadores', { headers }),
-          fetch('/api/catalog/modulos', { headers }),
-          fetch('/api/catalog/acessorios', { headers }),
-          fetch('/api/catalog/dimensoes', { headers }),
-          fetch('/api/catalog/tensoes', { headers })
+          fetch('/api/crm'),
+          fetch('/api/catalog/geradores'),
+          fetch('/api/catalog/motores'),
+          fetch('/api/catalog/alternadores'),
+          fetch('/api/catalog/modulos'),
+          fetch('/api/catalog/acessorios'),
+          fetch('/api/catalog/dimensoes'),
+          fetch('/api/catalog/tensoes')
         ]);
 
         if (resClients.ok) setClients(await resClients.json());
@@ -80,7 +78,7 @@ const NewProposal: React.FC = () => {
 
         // Load existing proposal for edit mode
         if (editId) {
-          const resProp = await fetch(`/api/proposals/${editId}`, { headers });
+          const resProp = await fetch(`/api/proposals/${editId}`);
           if (resProp.ok) {
             const prop = await resProp.json();
             setClientId(prop.cliente_id ? String(prop.cliente_id) : '');
@@ -157,8 +155,6 @@ const NewProposal: React.FC = () => {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
-      
       const hoje = new Date();
       hoje.setDate(hoje.getDate() + validadeDias);
 
@@ -186,10 +182,7 @@ const NewProposal: React.FC = () => {
       const method = isEditMode ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 

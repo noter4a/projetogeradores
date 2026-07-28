@@ -29,7 +29,12 @@ export const useGenerators = () => {
 };
 
 export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
-  const { token } = useAuth();
+  // "Estou logado?" agora se checa por `user` (restaurado do cookie httpOnly
+  // no bootstrap do AuthContext), não por `token` — token só existe em
+  // memória durante a aba atual, fica null de novo a cada F5, mesmo com a
+  // sessão real ainda válida. Cookie autentica os fetches sozinho, sem
+  // header manual.
+  const { user } = useAuth();
   const [generators, setGenerators] = useState<Generator[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSocketConnected, setIsSocketConnected] = useState(true);
@@ -42,15 +47,13 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
   }, []);
 
   const fetchGenerators = useCallback(async () => {
-    if (!token) {
+    if (!user) {
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     try {
-      const res = await fetch('/api/generators', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch('/api/generators');
       if (res.ok) {
         const data = await res.json();
         setGenerators(data);
@@ -62,17 +65,20 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [user]);
 
   useEffect(() => {
     fetchGenerators();
   }, [fetchGenerators]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!user) return;
 
+    // Cookie httpOnly vai junto automaticamente no handshake (mesma origem) —
+    // servidor lê e valida em io.use (server/src/index.js). Sem auth.token
+    // manual, então nada de token pra vazar por aqui.
     socket = io({
-      auth: { token },
+      withCredentials: true,
     });
 
     const onConnect = () => setIsSocketConnected(true);
@@ -123,19 +129,16 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
       socket = null;
       setIsSocketConnected(false);
     };
-  }, [token, fetchGenerators]);
+  }, [user, fetchGenerators]);
 
   const addGenerator = useCallback(
     async (gen: Generator) => {
-      if (!token) return;
+      if (!user) return;
       setGenerators(prev => [...prev, gen]);
       try {
         const res = await fetch('/api/generators', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(gen),
         });
         if (!res.ok) {
@@ -145,43 +148,37 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
         console.error('Failed to save generator:', error);
       }
     },
-    [token]
+    [user]
   );
 
   const removeGenerator = useCallback(
     async (id: string) => {
-      if (!token) return;
+      if (!user) return;
       setGenerators(prev => prev.filter(g => g.id !== id));
       try {
-        await fetch(`/api/generators/${id}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await fetch(`/api/generators/${id}`, { method: 'DELETE' });
       } catch (error) {
         console.error('Failed to delete generator:', error);
       }
     },
-    [token]
+    [user]
   );
 
   const updateGenerator = useCallback(
     async (updatedGen: Generator) => {
-      if (!token) return;
+      if (!user) return;
       setGenerators(prev => prev.map(g => (g.id === updatedGen.id ? updatedGen : g)));
       try {
         await fetch(`/api/generators/${updatedGen.id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedGen),
         });
       } catch (error) {
         console.error('Failed to update generator:', error);
       }
     },
-    [token]
+    [user]
   );
 
   // Present disconnected units with zeroed instantaneous values (non-destructive;

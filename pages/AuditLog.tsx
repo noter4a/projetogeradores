@@ -58,10 +58,8 @@ const AuditLog: React.FC = () => {
   const fetchLog = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
-      const res = await fetch(`/api/audit?page=${page}&limit=20${action ? `&action=${encodeURIComponent(action)}` : ''}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Cookie httpOnly autentica sozinho — sem token de localStorage.
+      const res = await fetch(`/api/audit?page=${page}&limit=20${action ? `&action=${encodeURIComponent(action)}` : ''}`);
       if (res.ok) {
         const data = await res.json();
         setEntries(data.entries);

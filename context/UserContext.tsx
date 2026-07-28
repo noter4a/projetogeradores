@@ -23,13 +23,13 @@ export const useUsers = () => {
 };
 
 export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
-  const { token, user: currentUser } = useAuth();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
-    if (!token || currentUser?.role !== UserRole.ADMIN) {
+    if (currentUser?.role !== UserRole.ADMIN) {
       setUsers([]);
       return;
     }
@@ -37,9 +37,8 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // Cookie httpOnly autentica sozinho — sem token manual.
+      const response = await fetch('/api/users');
       if (response.ok) {
         const data = await response.json();
         console.log('Users fetched:', data); // Debug log
@@ -55,7 +54,7 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
     } finally {
       setLoading(false);
     }
-  }, [token, currentUser]);
+  }, [currentUser]);
 
   // Initial Fetch
   useEffect(() => {
@@ -63,13 +62,12 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
   }, [fetchUsers]);
 
   const addUser = useCallback(async (user: User) => {
-    if (!token) return;
+    if (!currentUser) return;
     try {
       await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           name: user.name,
@@ -87,29 +85,25 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
     } catch (error) {
       console.error('Error adding user:', error);
     }
-  }, [token, fetchUsers]);
+  }, [currentUser, fetchUsers]);
 
   const removeUser = useCallback(async (id: string) => {
-    if (!token) return;
+    if (!currentUser) return;
     try {
-      await fetch(`/api/users/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      await fetch(`/api/users/${id}`, { method: 'DELETE' });
       await fetchUsers(); // Refresh list
     } catch (error) {
       console.error('Error removing user:', error);
     }
-  }, [token, fetchUsers]);
+  }, [currentUser, fetchUsers]);
 
   const updateUser = useCallback(async (updatedUser: User) => {
-    if (!token) return;
+    if (!currentUser) return;
     try {
       await fetch(`/api/users/${updatedUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           name: updatedUser.name,
@@ -133,7 +127,7 @@ export const UserProvider = ({ children }: PropsWithChildren<{}>) => {
     } catch (error) {
       console.error('Error updating user:', error);
     }
-  }, [token, fetchUsers]);
+  }, [currentUser, fetchUsers]);
 
   return (
     <UserContext.Provider value={{

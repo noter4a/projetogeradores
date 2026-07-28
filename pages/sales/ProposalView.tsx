@@ -13,10 +13,8 @@ const ProposalView: React.FC = () => {
   useEffect(() => {
     const fetchProposal = async () => {
       try {
-        const token = localStorage.getItem('ciklo_auth_token');
-        const res = await fetch(`/api/proposals/${id}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // Cookie httpOnly autentica sozinho — sem token manual.
+        const res = await fetch(`/api/proposals/${id}`);
         if (res.ok) {
           setProposal(await res.json());
         } else {

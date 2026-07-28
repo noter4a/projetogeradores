@@ -10,6 +10,9 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isSyncing: boolean;
+  /** true até a primeira checagem de sessão (via cookie) terminar — evita um
+   *  flash de redirect pro /login logo após F5, antes do cookie ser validado. */
+  isBootstrapping: boolean;
   login: (email: string, password: string) => Promise<LoginResult>;
   verifyTwoFactor: (challengeId: string, code: string) => Promise<User>;
   logout: () => void;
@@ -27,22 +30,19 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
-  // Initialize state from localStorage if available
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const savedUser = localStorage.getItem('ciklo_auth_user');
-      return savedUser ? JSON.parse(savedUser) : null;
-    } catch (error) {
-      console.error("Failed to restore auth session", error);
-      return null;
-    }
-  });
-
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('ciklo_auth_token');
-  });
+  // SECURITY FIX (pentest VUL-02): o token deixou de ser persistido em
+  // localStorage — qualquer XSS na página conseguia ler e roubar a sessão
+  // permanentemente de lá. Agora a sessão real vive num cookie httpOnly
+  // (setado pelo backend no login/2FA), que o JS nem consegue ler. `user` e
+  // `token` aqui existem só em memória (perdem-se ao recarregar a página de
+  // propósito) — o efeito de sincronização abaixo restaura `user` a partir
+  // do cookie via GET /api/auth/profile logo no mount, então um F5 não
+  // desloga ninguém, só não expõe mais nada gravável em disco pelo navegador.
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
 
   const login = async (email: string, password: string) => {
     try {
@@ -66,11 +66,11 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
         return { requires2FA: true, challengeId: data.challengeId, email: data.email };
       }
 
+      // O backend já setou o cookie httpOnly de sessão nesta mesma resposta
+      // (Set-Cookie) — nada pra persistir manualmente aqui.
       const { user, token } = data;
       setUser(user);
       setToken(token);
-      localStorage.setItem('ciklo_auth_user', JSON.stringify(user));
-      localStorage.setItem('ciklo_auth_token', token);
       return { user };
 
     } catch (error) {
@@ -89,23 +89,22 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
       const err = await response.json();
       throw new Error(err.message || 'Código inválido');
     }
+    // Cookie httpOnly já setado nesta resposta — nada pra persistir aqui.
     const { user, token } = await response.json();
     setUser(user);
     setToken(token);
-    localStorage.setItem('ciklo_auth_user', JSON.stringify(user));
-    localStorage.setItem('ciklo_auth_token', token);
     return user;
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
-    try {
-      localStorage.removeItem('ciklo_auth_user');
-      localStorage.removeItem('ciklo_auth_token');
-    } catch (error) {
-      console.error("Failed to clear auth session", error);
-    }
+    // Cookie é httpOnly — JS não consegue apagá-lo sozinho, precisa de um
+    // endpoint dedicado no backend pra limpar. Fire-and-forget: mesmo que a
+    // chamada falhe (rede fora do ar etc.), já limpamos o estado local acima.
+    fetch('/api/auth/logout', { method: 'POST' }).catch(err => {
+      console.error('Failed to clear session cookie on logout', err);
+    });
   };
 
   const updateProfile = async (data: { name?: string; phone?: string; currentPassword?: string; newPassword?: string }) => {
@@ -114,7 +113,6 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(data),
       });
@@ -126,7 +124,6 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
 
       const updatedUser = await response.json();
       setUser(updatedUser);
-      localStorage.setItem('ciklo_auth_user', JSON.stringify(updatedUser));
     } catch (error) {
       console.error('Profile update failed', error);
       throw error;
@@ -139,27 +136,27 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
     currentUserRef.current = user;
   }, [user]);
 
-  // Synchronize current profile in the background dynamically
+  // Bootstrap da sessão + sincronização periódica. Roda incondicionalmente no
+  // mount (não depende mais de `token` em memória, que começa null a cada F5)
+  // — o cookie httpOnly é enviado automaticamente pelo navegador, então essa
+  // mesma chamada já serve tanto para restaurar a sessão após recarregar a
+  // página quanto para o polling de permissões que já existia. Se não houver
+  // cookie válido, cai no 401 abaixo e `logout()` só confirma o estado
+  // deslogado (idempotente).
   useEffect(() => {
-    if (!token) return;
-
     const syncProfile = async () => {
       try {
-        const response = await fetch('/api/auth/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        const response = await fetch('/api/auth/profile');
 
         if (response.status === 401 || response.status === 403 || response.status === 404) {
-          // Token expired or invalid, or user was deleted by admin -> logout
+          // Sem sessão válida, token expirado, ou usuário removido pelo admin
           logout();
           return;
         }
 
         if (response.ok) {
           const updatedUser = await response.json();
-          
+
           const current = currentUserRef.current;
           // Verify if any permission or role changed
           const permissionChanged = !current ||
@@ -180,29 +177,31 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             setIsSyncing(true);
             setTimeout(() => {
               setUser(updatedUser);
-              localStorage.setItem('ciklo_auth_user', JSON.stringify(updatedUser));
               setIsSyncing(false);
             }, 800);
           } else if (creditsChanged) {
             setUser(updatedUser);
-            localStorage.setItem('ciklo_auth_user', JSON.stringify(updatedUser));
           }
         }
       } catch (err) {
         console.error('Failed to sync profile in background:', err);
+      } finally {
+        // Só importa na primeira chamada (mount) — nas seguintes já é false,
+        // setar de novo é inofensivo.
+        setIsBootstrapping(false);
       }
     };
 
-    // Run once on mount / token change
+    // Roda uma vez no mount (restaura a sessão a partir do cookie, se houver)
     syncProfile();
 
     // Poll every 60 seconds for real-time authorization changes
     const interval = setInterval(syncProfile, 60000);
     return () => clearInterval(interval);
-  }, [token]);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isSyncing, login, verifyTwoFactor, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, token, isSyncing, isBootstrapping, login, verifyTwoFactor, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -13,10 +13,8 @@ const Proposals: React.FC = () => {
 
   const fetchProposals = async () => {
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
-      const res = await fetch('/api/proposals', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // Cookie httpOnly autentica sozinho — sem token manual.
+      const res = await fetch('/api/proposals');
       if (res.ok) {
         const data = await res.json();
         setProposals(data);
@@ -33,11 +31,7 @@ const Proposals: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm('Tem certeza que deseja excluir esta proposta?')) return;
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
-      const res = await fetch(`/api/proposals/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(`/api/proposals/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchProposals();
       } else {

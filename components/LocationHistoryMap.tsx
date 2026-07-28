@@ -46,10 +46,8 @@ const LocationHistoryMap: React.FC<Props> = ({ generatorId, currentLat, currentL
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('ciklo_auth_token');
-        const res = await fetch(`/api/generators/${generatorId}/location-history`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // Cookie httpOnly autentica sozinho — sem token de localStorage.
+        const res = await fetch(`/api/generators/${generatorId}/location-history`);
         if (!res.ok) throw new Error('Falha ao carregar histórico');
         const data = await res.json();
         if (!cancelled) setPoints(data);

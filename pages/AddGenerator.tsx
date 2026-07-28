@@ -26,7 +26,7 @@ const AddGenerator: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // Get ID from URL if editing
   const { addGenerator, updateGenerator, generators } = useGenerators();
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -56,15 +56,14 @@ const AddGenerator: React.FC = () => {
 
   // Fetch companies list
   useEffect(() => {
-    if (token) {
-      fetch('/api/companies', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+    if (user) {
+      // Cookie httpOnly autentica sozinho — sem token manual.
+      fetch('/api/companies')
         .then(res => res.json())
         .then(data => setCompanies(data))
         .catch(err => console.error('Error fetching companies in AddGenerator:', err));
     }
-  }, [token]);
+  }, [user]);
 
   // Reset hydration flag when switching to a different generator
   useEffect(() => {

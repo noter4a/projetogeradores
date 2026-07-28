@@ -45,8 +45,19 @@ const hasCredits = (user: { role: UserRole; companyCredits?: number | null } | n
   return user.companyCredits > 0;
 };
 
+// Sessão agora é validada via cookie httpOnly de forma assíncrona no mount
+// (ver isBootstrapping em AuthContext) — sem isso, todo F5 numa sessão já
+// logada mostraria um flash de redirect pro /login antes do cookie ser
+// confirmado. Uma tela em branco por uma fração de segundo é preferível.
+const AuthBootstrapping = () => (
+  <div className="flex items-center justify-center h-screen bg-ciklo-black">
+    <div className="w-10 h-10 border-4 border-ciklo-orange/20 border-t-ciklo-orange rounded-full animate-spin" />
+  </div>
+);
+
 const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
-  const { user } = useAuth();
+  const { user, isBootstrapping } = useAuth();
+  if (isBootstrapping) return <AuthBootstrapping />;
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -59,7 +70,8 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
 };
 
 const NoCreditsRoute = ({ children }: { children?: React.ReactNode }) => {
-  const { user } = useAuth();
+  const { user, isBootstrapping } = useAuth();
+  if (isBootstrapping) return <AuthBootstrapping />;
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -70,7 +82,8 @@ const NoCreditsRoute = ({ children }: { children?: React.ReactNode }) => {
 };
 
 const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
-  const { user } = useAuth();
+  const { user, isBootstrapping } = useAuth();
+  if (isBootstrapping) return <AuthBootstrapping />;
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -84,7 +97,8 @@ const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
 };
 
 const SalesRoute = ({ children }: { children?: React.ReactNode }) => {
-  const { user } = useAuth();
+  const { user, isBootstrapping } = useAuth();
+  if (isBootstrapping) return <AuthBootstrapping />;
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -102,7 +116,8 @@ const SalesRoute = ({ children }: { children?: React.ReactNode }) => {
 };
 
 const MonitoringRoute = ({ children }: { children?: React.ReactNode }) => {
-  const { user } = useAuth();
+  const { user, isBootstrapping } = useAuth();
+  if (isBootstrapping) return <AuthBootstrapping />;
 
   if (!user) {
     return <Navigate to="/login" replace />;

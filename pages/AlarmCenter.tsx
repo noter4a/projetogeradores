@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, CheckCircle, Trash2, ShieldAlert, AlertTriangle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { useSearchParams } from 'react-router-dom';
 import { AlarmRecord } from '../types';
 import { formatDuration } from '../utils/formatters';
 
 const AlarmCenter: React.FC = () => {
-    const { token } = useAuth();
     const { generators } = useGenerators();
     const [searchParams, setSearchParams] = useSearchParams();
     const generatorIdFilter = searchParams.get('generatorId');
@@ -29,9 +27,8 @@ const AlarmCenter: React.FC = () => {
         if (generatorIdFilter) params.set('generatorId', generatorIdFilter);
         if (params.toString()) url += '?' + params.toString();
 
-        fetch(url, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
+        // Cookie httpOnly autentica sozinho — sem token manual.
+        fetch(url)
             .then(res => res.json())
             .then(data => {
                 setAlarms(Array.isArray(data) ? data : []);
@@ -52,7 +49,7 @@ const AlarmCenter: React.FC = () => {
         await fetch('/api/alarms/clear', {
             method: 'POST',
             body: JSON.stringify({}),
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+            headers: { 'Content-Type': 'application/json' }
         });
         fetchHistory();
     };
@@ -62,23 +59,20 @@ const AlarmCenter: React.FC = () => {
         await fetch('/api/alarms/clear', {
             method: 'POST',
             body: JSON.stringify({ clearAll: true }),
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+            headers: { 'Content-Type': 'application/json' }
         });
         fetchHistory();
     };
 
     const handleDelete = async (id: number) => {
-        await fetch(`/api/alarms/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        await fetch(`/api/alarms/${id}`, { method: 'DELETE' });
         setAlarms(prev => prev.filter(a => a.id !== id));
     };
 
     const handleAck = async (id: number) => {
         await fetch(`/api/alarms/${id}/ack`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+            headers: { 'Content-Type': 'application/json' }
         });
         fetchHistory();
     };

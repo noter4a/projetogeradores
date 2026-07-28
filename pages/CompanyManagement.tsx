@@ -5,7 +5,7 @@ import { Company } from '../types';
 import { Building, Plus, Trash2, Edit, Check, X, FolderPlus, Server, CreditCard } from 'lucide-react';
 
 const CompanyManagement: React.FC = () => {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const { generators } = useGenerators();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
@@ -23,13 +23,12 @@ const CompanyManagement: React.FC = () => {
   const [creditsSaving, setCreditsSaving] = useState(false);
 
   const fetchCompanies = async () => {
-    if (!token) return;
+    if (!user) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/companies', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Cookie httpOnly autentica sozinho — sem token manual.
+      const res = await fetch('/api/companies');
       if (res.ok) {
         const data = await res.json();
         setCompanies(data);
@@ -47,7 +46,7 @@ const CompanyManagement: React.FC = () => {
 
   useEffect(() => {
     fetchCompanies();
-  }, [token]);
+  }, [user]);
 
   const handleOpenAdd = () => {
     setEditingId(null);
@@ -81,7 +80,7 @@ const CompanyManagement: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName.trim() || !token) return;
+    if (!companyName.trim() || !user) return;
 
     setLoading(true);
     setError(null);
@@ -92,9 +91,8 @@ const CompanyManagement: React.FC = () => {
         method,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           name: companyName.trim(),
           generatorIds: selectedGeneratorIds
         }),
@@ -126,7 +124,7 @@ const CompanyManagement: React.FC = () => {
   // amount > 0 adiciona, amount < 0 remove. O modal permanece aberto e o saldo
   // é atualizado ao vivo com o retorno do servidor, para permitir vários ajustes.
   const handleAddCredits = async (amount: number) => {
-    if (!creditsTarget || !token || !Number.isFinite(amount) || amount === 0) return;
+    if (!creditsTarget || !user || !Number.isFinite(amount) || amount === 0) return;
     setCreditsSaving(true);
     setError(null);
     try {
@@ -134,7 +132,6 @@ const CompanyManagement: React.FC = () => {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ amount }),
       });
@@ -155,15 +152,12 @@ const CompanyManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Deseja realmente remover esta empresa? Isso removerá o vínculo de todos os usuários e geradores associados a ela.') || !token) return;
+    if (!confirm('Deseja realmente remover esta empresa? Isso removerá o vínculo de todos os usuários e geradores associados a ela.') || !user) return;
 
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/companies/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`/api/companies/${id}`, { method: 'DELETE' });
       if (res.ok) {
         await fetchCompanies();
       } else {

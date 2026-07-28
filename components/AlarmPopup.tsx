@@ -20,7 +20,7 @@ interface AlarmPopupProps {
 }
 
 const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const { generators } = useGenerators();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -29,14 +29,13 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
   const [minimized, setMinimized] = useState(false);
 
   const fetchAlarms = useCallback(() => {
-    if (!token) return;
+    if (!user) return;
     const url = generatorId
       ? `/api/alarms?generatorId=${generatorId}&activeOnly=unacknowledged`
       : `/api/alarms?activeOnly=unacknowledged`;
 
-    fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    // Cookie httpOnly autentica sozinho — sem token manual.
+    fetch(url)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -45,7 +44,7 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
         }
       })
       .catch(err => console.error('Failed to fetch alarms', err));
-  }, [generatorId, token]);
+  }, [generatorId, user]);
 
   useEffect(() => {
     fetchAlarms();
@@ -71,7 +70,7 @@ const AlarmPopup: React.FC<AlarmPopupProps> = ({ generatorId }) => {
     try {
       await fetch(`/api/alarms/${alarmId}/ack`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
       });
       setAlarms(prev => prev.filter(a => a.id !== alarmId));
     } catch (err) {

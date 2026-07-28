@@ -49,11 +49,9 @@ const Catalog: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
       const tabRoute = activeTab === 'tensoes_cat' ? 'tensoes' : activeTab;
-      const res = await fetch(`/api/catalog/${tabRoute}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // Cookie httpOnly autentica sozinho — sem token manual.
+      const res = await fetch(`/api/catalog/${tabRoute}`);
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -85,12 +83,8 @@ const Catalog: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm(`Tem certeza que deseja excluir?`)) return;
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
       const tabRoute = activeTab === 'tensoes_cat' ? 'tensoes' : activeTab;
-      const res = await fetch(`/api/catalog/${tabRoute}/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(`/api/catalog/${tabRoute}/${id}`, { method: 'DELETE' });
       if (res.ok) {
         fetchData();
       } else {
@@ -104,15 +98,11 @@ const Catalog: React.FC = () => {
 
   const handleDuplicate = async (item: any) => {
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
       const tabRoute = activeTab === 'tensoes_cat' ? 'tensoes' : activeTab;
       const { id, created_at, updated_at, ...payload } = item;
       const res = await fetch(`/api/catalog/${tabRoute}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       if (res.ok) {
@@ -129,19 +119,15 @@ const Catalog: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('ciklo_auth_token');
       const method = editingId ? 'PUT' : 'POST';
       const tabRoute = activeTab === 'tensoes_cat' ? 'tensoes' : activeTab;
       const url = editingId ? `/api/catalog/${tabRoute}/${editingId}` : `/api/catalog/${tabRoute}`;
-      
+
       const payload: any = { ...formData };
-      
+
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
