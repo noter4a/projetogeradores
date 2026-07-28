@@ -2180,9 +2180,13 @@ export const initMqttService = (io) => {
                             // meça tensão de rede — não só um. Requer pelo menos uma
                             // leitura real (não undefined) pra evitar notificar geradores
                             // que nunca medem tensão de rede.
+                            // mergedData é local ao try block anterior (já fechado aqui) —
+                            // usa o estado já persistido em currentGeneratorsState, que tem
+                            // os mesmos valores mesclados.
+                            const persistedMainsData = currentGeneratorsState[deviceId]?.data || {};
                             const mainsVoltageReadings = [
-                                mergedData.mainsVoltageL1, mergedData.mainsVoltageL2, mergedData.mainsVoltageL3,
-                                mergedData.mainsVoltageL12, mergedData.mainsVoltageL23, mergedData.mainsVoltageL31,
+                                persistedMainsData.mainsVoltageL1, persistedMainsData.mainsVoltageL2, persistedMainsData.mainsVoltageL3,
+                                persistedMainsData.mainsVoltageL12, persistedMainsData.mainsVoltageL23, persistedMainsData.mainsVoltageL31,
                             ];
                             const hasMainsReading = mainsVoltageReadings.some(v => v !== undefined && v !== null);
                             if (hasMainsReading) {
