@@ -44,18 +44,18 @@ const Reports: React.FC = () => {
               <AreaChart data={dataPower}>
                 <defs>
                   <linearGradient id="colorKw" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FACC15" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#FACC15" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#D9A54A" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#D9A54A" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                 <XAxis dataKey="time" stroke="#666" />
                 <YAxis stroke="#666" />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#1E1E1E', borderColor: '#333' }}
-                  itemStyle={{ color: '#FACC15' }}
+                  contentStyle={{ backgroundColor: '#211D19', borderColor: '#333' }}
+                  itemStyle={{ color: '#D9A54A' }}
                 />
-                <Area type="monotone" dataKey="kw" stroke="#FACC15" fillOpacity={1} fill="url(#colorKw)" />
+                <Area type="monotone" dataKey="kw" stroke="#D9A54A" fillOpacity={1} fill="url(#colorKw)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -72,10 +72,10 @@ const Reports: React.FC = () => {
                 <YAxis stroke="#666" />
                 <Tooltip 
                   cursor={{fill: 'transparent'}}
-                  contentStyle={{ backgroundColor: '#1E1E1E', borderColor: '#333' }}
+                  contentStyle={{ backgroundColor: '#211D19', borderColor: '#333' }}
                 />
                 <Legend />
-                <Bar dataKey="l" name="Litros" fill="#F97316" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="l" name="Litros" fill="#E06B34" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

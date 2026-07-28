@@ -969,8 +969,8 @@ const GeneratorDetail: React.FC = () => {
                   </g>
 
                   <g transform="translate(200, 55)">
-                    <rect x="0" y="0" width="100" height="50" rx="4" fill="#1f2937" stroke={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#374151"} strokeWidth="3" />
-                    <text x="50" y="30" textAnchor="middle" fill={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#6b7280"} fontSize="14" fontWeight="bold" letterSpacing="2">CARGA</text>
+                    <rect x="0" y="0" width="100" height="50" rx="4" fill="#1f2937" stroke={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#E06B34" : "#374151"} strokeWidth="3" />
+                    <text x="50" y="30" textAnchor="middle" fill={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#E06B34" : "#6b7280"} fontSize="14" fontWeight="bold" letterSpacing="2">CARGA</text>
                   </g>
 
                   <g
@@ -1495,9 +1495,9 @@ const GeneratorDetail: React.FC = () => {
               >
                 <defs>
                   <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
-                    <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#D9A54A" stopOpacity={0.4} />
+                    <stop offset="50%" stopColor="#D9A54A" stopOpacity={0.1} />
+                    <stop offset="95%" stopColor="#D9A54A" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
@@ -1528,7 +1528,7 @@ const GeneratorDetail: React.FC = () => {
                     padding: '12px 16px',
                   }}
                   labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
-                  itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
+                  itemStyle={{ color: '#D9A54A', fontWeight: 'bold', fontSize: 14 }}
                   formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
                 />
                 <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
@@ -1536,21 +1536,21 @@ const GeneratorDetail: React.FC = () => {
                   <ReferenceArea
                     x1={selectionX1}
                     x2={selectionX2}
-                    stroke="#FACC15"
+                    stroke="#D9A54A"
                     strokeOpacity={0.9}
-                    fill="#FACC15"
+                    fill="#D9A54A"
                     fillOpacity={0.2}
                   />
                 )}
                 <Area
                   type="monotone"
                   dataKey="power"
-                  stroke="#FACC15"
+                  stroke="#D9A54A"
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#colorPowerLive)"
                   dot={false}
-                  activeDot={chartTooltipVisible && !isDraggingChart ? { r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 } : false}
+                  activeDot={chartTooltipVisible && !isDraggingChart ? { r: 5, fill: '#D9A54A', stroke: '#000', strokeWidth: 2 } : false}
                   animationDuration={500}
                   isAnimationActive={chartDisplayData.length <= 2}
                 />
