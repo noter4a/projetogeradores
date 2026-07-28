@@ -2835,40 +2835,42 @@ export const sendControlCommand = (deviceId, action) => {
             if (isDseController) {
                 // DSE4501 GenComm System Control Keys (Reg 4104 + one's complement at 4105)
                 //
-                // ⚠️ SEGURANÇA — troca de modo BLOQUEADA (2026-07-28).
-                // Verificado em campo no Ciklo55: com a rede sadia (382-384 V) e o
+                // ⚠️ RISCO CONHECIDO — troca de modo NÃO travada por decisão explícita
+                // do usuário em 2026-07-28, ciente do risco abaixo (desbloqueado depois
+                // de ficar bloqueado por um dia inteiro; ver histórico do commit).
+                //
+                // Comprovado em campo no Ciklo55: com a rede sadia (382-384 V) e o
                 // controlador em AUTO (reg 772 = 1), o envio da chave MANUAL (35702)
                 // — único comando enviado, nenhum start — mudou o modo corretamente
                 // (reg 772 voltou 2) MAS TAMBÉM DEU PARTIDA no motor (rpm 0 -> 1032
-                // -> 1802, RUNNING). Ou seja, essa chave aciona o motor como efeito
-                // colateral, sem qualquer aviso ao operador.
+                // -> 1802, RUNNING), sem qualquer aviso ao operador.
                 //
-                // NÃO é valor errado: conferido em 2026-07-28 contra o GenComm.pdf
-                // (protocolo oficial Deep Sea, não específico de modelo) e contra
-                // 056-051_Gencomm_Control_Keys.pdf — 35700-35733 batem exatamente
-                // (ver comentário completo em dse4501-map.js). O próprio GenComm.pdf
-                // diz (Page 16, nota 6) que os function codes 0-31 fazem "exactly
-                // the same function as pressing the equivalent button on the
-                // control unit" — ou seja, mandar MANUAL por Modbus equivale a
-                // apertar o botão físico Manual no painel. A partida é uma
-                // configuração/condição do próprio gerador (DSE Configuration
-                // Suite, ou entrada de partida remota travada), não um bug de
-                // registrador — e só se resolve fisicamente no painel.
+                // NÃO é valor errado: conferido contra o GenComm.pdf (protocolo oficial
+                // Deep Sea, não específico de modelo) e contra
+                // 056-051_Gencomm_Control_Keys.pdf — 35700-35733 batem exatamente (ver
+                // comentário completo em dse4501-map.js). O próprio GenComm.pdf diz
+                // (Page 16, nota 6) que os function codes 0-31 fazem "exactly the same
+                // function as pressing the equivalent button on the control unit" —
+                // ou seja, mandar MANUAL por Modbus equivale a apertar o botão físico
+                // Manual no painel. A partida é uma configuração/condição do próprio
+                // gerador (DSE Configuration Suite, ou entrada de partida remota
+                // travada), não um bug de registrador — e o mesmo pode acontecer de
+                // novo em qualquer DSE que tenha essa mesma condição, não só o Ciklo55.
                 //
-                // Partida/parada seguem liberadas (a parada foi verificada ao vivo:
-                // 1802 rpm -> 44 -> parado, com o cooldown normal do DSE). Só a troca
-                // de modo está bloqueada até alguém checar no painel físico por que
-                // entrar em Manual dá partida. NÃO reabilitar sem checar isso lá.
-                if (action === 'auto' || action === 'manual') {
-                    console.warn(`[DSE-CMD] BLOQUEADO: '${action}' em ${deviceId} — entrar nesse modo dá partida no motor (comportamento do próprio gerador, não do Modbus).`);
-                    return {
-                        success: false,
-                        error: 'Troca de modo desabilitada neste controlador DSE: entrar nesse modo dá partida no motor sem aviso (comportamento do próprio gerador). Altere o modo no painel físico.'
-                    };
-                }
+                // O frontend pede confirmação explícita ("isso pode dar partida no
+                // motor") antes de enviar auto/manual num DSE — ver handleControl em
+                // GeneratorDetail.tsx — mas o backend não impõe mais bloqueio nenhum.
 
                 let key;
                 switch (action) {
+                    case 'auto':
+                        key = DSE_CONTROL_KEYS.AUTO;
+                        dseCommandedMode.set(deviceId, 'AUTO');
+                        break;
+                    case 'manual':
+                        key = DSE_CONTROL_KEYS.MANUAL;
+                        dseCommandedMode.set(deviceId, 'MANUAL');
+                        break;
                     case 'start': {
                         const mode = dseCommandedMode.get(deviceId)
                             || currentGeneratorsState[deviceId]?.data?.operationMode;

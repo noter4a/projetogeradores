@@ -611,6 +611,20 @@ const GeneratorDetail: React.FC = () => {
 
   const handleControl = (action: string) => {
     if (!canControl) return;
+
+    // DSE: trocar de modo (auto/manual) é o mesmo comando que apertar o botão
+    // físico no painel — e no Ciklo55 isso deu partida no motor sozinho, sem
+    // aviso. Não é um bug de registrador (as chaves foram conferidas contra o
+    // GenComm oficial da Deep Sea); é uma condição do próprio gerador que pode
+    // se repetir em qualquer DSE. Por decisão explícita do usuário o backend
+    // não bloqueia mais isso — só pedimos essa confirmação antes de mandar.
+    if (gen.controller?.toLowerCase() === 'dse' && (action === 'auto' || action === 'manual')) {
+      const modeLabel = action === 'auto' ? 'Automático' : 'Manual';
+      if (!window.confirm(
+        `Trocar para o modo ${modeLabel} neste controlador DSE pode dar partida no motor sozinho, sem aviso — já aconteceu antes.\n\nTem certeza que quer continuar?`
+      )) return;
+    }
+
     setControlLoading(action);
 
     // Emit Socket.IO Command
@@ -802,11 +816,10 @@ const GeneratorDetail: React.FC = () => {
 
   const renderRemoteControl = () => {
     if (!canControl) return null;
-    // Troca de modo bloqueada no DSE: a chave GenComm de modo não foi verificada
-    // contra documentação e, em campo, deu partida no motor sozinha (ver o bloqueio
-    // e o histórico completo em server/src/services/mqtt.js). O backend recusa o
-    // comando de qualquer jeito — aqui só evitamos oferecer um botão que falha.
-    const isDseModeLocked = gen.controller?.toLowerCase() === 'dse';
+    // DSE: trocar de modo já deu partida no motor sozinho em campo (Ciklo55) —
+    // não é bloqueado (decisão do usuário), mas handleControl pede confirmação
+    // explícita antes de mandar auto/manual. Ver comentário lá e em mqtt.js.
+    const isDseController = gen.controller?.toLowerCase() === 'dse';
     return (
       <div className="bg-ciklo-card rounded-xl border border-gray-800 p-5">
         <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
@@ -838,14 +851,12 @@ const GeneratorDetail: React.FC = () => {
                 <div className="flex-1 flex gap-2">
                   {/* AUTO BUTTON */}
                   <button
-                    disabled={gen.operationMode === 'AUTO' || isDseModeLocked}
-                    title={isDseModeLocked ? 'Troca de modo desabilitada neste controlador DSE — altere o modo no painel do gerador.' : undefined}
+                    disabled={gen.operationMode === 'AUTO'}
+                    title={isDseController ? 'Neste controlador, trocar de modo pode dar partida no motor — vai pedir confirmação.' : undefined}
                     onClick={() => handleControl('auto')}
                     className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
                       ? 'bg-green-600 text-white cursor-default opacity-100'
-                      : isDseModeLocked
-                        ? 'text-gray-600 cursor-not-allowed opacity-50'
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
                     <RefreshCw size={14} className={gen.operationMode === 'AUTO' ? 'animate-spin-slow' : ''} /> Automático
@@ -853,14 +864,12 @@ const GeneratorDetail: React.FC = () => {
 
                   {/* MANUAL BUTTON */}
                   <button
-                    disabled={gen.operationMode === 'MANUAL' || isDseModeLocked}
-                    title={isDseModeLocked ? 'Troca de modo desabilitada neste controlador DSE — altere o modo no painel do gerador.' : undefined}
+                    disabled={gen.operationMode === 'MANUAL'}
+                    title={isDseController ? 'Neste controlador, trocar de modo pode dar partida no motor — vai pedir confirmação.' : undefined}
                     onClick={() => handleControl('manual')}
                     className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
                       ? 'bg-green-600 text-white cursor-default opacity-100'
-                      : isDseModeLocked
-                        ? 'text-gray-600 cursor-not-allowed opacity-50'
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
                     <Settings size={14} className={gen.operationMode === 'MANUAL' ? 'animate-spin-slow' : ''} /> Manual
@@ -882,12 +891,11 @@ const GeneratorDetail: React.FC = () => {
                 </div>
               </div>
 
-              {isDseModeLocked && (
+              {isDseController && (
                 <p className="mt-2 text-[11px] text-amber-400/90 flex items-start gap-1.5">
                   <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                  Troca de modo desabilitada neste controlador: o comando fazia o motor
-                  dar partida sozinho. Altere o modo no painel do gerador. Partida e
-                  parada remotas seguem funcionando.
+                  Atenção: neste controlador, trocar de modo já deu partida no motor
+                  sozinho em campo. Vai pedir confirmação antes de enviar.
                 </p>
               )}
 
@@ -2231,7 +2239,6 @@ const GeneratorDetail: React.FC = () => {
           controlLoading={controlLoading}
           canStart={canStartMobile}
           canStop={canStopMobile}
-          modeLocked={gen.controller?.toLowerCase() === 'dse'}
           onControl={handleControl}
         />
       )}
