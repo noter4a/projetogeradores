@@ -77,6 +77,19 @@ const notifyUsersAlarmResolved = async (clientPool, generatorId, generatorName) 
 // um deploy, não gera falso alarme recorrente.
 const mainsFailureState = new Map(); // deviceId -> boolean (true = rede presente)
 
+// Debounce só pra FECHAR um alarme (abrir continua instantâneo). Motivo: no DSE,
+// os registradores 774 (flags brutas) e 2048 (tabela de alarmes nomeados) chegam
+// em mensagens MQTT separadas, ~8s de diferença dentro do mesmo ciclo de
+// sondagem, cada uma com seu próprio unifiedData — se 774 marca o alarme e o
+// 2048 seguinte não confirma (ou vice-versa), o código antigo fechava de volta
+// na hora, abrindo e fechando o mesmo alarme repetidamente (~a cada 30s,
+// duração ~7-8s) e mandando ATIVO+RESOLVIDO no WhatsApp pra nada. Exigir que a
+// leitura "sem alarme" se mantenha por ALARM_CLEAR_DEBOUNCE_MS seguidos (maior
+// que a janela de ~8s entre 774 e 2048) resolve isso sem deixar de notificar
+// alarmes reais — abrir nunca é atrasado, só fechar.
+const ALARM_CLEAR_DEBOUNCE_MS = 30000;
+const pendingAlarmClear = new Map(); // generatorId -> timestamp da primeira leitura "sem alarme" vista
+
 const notifyUsersAboutMainsFailure = async (clientPool, generatorId, generatorName) => {
     try {
         const res = await clientPool.query(
@@ -2361,7 +2374,9 @@ export const initMqttService = (io) => {
                                 console.log(`[MQTT-ALARM] ${resolvedGenId}: MQTT code=${newAlarm}, DB open=${dbOpenAlarmCode}`);
 
                                 if (newAlarm > 0 && dbOpenAlarmCode === 0) {
-                                    // ALARM STARTED — No open record in DB, insert one
+                                    // ALARM STARTED — No open record in DB, insert one. Nunca
+                                    // atrasado pelo debounce — abrir é sempre instantâneo.
+                                    pendingAlarmClear.delete(resolvedGenId);
                                     try {
                                         await pool.query(
                                             "INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) VALUES ($1, $2, $3)",
@@ -2374,6 +2389,7 @@ export const initMqttService = (io) => {
                                     }
                                 } else if (newAlarm > 0 && dbOpenAlarmCode > 0 && newAlarm !== dbOpenAlarmCode) {
                                     // ALARM CHANGED — Close old, open new
+                                    pendingAlarmClear.delete(resolvedGenId);
                                     try {
                                         await pool.query(
                                             "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND end_time IS NULL",
@@ -2389,19 +2405,34 @@ export const initMqttService = (io) => {
                                         console.error('[MQTT] Alarm CHANGE Error:', chgErr.message);
                                     }
                                 } else if (newAlarm === 0 && dbOpenAlarmCode > 0) {
-                                    // ALARM CLEARED — Close open record
-                                    try {
-                                        await pool.query(
-                                            "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND end_time IS NULL",
-                                            [resolvedGenId]
-                                        );
-                                        console.log(`[MQTT] ✅ ALARME RESOLVIDO: ${resolvedGenId} (was ${dbOpenAlarmCode})`);
-                                        notifyUsersAlarmResolved(pool, resolvedGenId, resolvedGenName);
-                                    } catch (clrErr) {
-                                        console.error('[MQTT] Alarm CLEAR Error:', clrErr.message);
+                                    // ALARM CLEARED (candidato) — só fecha de verdade se a leitura
+                                    // "sem alarme" se mantiver por ALARM_CLEAR_DEBOUNCE_MS seguidos.
+                                    // Evita fechar com base numa única mensagem que pode ser a
+                                    // resposta de 774/2048 discordando momentaneamente (ver comentário
+                                    // da declaração de pendingAlarmClear).
+                                    const firstClearSeen = pendingAlarmClear.get(resolvedGenId);
+                                    if (!firstClearSeen) {
+                                        pendingAlarmClear.set(resolvedGenId, Date.now());
+                                        console.log(`[MQTT-ALARM] ${resolvedGenId}: leitura "sem alarme" recebida, aguardando confirmação (${ALARM_CLEAR_DEBOUNCE_MS / 1000}s) antes de fechar`);
+                                    } else if (Date.now() - firstClearSeen >= ALARM_CLEAR_DEBOUNCE_MS) {
+                                        try {
+                                            await pool.query(
+                                                "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND end_time IS NULL",
+                                                [resolvedGenId]
+                                            );
+                                            console.log(`[MQTT] ✅ ALARME RESOLVIDO: ${resolvedGenId} (was ${dbOpenAlarmCode})`);
+                                            notifyUsersAlarmResolved(pool, resolvedGenId, resolvedGenName);
+                                        } catch (clrErr) {
+                                            console.error('[MQTT] Alarm CLEAR Error:', clrErr.message);
+                                        }
+                                        pendingAlarmClear.delete(resolvedGenId);
                                     }
+                                    // else: ainda dentro da janela de debounce — aguarda confirmação
+                                } else if (newAlarm > 0 && newAlarm === dbOpenAlarmCode) {
+                                    // Mesmo alarme confirmado de novo — cancela qualquer "clear" pendente
+                                    // (774/2048 tinham discordado por um instante, voltaram a concordar).
+                                    pendingAlarmClear.delete(resolvedGenId);
                                 }
-                                // else: newAlarm === dbOpenAlarmCode (no change) -> skip
                             }
                             // --------------------------------------------------
 
