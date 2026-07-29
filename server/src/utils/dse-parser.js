@@ -116,6 +116,11 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
     console.log(`[DSE-PARSER] Rx Slave: ${slaveId}, Fn: ${fn}, Addr: ${startAddress}, Len: ${regs.length}`);
 
     // ---- Block 1: Engine + Gen Voltages & Currents (Reg 1024-1051, 28 regs) ----
+    // currentL1-3 aqui é só a corrente do GERADOR (mesmo registrador do "Gen
+    // Currents" do GenComm) — o DSE não tem um CT dedicado pro lado da rede.
+    // Não duplicar em mainsCurrentL1-3 aqui: mqtt.js decide pra qual lado essa
+    // leitura conta de verdade (routeSingleCtCurrentToClosedBreaker), olhando o
+    // estado real da chave em vez de assumir "rede = mesmo valor do gerador".
     if (startAddress === 1024 && regs.length >= 28) {
         const oilPressureRaw = validRaw(u16(regs, 0));
         const coolantTempRaw = u16(regs, 1);
@@ -155,9 +160,6 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
             voltageL1, voltageL2, voltageL3, avgVoltage,
             voltageL12, voltageL23, voltageL31,
             currentL1, currentL2, currentL3,
-            mainsCurrentL1: currentL1,
-            mainsCurrentL2: currentL2,
-            mainsCurrentL3: currentL3,
         };
     }
 
@@ -202,9 +204,6 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
             block: 'DSE_ENGINE_GEN_1038_PART2',
             voltageL12, voltageL23, voltageL31,
             currentL1, currentL2, currentL3,
-            mainsCurrentL1: currentL1,
-            mainsCurrentL2: currentL2,
-            mainsCurrentL3: currentL3,
         };
     }
 

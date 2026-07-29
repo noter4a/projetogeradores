@@ -75,6 +75,35 @@ const notifyUsersAlarmResolved = async (clientPool, generatorId, generatorName) 
 // um. mainsFailureState guarda o último estado conhecido por gerador só em memória —
 // reinicia com o servidor, o que na pior hipótese perde 1 notificação de borda logo após
 // um deploy, não gera falso alarme recorrente.
+// Atribui uma leitura de "CT único" (mesmo sensor de corrente serve pra rede e
+// pro gerador, sem CT separado por lado — caso de SGC-120/420, DSE e KVA) só
+// pro lado cuja chave está de fato fechada. Corrente não flui por um
+// disjuntor aberto — mostrar o mesmo valor nos dois lados (rede E gerador)
+// como se fossem medições independentes é sempre errado quando sabemos que só
+// um dos dois está fechado. Pedido do usuário: aplicar isso pra TODOS os
+// controladores sem exceção — antes só existia pro SGC-120/420 (LOAD_CURRENT_23).
+//
+// mainsClosed/genClosed aceitam true, false OU undefined (desconhecido — ex:
+// DSE com o relé "Unimplemented" no registrador 3328, ou breaker ainda não
+// lido nesse ciclo). Só zera um lado quando o OUTRO está POSITIVAMENTE aberto
+// (=== false); se qualquer um dos dois for desconhecido, ou os dois vierem
+// fechados (transição/paralelismo), mantém o valor espelhado nos dois lados —
+// a melhor aproximação disponível quando não dá pra separar com certeza.
+function routeSingleCtCurrentToClosedBreaker(rawL1, rawL2, rawL3, mainsClosed, genClosed) {
+    if (mainsClosed === true && genClosed !== true) {
+        return { currentL1: 0, currentL2: 0, currentL3: 0, mainsCurrentL1: rawL1, mainsCurrentL2: rawL2, mainsCurrentL3: rawL3 };
+    }
+    if (genClosed === true && mainsClosed !== true) {
+        return { currentL1: rawL1, currentL2: rawL2, currentL3: rawL3, mainsCurrentL1: 0, mainsCurrentL2: 0, mainsCurrentL3: 0 };
+    }
+    if (mainsClosed === false && genClosed === false) {
+        return { currentL1: 0, currentL2: 0, currentL3: 0, mainsCurrentL1: 0, mainsCurrentL2: 0, mainsCurrentL3: 0 };
+    }
+    // Ambos fechados (transferência/paralelismo), ou pelo menos um desconhecido —
+    // não dá pra separar com um CT só. Espelha nos dois (comportamento antigo).
+    return { currentL1: rawL1, currentL2: rawL2, currentL3: rawL3, mainsCurrentL1: rawL1, mainsCurrentL2: rawL2, mainsCurrentL3: rawL3 };
+}
+
 const mainsFailureState = new Map(); // deviceId -> boolean (true = rede presente)
 
 // Debounce só pra FECHAR um alarme (abrir continua instantâneo). Motivo: no DSE,
@@ -1573,51 +1602,23 @@ export const initMqttService = (io) => {
                                 if (!isAgc150Device) {
                                     // SGC-120/420 have a single CT set on the load side, not one
                                     // per breaker — the register only tells us how much current
-                                    // is flowing, not through which switch. Attribute it to
-                                    // whichever breaker the device itself reports closed instead
-                                    // of mirroring it onto both sides unconditionally: with the
-                                    // mains breaker closed and the gen breaker open, current can
-                                    // only physically be flowing through mains.
+                                    // is flowing, not through which switch. Route it to whichever
+                                    // breaker is actually closed (see routeSingleCtCurrentToClosedBreaker).
                                     //
                                     // Breaker state does not travel in the LOAD_CURRENT_23 block.
                                     // On SGC-120 every Modbus block is batched into one MQTT message,
                                     // so unifiedData already carries the breaker flags here. But the
                                     // SGC-420 modem sends each block as its OWN message, so at this
                                     // point unifiedData has no breaker state — it lives in the
-                                    // previously persisted device state. Fall back to that, otherwise
-                                    // the "neither closed" branch below would zero the current on
-                                    // every SGC-420 frame (the reported "no current" bug).
+                                    // previously persisted device state. Fall back to that.
                                     const persisted = currentGeneratorsState[deviceId]?.data || {};
-                                    const mainsClosed = (unifiedData.mainsBreakerClosed ?? persisted.mainsBreakerClosed) === true;
-                                    const genClosed = (unifiedData.genBreakerClosed ?? persisted.genBreakerClosed) === true;
+                                    const mainsClosed = unifiedData.mainsBreakerClosed ?? persisted.mainsBreakerClosed;
+                                    const genClosed = unifiedData.genBreakerClosed ?? persisted.genBreakerClosed;
 
-                                    if (mainsClosed && !genClosed) {
-                                        unifiedData.mainsCurrentL1 = unifiedData.currentL1;
-                                        unifiedData.mainsCurrentL2 = unifiedData.currentL2;
-                                        unifiedData.mainsCurrentL3 = unifiedData.currentL3;
-                                        unifiedData.currentL1 = 0;
-                                        unifiedData.currentL2 = 0;
-                                        unifiedData.currentL3 = 0;
-                                    } else if (genClosed && !mainsClosed) {
-                                        unifiedData.mainsCurrentL1 = 0;
-                                        unifiedData.mainsCurrentL2 = 0;
-                                        unifiedData.mainsCurrentL3 = 0;
-                                    } else if (!mainsClosed && !genClosed) {
-                                        // Neither switch closed: no path for current on either side
-                                        unifiedData.currentL1 = 0;
-                                        unifiedData.currentL2 = 0;
-                                        unifiedData.currentL3 = 0;
-                                        unifiedData.mainsCurrentL1 = 0;
-                                        unifiedData.mainsCurrentL2 = 0;
-                                        unifiedData.mainsCurrentL3 = 0;
-                                    } else {
-                                        // Both closed (parallel/transfer transient) — a single CT
-                                        // set can't separate the two, so keep the old mirrored
-                                        // behavior as the best available approximation.
-                                        unifiedData.mainsCurrentL1 = unifiedData.currentL1;
-                                        unifiedData.mainsCurrentL2 = unifiedData.currentL2;
-                                        unifiedData.mainsCurrentL3 = unifiedData.currentL3;
-                                    }
+                                    Object.assign(unifiedData, routeSingleCtCurrentToClosedBreaker(
+                                        unifiedData.currentL1, unifiedData.currentL2, unifiedData.currentL3,
+                                        mainsClosed, genClosed
+                                    ));
                                 }
                             }
                         }
@@ -1911,17 +1912,25 @@ export const initMqttService = (io) => {
                             unifiedData.mainsVoltageL23 = d.mainsVoltageL23;
                             unifiedData.mainsVoltageL31 = d.mainsVoltageL31;
                             unifiedData.mainsFrequency = d.mainsFrequency;
-                            unifiedData.currentL1 = d.currentL1;
-                            unifiedData.currentL2 = d.currentL2;
-                            unifiedData.currentL3 = d.currentL3;
                             unifiedData.activePower = d.activePower;
                             unifiedData.reactivePower = d.reactivePower;
                             unifiedData.apparentPower = d.apparentPower;
                             unifiedData.powerFactor = d.powerFactor;
-                            // Use same currents for mains (load current)
-                            unifiedData.mainsCurrentL1 = d.currentL1;
-                            unifiedData.mainsCurrentL2 = d.currentL2;
-                            unifiedData.mainsCurrentL3 = d.currentL3;
+                            // KVA também só tem um CT ("Corrente de Carga", sem separação por
+                            // lado) — mesmo problema do SGC-120/420/DSE. Roteia pro lado
+                            // realmente fechado em vez de espelhar sempre nos dois.
+                            // KVA_STATUS_12001 (onde mainsBreakerClosed/genBreakerClosed são
+                            // decodidos) chega em mensagem MQTT separada — cai no fallback pro
+                            // estado persistido, como nos outros controladores.
+                            {
+                                const persisted = currentGeneratorsState[deviceId]?.data || {};
+                                const mainsClosed = unifiedData.mainsBreakerClosed ?? persisted.mainsBreakerClosed;
+                                const genClosed = unifiedData.genBreakerClosed ?? persisted.genBreakerClosed;
+                                Object.assign(unifiedData, routeSingleCtCurrentToClosedBreaker(
+                                    d.currentL1, d.currentL2, d.currentL3,
+                                    mainsClosed, genClosed
+                                ));
+                            }
                         }
 
                         if (d.block === 'KVA_ENGINE_12027') {
@@ -2038,12 +2047,26 @@ export const initMqttService = (io) => {
                             unifiedData.voltageL12 = d.voltageL12;
                             unifiedData.voltageL23 = d.voltageL23;
                             unifiedData.voltageL31 = d.voltageL31;
-                            unifiedData.currentL1 = d.currentL1;
-                            unifiedData.currentL2 = d.currentL2;
-                            unifiedData.currentL3 = d.currentL3;
-                            unifiedData.mainsCurrentL1 = d.mainsCurrentL1;
-                            unifiedData.mainsCurrentL2 = d.mainsCurrentL2;
-                            unifiedData.mainsCurrentL3 = d.mainsCurrentL3;
+                            // dse-parser.js mede só a corrente do lado do GERADOR neste bloco
+                            // (é o mesmo registrador do "Gen Currents" do GenComm) e replica o
+                            // valor em mainsCurrentL1-3 só por conveniência — não é uma segunda
+                            // leitura real do lado da rede. Sem essa correção, a corrente do
+                            // gerador aparecia igual nas duas colunas (Gerador e Rede) mesmo com
+                            // o disjuntor da rede aberto, fisicamente impossível. Roteia pro lado
+                            // que está realmente fechado (mesma função usada no SGC-120/420).
+                            // DSE_RELAYS_3328 chega em mensagem MQTT separada — cai no fallback
+                            // pro estado persistido, e se o relé vier "Unimplemented" (código 3,
+                            // ver dse-parser.js) mainsClosed/genClosed ficam undefined pra sempre
+                            // nesse hardware, então a função mantém o valor espelhado nos dois
+                            // lados em vez de zerar (não dá pra saber, não assume errado).
+                            const persisted = currentGeneratorsState[deviceId]?.data || {};
+                            const mainsClosed = unifiedData.mainsBreakerClosed ?? persisted.mainsBreakerClosed;
+                            const genClosed = unifiedData.genBreakerClosed ?? persisted.genBreakerClosed;
+
+                            Object.assign(unifiedData, routeSingleCtCurrentToClosedBreaker(
+                                d.currentL1, d.currentL2, d.currentL3,
+                                mainsClosed, genClosed
+                            ));
                         }
 
                         if (d.block === 'DSE_MAINS_1058') {
