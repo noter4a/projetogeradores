@@ -60,11 +60,22 @@ function decodeReg91Status(raw) {
   const loadOnMains = (raw & 0x0200) !== 0; // empirically the mains load-path bit
   const loadOnDg = (raw & 0x0400) !== 0;    // empirically the generator load-path bit
 
+  // Bit 15/16 (0x4000) = "Mains healthy / unhealthy" — o veredito do PRÓPRIO
+  // controlador sobre a rede, com os limiares de tensão/frequência configurados
+  // nele. Ao contrário dos bits de load-path acima (que a medição em campo provou
+  // estarem trocados em relação à planilha), este é um bit isolado e não tem par
+  // pra confundir. É o equivalente no SGC-420 ao alarme 'Mains failed' do DSE:
+  // o SGC-420 não expõe nenhum alarme de tensão de rede por fase (os de fase na
+  // tabela de alarmes são todos do gerador — ver ALARM_DEFS_420), então este bit
+  // é a única leitura de falha de rede que o controlador oferece.
+  const mainsHealthy = (raw & 0x4000) !== 0;
+
   return {
     opMode,
     dgOpMode,
     loadOnMains,
     loadOnDg,
+    mainsHealthy,
   };
 }
 
@@ -192,15 +203,23 @@ const ALARM_DEFS_420 = {
     { name: 'Falha Pick-up Mag.', shift: 8 },
     { name: 'Circ. Pressão Óleo Aberto', shift: 4 },
   ],
+  // ATENÇÃO: estes alarmes de tensão por fase são do GERADOR, não da rede.
+  // A tabela oficial da DEIF (sgc-420-mk-ii-modbus-tables-4189341402-uk.xlsx,
+  // no raiz do projeto) nomeia explicitamente "Gen L1/L2/L3 phase low/high volt".
+  // Os nomes antigos aqui eram só "Fase L1 Baixa Tensão", sem dizer de quem —
+  // quem visse esse alarme no app concluiria que a REDE caiu, quando é o próprio
+  // gerador. O SGC-420 não tem nenhum alarme de tensão de rede por fase; o único
+  // sinal de rede que ele expõe é o bit "Mains healthy" do Reg 91 (ver
+  // decodeReg91Status) e o "Rotação Fase Rede" logo abaixo.
   83: [
-    { name: 'Fase L1 Baixa Tensão', shift: 12 },
-    { name: 'Fase L1 Alta Tensão', shift: 8 },
-    { name: 'Fase L2 Baixa Tensão', shift: 4 },
-    { name: 'Fase L2 Alta Tensão', shift: 0 },
+    { name: 'Baixa Tensão Ger. L1', shift: 12 },
+    { name: 'Alta Tensão Ger. L1', shift: 8 },
+    { name: 'Baixa Tensão Ger. L2', shift: 4 },
+    { name: 'Alta Tensão Ger. L2', shift: 0 },
   ],
   84: [
-    { name: 'Fase L3 Baixa Tensão', shift: 12 },
-    { name: 'Fase L3 Alta Tensão', shift: 8 },
+    { name: 'Baixa Tensão Ger. L3', shift: 12 },
+    { name: 'Alta Tensão Ger. L3', shift: 8 },
     { name: 'Rotação Fase Ger.', shift: 4 },
     { name: 'Rotação Fase Rede', shift: 0 },
   ],
@@ -298,7 +317,7 @@ export function decodeSgc420ByBlock(slaveId, fn, startAddress, regs) {
     const rawMode = u16(regs, 0);
     const status = decodeReg91Status(rawMode);
 
-    console.log(`[PARSER-420] Reg91=0x${rawMode.toString(16)} dgOp=${status.dgOpMode} mains=${status.loadOnMains} dg=${status.loadOnDg} -> ${status.opMode}`);
+    console.log(`[PARSER-420] Reg91=0x${rawMode.toString(16)} dgOp=${status.dgOpMode} mains=${status.loadOnMains} dg=${status.loadOnDg} mainsHealthy=${status.mainsHealthy} -> ${status.opMode}`);
 
     return {
       block: 'STATUS_MODE_91',
@@ -481,6 +500,7 @@ export function decodeSgc420Payload(payload) {
         dgOpMode: decoded.dgOpMode,
         loadOnMains: decoded.loadOnMains,
         loadOnDg: decoded.loadOnDg,
+        mainsHealthy: decoded.mainsHealthy,
       };
       pendingInputs = null;
     } else if (decoded.block === 'STATUS_MODE_91') {
@@ -492,6 +512,7 @@ export function decodeSgc420Payload(payload) {
         dgOpMode: decoded.dgOpMode,
         loadOnMains: decoded.loadOnMains,
         loadOnDg: decoded.loadOnDg,
+        mainsHealthy: decoded.mainsHealthy,
       };
     }
 

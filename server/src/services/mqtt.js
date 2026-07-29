@@ -1675,7 +1675,13 @@ export const initMqttService = (io) => {
                                 //   presença de tensão (rede pode ter tensão com a chave aberta).
                                 if (d.loadOnMains !== undefined) unifiedData.loadOnMains = d.loadOnMains;
                                 if (d.loadOnDg !== undefined) unifiedData.loadOnDg = d.loadOnDg;
-                                console.log(`[SGC420-MODE] ${deviceId} Reg91=0x${d.reg78_hex} dgOp=${d.dgOpMode ?? '?'} loadMains=${d.loadOnMains} loadDg=${d.loadOnDg} -> ${resolvedMode}${d.opMode ? '' : ' (held)'}`);
+                                // Bit 15/16 do mesmo Reg 91: veredito do próprio controlador sobre a
+                                // rede. Persistido pra servir de gatilho de falha de rede (ver
+                                // MAINS FAILURE / RESTORED mais abaixo) — no SGC-420 é o equivalente
+                                // ao alarme 'Mains failed' do DSE, já que ele não expõe alarme de
+                                // tensão de rede por fase.
+                                if (d.mainsHealthy !== undefined) unifiedData.mainsHealthy = d.mainsHealthy;
+                                console.log(`[SGC420-MODE] ${deviceId} Reg91=0x${d.reg78_hex} dgOp=${d.dgOpMode ?? '?'} loadMains=${d.loadOnMains} loadDg=${d.loadOnDg} mainsHealthy=${d.mainsHealthy} -> ${resolvedMode}${d.opMode ? '' : ' (held)'}`);
                             } else if (isDeifDevice) {
                                 const highByte = parseInt(d.reg78_hex, 16) >> 8;
                                 let resolvedMode = null;
@@ -2285,10 +2291,20 @@ export const initMqttService = (io) => {
                             // fases < 10V" + o alarme nativo 'Mains failed' do DSE quando disponível.
                             const dseMainsFailedAlarmActive = Array.isArray(persistedMainsData.activeAlarms)
                                 && persistedMainsData.activeAlarms.some(a => a.name === 'Mains failed');
-                            const hasMainsReading = mainsVoltageReadings.some(v => v !== undefined && v !== null) || dseMainsFailedAlarmActive;
+                            // Equivalente no SGC-420: bit "Mains healthy" (Reg 91, bit 15/16 —
+                            // tabela oficial DEIF sgc-420-mk-ii-modbus-tables-4189341402-uk.xlsx).
+                            // O controlador aplica os próprios limiares de tensão/frequência, então
+                            // pega queda parcial de rede que o heurístico "todas as fases < 10V"
+                            // nunca veria. Só vale quando o campo existe (undefined = controlador
+                            // não é SGC-420 ou o bloco do Reg 91 ainda não chegou) — nunca tratar
+                            // ausência como falha.
+                            const sgc420MainsUnhealthy = persistedMainsData.mainsHealthy === false;
+                            const hasMainsReading = mainsVoltageReadings.some(v => v !== undefined && v !== null)
+                                || dseMainsFailedAlarmActive
+                                || persistedMainsData.mainsHealthy !== undefined;
                             if (hasMainsReading) {
                                 const mainsPresentByVoltage = mainsVoltageReadings.some(v => (v ?? 0) > 10);
-                                const mainsPresentNow = mainsPresentByVoltage && !dseMainsFailedAlarmActive;
+                                const mainsPresentNow = mainsPresentByVoltage && !dseMainsFailedAlarmActive && !sgc420MainsUnhealthy;
                                 const wasMainsPresent = mainsFailureState.has(deviceId)
                                     ? mainsFailureState.get(deviceId)
                                     : mainsPresentNow; // primeira leitura após restart: só define a base, não notifica
@@ -2314,7 +2330,9 @@ export const initMqttService = (io) => {
                                     if (!mainsPresentNow) {
                                         const reason = dseMainsFailedAlarmActive
                                             ? 'alarme nativo DSE'
-                                            : 'todas as fases abaixo de 10V';
+                                            : sgc420MainsUnhealthy
+                                                ? 'bit Mains healthy do SGC-420'
+                                                : 'todas as fases abaixo de 10V';
                                         console.log(`[MQTT-MAINS] ${resolvedGenId}: falha de rede detectada (${reason})`);
                                         notifyUsersAboutMainsFailure(pool, resolvedGenId, resolvedGenName);
                                     } else {
