@@ -1252,7 +1252,7 @@ router.post('/companies', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') {
         return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem criar empresas.' });
     }
-    const { name, generatorIds } = req.body;
+    const { name, generatorIds, userIds } = req.body;
     if (!name) {
         return res.status(400).json({ message: 'Nome da empresa é obrigatório.' });
     }
@@ -1268,6 +1268,13 @@ router.post('/companies', authenticateToken, async (req, res) => {
             await pool.query(
                 'UPDATE generators SET company_id = $1 WHERE id = ANY($2)',
                 [newCompany.id, generatorIds]
+            );
+        }
+
+        if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+            await pool.query(
+                'UPDATE users SET company_id = $1 WHERE id = ANY($2)',
+                [newCompany.id, userIds]
             );
         }
 
@@ -1292,7 +1299,7 @@ router.put('/companies/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem atualizar empresas.' });
     }
     const { id } = req.params;
-    const { name, generatorIds } = req.body;
+    const { name, generatorIds, userIds } = req.body;
     if (!name) {
         return res.status(400).json({ message: 'Nome da empresa é obrigatório.' });
     }
@@ -1321,6 +1328,24 @@ router.put('/companies/:id', authenticateToken, async (req, res) => {
             }
         } else {
             await pool.query('UPDATE generators SET company_id = NULL WHERE company_id = $1', [id]);
+        }
+
+        // Mesma lógica pros usuários: desvincula quem foi desmarcado, associa os
+        // selecionados. Não mexe em ADMIN/ORCAMENTOS que não têm empresa (esses
+        // simplesmente nunca aparecem marcados na lista, então não são afetados).
+        if (userIds && Array.isArray(userIds)) {
+            await pool.query(
+                'UPDATE users SET company_id = NULL WHERE company_id = $1 AND NOT (id = ANY($2))',
+                [id, userIds]
+            );
+            if (userIds.length > 0) {
+                await pool.query(
+                    'UPDATE users SET company_id = $1 WHERE id = ANY($2)',
+                    [id, userIds]
+                );
+            }
+        } else {
+            await pool.query('UPDATE users SET company_id = NULL WHERE company_id = $1', [id]);
         }
 
         res.json(result.rows[0]);
