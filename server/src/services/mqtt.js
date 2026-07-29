@@ -2279,25 +2279,16 @@ export const initMqttService = (io) => {
                             // controlador — provavelmente desabilitado na config interna do DSE, algo
                             // só ajustável no painel/DSE Configuration Suite, fora do nosso alcance
                             // remoto — então não dá pra confiar só nele.
+                            // REMOVIDO 2026-07-29 (a pedido do usuário): checagem própria de
+                            // desbalanço entre fases (qualquer leitura < 50% da maior). Voltando a
+                            // confiar só na leitura normal do controlador — heurístico de "todas as
+                            // fases < 10V" + o alarme nativo 'Mains failed' do DSE quando disponível.
                             const dseMainsFailedAlarmActive = Array.isArray(persistedMainsData.activeAlarms)
                                 && persistedMainsData.activeAlarms.some(a => a.name === 'Mains failed');
-                            // Checagem por desbalanço, feita por nós (não pelo DSE): pega a maior
-                            // leitura entre as 6 (fase-neutro + fase-fase) como referência de "rede
-                            // saudável" e falha se qualquer leitura reportada cair abaixo de 50%
-                            // dela. Pedido do usuário depois de confirmar ao vivo que o Ciklo55
-                            // ficou com L2 de rede zerada (223V/0V/224V) sem que nem o alarme nativo
-                            // do DSE nem o heurístico antigo ("alguma fase > 10V" — que dá presente
-                            // se só 1 das 6 estiver de pé) pegassem. 50% é uma margem folgada pra
-                            // não confundir com queda de tensão normal por carga pesada, mas ainda
-                            // pega uma fase inteira caída enquanto as outras seguem de pé.
-                            const definedMainsReadings = mainsVoltageReadings.filter(v => v !== undefined && v !== null);
-                            const maxMainsReading = definedMainsReadings.length > 0 ? Math.max(...definedMainsReadings) : 0;
-                            const mainsPhaseImbalanceDetected = maxMainsReading > 10
-                                && definedMainsReadings.some(v => v < maxMainsReading * 0.5);
                             const hasMainsReading = mainsVoltageReadings.some(v => v !== undefined && v !== null) || dseMainsFailedAlarmActive;
                             if (hasMainsReading) {
                                 const mainsPresentByVoltage = mainsVoltageReadings.some(v => (v ?? 0) > 10);
-                                const mainsPresentNow = mainsPresentByVoltage && !dseMainsFailedAlarmActive && !mainsPhaseImbalanceDetected;
+                                const mainsPresentNow = mainsPresentByVoltage && !dseMainsFailedAlarmActive;
                                 const wasMainsPresent = mainsFailureState.has(deviceId)
                                     ? mainsFailureState.get(deviceId)
                                     : mainsPresentNow; // primeira leitura após restart: só define a base, não notifica
@@ -2323,9 +2314,7 @@ export const initMqttService = (io) => {
                                     if (!mainsPresentNow) {
                                         const reason = dseMainsFailedAlarmActive
                                             ? 'alarme nativo DSE'
-                                            : mainsPhaseImbalanceDetected
-                                                ? 'desbalanço de fase'
-                                                : 'todas as fases abaixo de 10V';
+                                            : 'todas as fases abaixo de 10V';
                                         console.log(`[MQTT-MAINS] ${resolvedGenId}: falha de rede detectada (${reason})`);
                                         notifyUsersAboutMainsFailure(pool, resolvedGenId, resolvedGenName);
                                     } else {
