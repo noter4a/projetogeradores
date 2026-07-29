@@ -34,10 +34,19 @@ const httpServer = createServer(app);
 // já use esse header diretamente (ex.: scripts de terceiros) sem quebrar nada.
 const AUTH_COOKIE_NAME = 'ciklo_auth_token';
 const AUTH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h — mesmo prazo do JWT (expiresIn: '24h')
+// FIX 2026-07-28: 'strict' derrubava a sessão (cookie fica no navegador, mas
+// não é enviado) sempre que a navegação não "nasce" de dentro do próprio
+// site — exatamente o caso de abrir o PWA pelo ícone da tela inicial, um
+// bookmark, ou certos reloads/restaurações de histórico, que o navegador
+// classifica como navegação de top-level "de fora". 'lax' resolve isso e
+// continua protegendo contra CSRF de verdade: ele só libera o cookie em
+// navegação de topo via GET, nunca em POST/PUT/DELETE cross-site nem em
+// recursos embutidos (img/iframe/fetch de outro site) — que é a proteção que
+// importa aqui.
 const authCookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production', // precisa ser false em dev HTTP puro
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/',
 };
 
