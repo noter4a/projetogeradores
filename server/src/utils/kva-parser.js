@@ -65,6 +65,9 @@ const AVISOS_L = [
 // Helpers
 // ========================================
 const u16 = (regs, i) => (regs[i] ?? 0);
+/** Converte um u16 pra int16 com sinal (complemento de 2) — necessário pra potência
+ *  reativa, que pode ser negativa (FP capacitivo vs indutivo). */
+const s16 = (raw) => (raw > 32767 ? raw - 65536 : raw);
 
 function decodeBitmap(value, defs) {
     const active = [];
@@ -200,9 +203,18 @@ export function decodeKvaByBlock(slaveId, fn, startAddress, regs) {
             currentL1: rawI1 === 65535 ? null : rawI1,
             currentL2: rawI2 === 65535 ? null : rawI2,
             currentL3: rawI3 === 65535 ? null : rawI3,
-            activePower: rawPActive === 65535 ? null : rawPActive,
-            reactivePower: rawPReactive === 65535 ? null : rawPReactive,
-            apparentPower: rawPApparent === 65535 ? null : rawPApparent,
+            // FIX 2026-07-29: ativa/reativa/aparente vinham SEM escala (valor bruto
+            // direto), enquanto frequência (×0.1) e FP (×0.01) no mesmo bloco já eram
+            // escalados corretamente. Conferido ao vivo no Ciklo10: bruto 396/423 com
+            // ~398V de linha e ~62A de carga — fisicamente (P=√3×V×I×FP) o real é
+            // ~40kW/42kVA, batendo com bruto×0.1, não bruto puro (10x maior que o real).
+            // Reativa também precisa de sinal (int16, complemento de 2) — pode ser
+            // negativa (FP capacitivo vs indutivo); bruto 0xFF88=65416 unsigned não faz
+            // sentido físico, mas como int16 = -120 (×0.1 = -12kVAr) é plausível pra
+            // carga com FP quase unitário.
+            activePower: rawPActive === 65535 ? null : Number((rawPActive * 0.1).toFixed(1)),
+            reactivePower: rawPReactive === 65535 ? null : Number((s16(rawPReactive) * 0.1).toFixed(1)),
+            apparentPower: rawPApparent === 65535 ? null : Number((rawPApparent * 0.1).toFixed(1)),
             powerFactor: rawPF === 65535 ? null : Number((rawPF * 0.01).toFixed(2)),
         };
 
