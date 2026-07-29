@@ -1710,6 +1710,12 @@ export const initMqttService = (io) => {
                             if (!isSgc420Device && !isAgc150Device) {
                                 unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                                 unifiedData.genBreakerClosed = d.genBreakerClosed;
+                                // Bit 15/16 do Reg 78 (0x4000) — "Mains healthy/unhealthy" oficial
+                                // DEIF, mesma posição e mesmo papel do bit já usado no SGC-420: o
+                                // SGC-120 não tem alarme de tensão de rede por fase (ver ALARM_DEFS
+                                // acima), então esse é o único veredito de falha de rede que o
+                                // próprio controlador oferece.
+                                if (d.mainsHealthy !== undefined) unifiedData.mainsHealthy = d.mainsHealthy;
                             }
                         }
 
@@ -1722,6 +1728,7 @@ export const initMqttService = (io) => {
                             // Fallback Mapping
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
+                            if (d.mainsHealthy !== undefined) unifiedData.mainsHealthy = d.mainsHealthy;
                         }
 
                         // Map STATUS_77 (Legacy) - REMOVED
@@ -1874,6 +1881,12 @@ export const initMqttService = (io) => {
                             unifiedData.operationMode = d.operationMode;
                             unifiedData.mainsBreakerClosed = d.mainsBreakerClosed;
                             unifiedData.genBreakerClosed = d.genBreakerClosed;
+                            // Status LED "ROK" (bit 12) — veredito do próprio KVA sobre a rede,
+                            // já decodificado em kva-parser.js mas nunca usado até agora. Mesmo
+                            // papel do bit "Mains healthy" do DSE/SGC-420/SGC-120: unificado no
+                            // mesmo campo (mainsHealthy) pra servir o gatilho de falha de rede
+                            // (ver MAINS FAILURE / RESTORED mais abaixo) sem duplicar a lógica.
+                            unifiedData.mainsHealthy = d.mainsOk;
 
                             // Alarm mapping
                             unifiedData.alarmCode = d.alarmCode;
@@ -2291,20 +2304,23 @@ export const initMqttService = (io) => {
                             // fases < 10V" + o alarme nativo 'Mains failed' do DSE quando disponível.
                             const dseMainsFailedAlarmActive = Array.isArray(persistedMainsData.activeAlarms)
                                 && persistedMainsData.activeAlarms.some(a => a.name === 'Mains failed');
-                            // Equivalente no SGC-420: bit "Mains healthy" (Reg 91, bit 15/16 —
-                            // tabela oficial DEIF sgc-420-mk-ii-modbus-tables-4189341402-uk.xlsx).
-                            // O controlador aplica os próprios limiares de tensão/frequência, então
-                            // pega queda parcial de rede que o heurístico "todas as fases < 10V"
-                            // nunca veria. Só vale quando o campo existe (undefined = controlador
-                            // não é SGC-420 ou o bloco do Reg 91 ainda não chegou) — nunca tratar
-                            // ausência como falha.
-                            const sgc420MainsUnhealthy = persistedMainsData.mainsHealthy === false;
+                            // Equivalente no SGC-420 e no SGC-120 (deif): bit "Mains healthy" (0x4000,
+                            // mesma posição nas duas tabelas oficiais DEIF — sgc-420 Reg 91, sgc-120
+                            // Reg 78). E no KVA: bit "ROK" dos status LEDs (mainsOk), mesmo papel.
+                            // Nenhum desses 3 controladores tem alarme de tensão de rede por fase —
+                            // esse bit único é o único veredito de falha de rede que cada um oferece,
+                            // e pega queda parcial que o heurístico "todas as fases < 10V" (abaixo)
+                            // nunca veria sozinho. Unificado num campo só (unifiedData.mainsHealthy)
+                            // pra esta checagem valer pros 3 sem duplicar lógica. Só conta quando o
+                            // campo existe (undefined = controlador sem esse sinal, ou bloco ainda não
+                            // chegou) — nunca tratar ausência como falha.
+                            const mainsHealthyBitUnhealthy = persistedMainsData.mainsHealthy === false;
                             const hasMainsReading = mainsVoltageReadings.some(v => v !== undefined && v !== null)
                                 || dseMainsFailedAlarmActive
                                 || persistedMainsData.mainsHealthy !== undefined;
                             if (hasMainsReading) {
                                 const mainsPresentByVoltage = mainsVoltageReadings.some(v => (v ?? 0) > 10);
-                                const mainsPresentNow = mainsPresentByVoltage && !dseMainsFailedAlarmActive && !sgc420MainsUnhealthy;
+                                const mainsPresentNow = mainsPresentByVoltage && !dseMainsFailedAlarmActive && !mainsHealthyBitUnhealthy;
                                 const wasMainsPresent = mainsFailureState.has(deviceId)
                                     ? mainsFailureState.get(deviceId)
                                     : mainsPresentNow; // primeira leitura após restart: só define a base, não notifica
@@ -2330,8 +2346,8 @@ export const initMqttService = (io) => {
                                     if (!mainsPresentNow) {
                                         const reason = dseMainsFailedAlarmActive
                                             ? 'alarme nativo DSE'
-                                            : sgc420MainsUnhealthy
-                                                ? 'bit Mains healthy do SGC-420'
+                                            : mainsHealthyBitUnhealthy
+                                                ? 'bit Mains healthy do controlador'
                                                 : 'todas as fases abaixo de 10V';
                                         console.log(`[MQTT-MAINS] ${resolvedGenId}: falha de rede detectada (${reason})`);
                                         notifyUsersAboutMainsFailure(pool, resolvedGenId, resolvedGenName);

@@ -204,15 +204,24 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
         { name: "Entrada Aux. G", shift: 4 },
         { name: "Entrada Aux. H", shift: 0 },
       ],
+      // ATENÇÃO: alarmes de tensão por fase são do GERADOR, não da rede — tabela
+      // oficial DEIF (sgc-120-mk-ii-modbus-tables-4189341403-uk.xlsx, na raiz do
+      // projeto) nomeia "Gen L1/L2/L3 phase low/high volt". Nomes antigos ("Fase L1
+      // Baixa Tensão", sem dizer de quem) faziam parecer alarme de rede caindo —
+      // mesmo problema encontrado e corrigido no SGC-420 (sgc420-parser.js).
+      // O SGC-120 não tem NENHUM alarme de tensão de rede por fase — só "Mains
+      // phase rotation" (sequência de fase). O sinal de falha de rede que existe
+      // de verdade é o bit "Mains healthy" do Reg 78 (ver decodeSgc120ByBlock,
+      // bloco STATUS_COMBINED_77_78) — ainda não usado, ver nota lá.
       74: [
-        { name: "Fase L1 Baixa Tensão", shift: 12 },
-        { name: "Fase L1 Alta Tensão", shift: 8 },
-        { name: "Fase L2 Baixa Tensão", shift: 4 },
-        { name: "Fase L2 Alta Tensão", shift: 0 },
+        { name: "Baixa Tensão Ger. L1", shift: 12 },
+        { name: "Alta Tensão Ger. L1", shift: 8 },
+        { name: "Baixa Tensão Ger. L2", shift: 4 },
+        { name: "Alta Tensão Ger. L2", shift: 0 },
       ],
       75: [
-        { name: "Fase L3 Baixa Tensão", shift: 12 },
-        { name: "Fase L3 Alta Tensão", shift: 8 },
+        { name: "Baixa Tensão Ger. L3", shift: 12 },
+        { name: "Alta Tensão Ger. L3", shift: 8 },
         { name: "Rotação Fase Ger.", shift: 4 },
         { name: "Rotação Fase Rede", shift: 0 },
       ],
@@ -371,7 +380,17 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     else if (highByte === 4 || highByte === 108) mode = 'AUTO'; // 0x04 or 0x6C
     else if (highByte === 5) mode = 'TEST';
 
-    console.log(`[STATUS-DEBUG] Reg77(Inputs): 0x${rawInputs.toString(16)} | Reg78(Mode): 0x${rawMode.toString(16)} | Mains(InB): ${inputB} | Gen(InA): ${inputA} | Mode: ${mode}`);
+    // Bit 15/16 (0x4000) = "Mains healthy / unhealthy" na tabela oficial DEIF
+    // (sgc-120-mk-ii-modbus-tables-4189341403-uk.xlsx) — mesma posição e mesmo
+    // significado do bit já usado no SGC-420 (sgc420-parser.js). Verificado ao
+    // vivo em produção (2026-07-29) contra os 3 SGC-120 então ativos (Ciklo2/4/5):
+    // os 3 com rede saudável reportaram 0x6C80 → bit setado → mainsHealthy=true,
+    // batendo com a tensão real medida (>220V nas 3 fases). Ainda não visto um
+    // caso de rede caída nesse controlador especificamente, mas a mesma família
+    // DEIF/mesma posição de bit já foi confirmada com os dois estados no SGC-420.
+    const mainsHealthy = (rawMode & 0x4000) !== 0;
+
+    console.log(`[STATUS-DEBUG] Reg77(Inputs): 0x${rawInputs.toString(16)} | Reg78(Mode): 0x${rawMode.toString(16)} | Mains(InB): ${inputB} | Gen(InA): ${inputA} | Mode: ${mode} | MainsHealthy: ${mainsHealthy}`);
 
     return {
       block: "STATUS_COMBINED_77_78",
@@ -379,7 +398,8 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
       reg78_hex: rawMode.toString(16).toUpperCase(),
       opMode: mode,
       mainsBreakerClosed: inputB,
-      genBreakerClosed: inputA
+      genBreakerClosed: inputA,
+      mainsHealthy
     };
   }
 
@@ -403,15 +423,20 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     // Hypothesis: Mains is NEGATIVE LOGIC (1=Open, 0=Closed) in this register.
     const mainsClosed = (raw & 0x80) === 0; // Bit 7 (0=Closed)
     const genClosed = (raw & 0x10) !== 0; // Bit 4 (1=Closed)
+    // Mesmo bit "Mains healthy" (0x4000) do bloco combinado acima — ver
+    // comentário lá. Este é o registrador 78 completo também, só chegando
+    // sozinho (sem o 77 de entradas digitais) neste caminho de fallback.
+    const mainsHealthy = (raw & 0x4000) !== 0;
 
-    console.log(`[STATUS-DEBUG-FALLBACK] Reg78 Valid! Mode: ${mode} | Mains(Bit7): ${mainsClosed} | Gen(Bit4): ${genClosed}`);
+    console.log(`[STATUS-DEBUG-FALLBACK] Reg78 Valid! Mode: ${mode} | Mains(Bit7): ${mainsClosed} | Gen(Bit4): ${genClosed} | MainsHealthy: ${mainsHealthy}`);
 
     return {
       block: "STATUS_78",
       opMode: mode,
       reg78_hex: raw.toString(16).toUpperCase(),
       mainsBreakerClosed: mainsClosed,
-      genBreakerClosed: genClosed
+      genBreakerClosed: genClosed,
+      mainsHealthy
     };
   }
 
