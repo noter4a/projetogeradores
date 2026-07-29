@@ -14,8 +14,8 @@ const roleLabel = (role: UserRole) =>
 
 const CompanyManagement: React.FC = () => {
   const { user } = useAuth();
-  const { generators } = useGenerators();
-  const { users } = useUsers();
+  const { generators, fetchGenerators } = useGenerators();
+  const { users, refreshUsers } = useUsers();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,7 +178,12 @@ const CompanyManagement: React.FC = () => {
         setSelectedGeneratorIds([]);
         setSelectedUserIds([]);
         setEditingId(null);
-        await fetchCompanies();
+        // UserContext e GeneratorContext só buscam dados uma vez ao montar —
+        // sem isso, o companyId de geradores/usuários que acabou de mudar aqui
+        // fica desatualizado no resto do app até um F5 manual. Reabrir "editar"
+        // nesta mesma empresa mostraria o estado ANTIGO (parecendo que salvar
+        // não funcionou), mesmo o backend já tendo gravado certinho.
+        await Promise.all([fetchCompanies(), fetchGenerators(), refreshUsers()]);
       } else {
         const errData = await res.json();
         setError(errData.message || 'Erro ao salvar empresa.');
@@ -234,7 +239,9 @@ const CompanyManagement: React.FC = () => {
     try {
       const res = await fetch(`/api/companies/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        await fetchCompanies();
+        // Excluir a empresa também desvincula geradores/usuários dela (ON
+        // DELETE SET NULL) — mesma necessidade de atualizar os dois contextos.
+        await Promise.all([fetchCompanies(), fetchGenerators(), refreshUsers()]);
       } else {
         const errData = await res.json();
         setError(errData.message || 'Erro ao excluir empresa.');
