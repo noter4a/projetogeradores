@@ -77,6 +77,21 @@ const COLUMNS = [
     { number: 15, name: 'alarmCode', type: snmp.ObjectType.Integer },
     { number: 16, name: 'runHours', type: snmp.ObjectType.Gauge32 },      // hours x100
     { number: 17, name: 'lastUpdateEpoch', type: snmp.ObjectType.Gauge32 }, // unix seconds
+    // Colunas 18+ adicionadas depois (2026-07-30) pra tensão/corrente por fase —
+    // numeradas em sequência a partir daqui, NUNCA renumerando 1-17: um cliente
+    // (Adyl/Zabbix) já recebeu a tabela de OIDs 1-17 documentada por fora do
+    // sistema (arquivo MIB entregue manualmente); mudar o número de uma coluna
+    // existente quebraria a configuração dele sem aviso.
+    { number: 18, name: 'genVoltageL2', type: snmp.ObjectType.Gauge32 },     // V (coluna 7 = genVoltage = fase L1)
+    { number: 19, name: 'genVoltageL3', type: snmp.ObjectType.Gauge32 },     // V
+    { number: 20, name: 'mainsVoltageL2', type: snmp.ObjectType.Gauge32 },   // V (coluna 6 = mainsVoltage = fase L1)
+    { number: 21, name: 'mainsVoltageL3', type: snmp.ObjectType.Gauge32 },   // V
+    { number: 22, name: 'genCurrentL1', type: snmp.ObjectType.Gauge32 },     // A x10
+    { number: 23, name: 'genCurrentL2', type: snmp.ObjectType.Gauge32 },     // A x10
+    { number: 24, name: 'genCurrentL3', type: snmp.ObjectType.Gauge32 },     // A x10
+    { number: 25, name: 'mainsCurrentL1', type: snmp.ObjectType.Gauge32 },   // A x10
+    { number: 26, name: 'mainsCurrentL2', type: snmp.ObjectType.Gauge32 },   // A x10
+    { number: 27, name: 'mainsCurrentL3', type: snmp.ObjectType.Gauge32 },   // A x10
 ];
 
 function toIntOrZero(v, scale = 1) {
@@ -95,7 +110,11 @@ async function fetchGeneratorRows(generatorIds) {
     const hasFilter = Array.isArray(generatorIds) && generatorIds.length > 0;
     const { rows } = await pool.query(`
         SELECT g.id, g.name, g.status, g.last_connected,
-               g.voltage_l1, g.mains_voltage_l1, g.frequency,
+               g.voltage_l1, g.voltage_l2, g.voltage_l3,
+               g.mains_voltage_l1, g.mains_voltage_l2, g.mains_voltage_l3,
+               g.current_l1, g.current_l2, g.current_l3,
+               g.mains_current_l1, g.mains_current_l2, g.mains_current_l3,
+               g.frequency,
                g.rpm, g.fuel_level, g.battery_voltage, g.oil_pressure, g.engine_temp,
                g.active_power, g.run_hours,
                (SELECT ah.alarm_code FROM alarm_history ah
@@ -135,6 +154,16 @@ function rowToColumns(row, stableIndexFor) {
         toIntOrZero(row.alarm_code),
         toIntOrZero(row.run_hours, 100),
         lastUpdateEpoch,
+        toIntOrZero(row.voltage_l2),
+        toIntOrZero(row.voltage_l3),
+        toIntOrZero(row.mains_voltage_l2),
+        toIntOrZero(row.mains_voltage_l3),
+        toIntOrZero(row.current_l1, 10),
+        toIntOrZero(row.current_l2, 10),
+        toIntOrZero(row.current_l3, 10),
+        toIntOrZero(row.mains_current_l1, 10),
+        toIntOrZero(row.mains_current_l2, 10),
+        toIntOrZero(row.mains_current_l3, 10),
     ];
 }
 

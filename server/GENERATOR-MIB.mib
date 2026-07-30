@@ -56,7 +56,17 @@ GeneratorEntry ::= SEQUENCE {
     activePower         Gauge32,
     alarmCode           Integer32,
     runHours            Gauge32,
-    lastUpdateEpoch     Gauge32
+    lastUpdateEpoch     Gauge32,
+    genVoltageL2        Gauge32,
+    genVoltageL3        Gauge32,
+    mainsVoltageL2      Gauge32,
+    mainsVoltageL3      Gauge32,
+    genCurrentL1        Gauge32,
+    genCurrentL2        Gauge32,
+    genCurrentL3        Gauge32,
+    mainsCurrentL1      Gauge32,
+    mainsCurrentL2      Gauge32,
+    mainsCurrentL3      Gauge32
 }
 
 generatorIndex OBJECT-TYPE
@@ -177,6 +187,81 @@ lastUpdateEpoch OBJECT-TYPE
     STATUS      current
     DESCRIPTION "Timestamp Unix (segundos) da ultima leitura recebida."
     ::= { generatorEntry 17 }
+
+-- Colunas 18+ adicionadas em 2026-07-30 para tensao e corrente por fase.
+-- Numeradas em sequencia a partir de 18 — as colunas 1-17 acima NUNCA mudam
+-- de numero uma vez entregues a um cliente (um cliente ja consome essa MIB
+-- em producao); todo campo novo entra so no final.
+
+genVoltageL2 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Tensao gerada pelo grupo gerador, fase 2 (V)."
+    ::= { generatorEntry 18 }
+
+genVoltageL3 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Tensao gerada pelo grupo gerador, fase 3 (V)."
+    ::= { generatorEntry 19 }
+
+mainsVoltageL2 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Tensao da rede eletrica, fase 2 (V)."
+    ::= { generatorEntry 20 }
+
+mainsVoltageL3 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Tensao da rede eletrica, fase 3 (V)."
+    ::= { generatorEntry 21 }
+
+genCurrentL1 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Corrente do grupo gerador, fase 1, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 22 }
+
+genCurrentL2 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Corrente do grupo gerador, fase 2, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 23 }
+
+genCurrentL3 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Corrente do grupo gerador, fase 3, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 24 }
+
+mainsCurrentL1 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Corrente da rede eletrica, fase 1, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 25 }
+
+mainsCurrentL2 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Corrente da rede eletrica, fase 2, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 26 }
+
+mainsCurrentL3 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Corrente da rede eletrica, fase 3, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 27 }
 
 -- Notificacoes (traps). Disparadas pelo agente (nao fazem parte da tabela)
 -- quando alarmCode de um gerador muda de valor entre um ciclo de poll e

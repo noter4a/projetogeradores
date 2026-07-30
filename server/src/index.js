@@ -659,7 +659,10 @@ const initDb = async (retries = 15, delay = 5000) => {
                 "voltage_l12 INTEGER DEFAULT 0",
                 "voltage_l23 INTEGER DEFAULT 0",
                 "voltage_l31 INTEGER DEFAULT 0",
-                "run_hours NUMERIC(10,2) DEFAULT 0"
+                "run_hours NUMERIC(10,2) DEFAULT 0",
+                "mains_current_l1 NUMERIC(6,1) DEFAULT 0",
+                "mains_current_l2 NUMERIC(6,1) DEFAULT 0",
+                "mains_current_l3 NUMERIC(6,1) DEFAULT 0"
             ];
 
             for (const col of columnsToAdd) {

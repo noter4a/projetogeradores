@@ -2507,6 +2507,9 @@ export const initMqttService = (io) => {
                                     run_hours = COALESCE($22, run_hours),
                                     active_power = COALESCE($23, active_power),
                                     power_factor = COALESCE($24, power_factor),
+                                    mains_current_l1 = COALESCE($25, mains_current_l1),
+                                    mains_current_l2 = COALESCE($26, mains_current_l2),
+                                    mains_current_l3 = COALESCE($27, mains_current_l3),
                                     last_connected = NOW()
                                 WHERE id = $18 OR connection_info->>'ip' = $18
                             `;
@@ -2575,7 +2578,10 @@ export const initMqttService = (io) => {
                                 safeRound(unifiedData.voltageL31),
                                 safeFloat(unifiedData.runHours),
                                 safeFloat(unifiedData.activePower),
-                                safeFloat(unifiedData.powerFactor)
+                                safeFloat(unifiedData.powerFactor),
+                                safeFloat(unifiedData.mainsCurrentL1),
+                                safeFloat(unifiedData.mainsCurrentL2),
+                                safeFloat(unifiedData.mainsCurrentL3)
                             ];
 
                             await pool.query(query, values);
