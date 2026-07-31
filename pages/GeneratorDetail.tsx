@@ -12,83 +12,26 @@ import OperatorGeneratorPanel from '../components/OperatorGeneratorPanel';
 import MobileControlBar from '../components/ui/MobileControlBar';
 import PullToRefreshIndicator from '../components/ui/PullToRefreshIndicator';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { formatLastUpdate, CONNECTION_THRESHOLD_MS } from '../utils/generatorHealth';
+import { formatLastUpdate, isGeneratorConnected } from '../utils/generatorHealth';
+import { formatPowerFactor } from '../utils/formatters';
+import { computeLoadStats, PowerPoint, LoadStats } from '../utils/loadStats';
 import {
-  Power, RotateCcw, Settings, Gauge,
-  Thermometer, Droplets, Battery, Zap, Timer, ChevronLeft, ChevronDown, ChevronUp, Lock,
-  RefreshCw, UtilityPole, Cable, TrendingUp, BarChart3, Play, Square,
-  Radio, LayoutDashboard, Sliders, Plus, Save, Send, Trash2, Ban, AlertTriangle, MapPin
+  Settings, Gauge,
+  Zap, ChevronLeft, Lock,
+  Cable, TrendingUp, Play,
+  Radio, LayoutDashboard, Sliders, Save, Ban, AlertTriangle, MapPin
 } from 'lucide-react';
-import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts';
-import LocationHistoryMap from '../components/LocationHistoryMap';
+import { ModbusRegister } from '../components/generator-detail/ModbusRegisterTable';
+import LocationCard from '../components/generator-detail/LocationCard';
+import MechanicalParametersCard from '../components/generator-detail/MechanicalParametersCard';
+import ElectricalParametersCard from '../components/generator-detail/ElectricalParametersCard';
+import ModbusPanel, { ModbusRegisterRef } from '../components/generator-detail/ModbusPanel';
+import RemoteControlPanel from '../components/generator-detail/RemoteControlPanel';
+import LoadCurveCard from '../components/generator-detail/LoadCurveCard';
+import AccordionSection from '../components/generator-detail/AccordionSection';
 
 const GENERATOR_SECTION_IDS = ['remote_control', 'mechanical', 'electrical', 'location', 'load_curve'] as const;
 type GeneratorSectionId = typeof GENERATOR_SECTION_IDS[number];
-
-/** One downsampled bucket from /readings. `power` is the bucket average (what the
- *  line plots); powerMax/powerMin are the true extremes inside that bucket. */
-interface PowerPoint {
-  time: string;
-  power: number;
-  powerMax: number;
-  powerMin: number;
-  samples: number;
-  activeSamples: number;
-  bucketSeconds: number;
-}
-
-interface LoadStats {
-  peak: number;         // kW — true peak across the window
-  peakTime: string;     // label of the bucket containing the peak
-  avg: number;          // kW — sample-weighted average
-  loadFactor: number | null; // % of nominal, null when nominal is unknown
-  energyKwh: number;    // kWh over the window
-  runningHours: number; // hours with load > 0
-}
-
-/** Stats over the currently-visible buckets. Averages are weighted by each
- *  bucket's sample count so partially-filled buckets don't skew the result. */
-function computeLoadStats(points: PowerPoint[], nominalKva?: number): LoadStats | null {
-  if (points.length === 0) return null;
-
-  let peak = -Infinity;
-  let peakTime = '';
-  let weightedSum = 0;
-  let totalSamples = 0;
-  let energyKwh = 0;
-  let runningSeconds = 0;
-
-  for (const p of points) {
-    if (p.powerMax > peak) {
-      peak = p.powerMax;
-      peakTime = p.time;
-    }
-    const samples = p.samples > 0 ? p.samples : 1;
-    weightedSum += p.power * samples;
-    totalSamples += samples;
-
-    // Energy: average power over the bucket's duration.
-    energyKwh += (p.power * p.bucketSeconds) / 3600;
-
-    // Running time: proportion of the bucket's samples that had load.
-    const activeRatio = p.samples > 0 ? p.activeSamples / p.samples : 0;
-    runningSeconds += p.bucketSeconds * activeRatio;
-  }
-
-  const avg = totalSamples > 0 ? weightedSum / totalSamples : 0;
-  // powerKVA is apparent power; comparing kW to it is an approximation, but it's
-  // the only nominal rating stored and is what operators size against.
-  const loadFactor = nominalKva && nominalKva > 0 ? (avg / nominalKva) * 100 : null;
-
-  return {
-    peak: peak === -Infinity ? 0 : peak,
-    peakTime,
-    avg,
-    loadFactor,
-    energyKwh,
-    runningHours: runningSeconds / 3600,
-  };
-}
 
 const generatorSectionsStorageKey = (generatorId: string) => `ciklo_gen_sections_${generatorId}`;
 
@@ -127,84 +70,6 @@ function loadExpandedSections(generatorId: string | undefined, canControl: boole
 function saveExpandedSections(generatorId: string | undefined, sections: Set<string>) {
   if (!generatorId) return;
   localStorage.setItem(generatorSectionsStorageKey(generatorId), JSON.stringify([...sections]));
-}
-
-const CircularGauge = ({ value, max, label, unit, color = "text-ciklo-yellow", size = 120 }: any) => {
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius;
-  
-  // Safe check for null, undefined, or KVA not-present values (65535 and its scaled variants)
-  const isInvalid = value === null || value === undefined || value === 65535 || value === 655.35 || value === 6553.5 || value < 0;
-  const numericValue = isInvalid ? 0 : Number(value);
-  const strokeDashoffset = circumference - (Math.min(numericValue, max) / max) * circumference;
-
-  return (
-    <div className="relative flex flex-col items-center justify-center p-4 bg-ciklo-dark rounded-xl border border-gray-700/50">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg className="transform -rotate-90 w-full h-full">
-          <circle
-            className="text-gray-700"
-            strokeWidth="8"
-            stroke="currentColor"
-            fill="transparent"
-            r={radius}
-            cx="50%"
-            cy="50%"
-          />
-          <circle
-            className={`${color} transition-all duration-1000 ease-out`}
-            strokeWidth="8"
-            strokeDasharray={circumference}
-            strokeDashoffset={isInvalid ? circumference : strokeDashoffset}
-            strokeLinecap="round"
-            stroke="currentColor"
-            fill="transparent"
-            r={radius}
-            cx="50%"
-            cy="50%"
-          />
-        </svg>
-        <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold text-white">{isInvalid ? '-' : numericValue.toFixed(unit === 'rpm' ? 0 : 1)}</span>
-          <span className="text-xs text-gray-400">{unit}</span>
-        </div>
-      </div>
-      <span className="text-sm font-semibold text-gray-400 mt-2">{label}</span>
-    </div>
-  );
-};
-
-const formatVoltage = (val: any) => (val === null || val === undefined || val === 65535 ? '-' : `${Number(val).toFixed(0)} V`);
-const formatCurrent = (val: any) => {
-  if (val === null || val === undefined || val === 65535) return '-';
-  const n = Number(val);
-  if (!Number.isFinite(n) || n > 8000) return '-';
-  return `${n.toFixed(0)} A`;
-};
-const formatFrequency = (val: any) => (val === null || val === undefined || val === 6553.5 || val === 65535 ? '-' : `${Number(val).toFixed(1)} Hz`);
-const formatPowerFactor = (val: any) => (val === null || val === undefined || val === 655.35 || val === 6553.5 || val === 65535 ? '-' : `${Number(val).toFixed(2)}`);
-const formatPower = (val: any) => (val === null || val === undefined || val === 65535 ? '-' : `${Number(val).toFixed(1)} kW`);
-
-interface ModbusRegister {
-  id: string;
-  address: string;
-  name: string;
-  value: string;
-  unit: string;
-  type: 'READ' | 'WRITE';
-  reading?: boolean;
-  error?: string;
-  newValue?: string;
-  writing?: boolean;
-  writeError?: string;
-}
-
-interface ModbusRegisterRef {
-  address: number;
-  name: string;
-  unit: string;
-  access: string;
-  notes?: string;
 }
 
 const GeneratorDetail: React.FC = () => {
@@ -255,14 +120,7 @@ const GeneratorDetail: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const checkConnection = () => {
-      if (gen?.lastDataReceived) {
-        const elapsed = Date.now() - gen.lastDataReceived;
-        setIsConnected(elapsed < CONNECTION_THRESHOLD_MS);
-      } else {
-        setIsConnected(false);
-      }
-    };
+    const checkConnection = () => setIsConnected(isGeneratorConnected(gen?.lastDataReceived));
     checkConnection();
     const interval = setInterval(checkConnection, 5_000); // Check every 5s
     return () => clearInterval(interval);
@@ -842,890 +700,39 @@ const GeneratorDetail: React.FC = () => {
     setModbusRegisters(modbusRegisters.filter(r => r.id !== id));
   };
 
-
-
-  const renderRemoteControl = () => {
-    if (!canControl) return null;
-    // DSE: trocar de modo já deu partida no motor sozinho em campo (Ciklo55) —
-    // não é bloqueado (decisão do usuário), mas handleControl pede confirmação
-    // explícita antes de mandar auto/manual. Ver comentário lá e em mqtt.js.
-    const isDseController = gen.controller?.toLowerCase() === 'dse';
-    return (
-      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-5">
-        <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
-          <h3 className="text-white font-bold flex items-center gap-2 text-sm">
-            <Radio size={18} className="text-ciklo-orange" /> Painel de Controle Remoto
-          </h3>
-          <div className="flex items-center gap-2">
-            <div className={`px-2 py-1 rounded bg-gray-900 border ${isConnected ? 'border-gray-700' : 'border-red-900'} text-[10px] font-mono ${isConnected ? 'text-ciklo-yellow' : 'text-red-500'} flex items-center gap-1`}>
-              <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-              {isConnected ? 'CONECTADO' : 'DESCONECTADO'}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Operation Mode & Remote Command (Left side - 5 cols) */}
-          <div className="lg:col-span-5 space-y-6">
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-xs text-gray-500 font-semibold">Modo de Operação</label>
-                <button
-                  onClick={() => handleControl('reset')}
-                  className="text-[10px] flex items-center gap-1 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-2 py-0.5 rounded border border-gray-700 transition-colors"
-                >
-                  <RotateCcw size={10} /> Reset falhas
-                </button>
-              </div>
-              <div className="flex bg-gray-900/50 p-1.5 rounded-lg border border-gray-800 relative">
-                <div className="flex-1 flex gap-2">
-                  {/* AUTO BUTTON */}
-                  <button
-                    disabled={gen.operationMode === 'AUTO'}
-                    onClick={() => handleControl('auto')}
-                    className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'AUTO'
-                      ? 'bg-green-600 text-white cursor-default opacity-100'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                  >
-                    <RefreshCw size={14} className={gen.operationMode === 'AUTO' ? 'animate-spin-slow' : ''} /> Automático
-                  </button>
-
-                  {/* MANUAL BUTTON */}
-                  <button
-                    disabled={gen.operationMode === 'MANUAL'}
-                    onClick={() => handleControl('manual')}
-                    className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'MANUAL'
-                      ? 'bg-green-600 text-white cursor-default opacity-100'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                      }`}
-                  >
-                    <Settings size={14} className={gen.operationMode === 'MANUAL' ? 'animate-spin-slow' : ''} /> Manual
-                  </button>
-
-                  {/* INIBIDO BUTTON (KVA only) */}
-                  {(gen.controller?.toLowerCase() === 'kva' || gen.controller?.toLowerCase() === 'kvar') && (
-                    <button
-                      disabled={gen.operationMode === 'INHIBITED'}
-                      onClick={() => handleControl('inhibit')}
-                      className={`flex-1 py-3 rounded-md font-semibold text-xs flex items-center justify-center gap-2 transition-all ${gen.operationMode === 'INHIBITED'
-                        ? 'bg-amber-600 text-white cursor-default opacity-100'
-                        : 'text-gray-400 hover:text-white hover:bg-white/5'
-                        }`}
-                    >
-                      <Ban size={14} /> Inibido
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800 mt-4 relative">
-                <label className="text-xs text-gray-500 font-semibold mb-3 block text-center">Comando Remoto</label>
-                <div className="flex gap-3">
-                  {(() => {
-                    // DSE: "Telemetry start/cancel if in auto mode" (35732/35733)
-                    // dá partida/parada sob demanda sem sair do modo Automático —
-                    // por isso AUTO não desabilita Partida/Parar aqui, diferente
-                    // dos demais controladores. Ver mesma lógica em canStartMobile.
-                    const startDisabled = gen.status === GeneratorStatus.RUNNING
-                      || (!isDseController && gen.operationMode === 'AUTO')
-                      || gen.operationMode === 'INHIBITED';
-                    const stopDisabled = gen.status === GeneratorStatus.STOPPED
-                      || (!isDseController && gen.operationMode === 'AUTO')
-                      || gen.operationMode === 'INHIBITED';
-                    return (
-                      <>
-                        <button
-                          disabled={startDisabled}
-                          onClick={() => handleControl('start')}
-                          className={`flex-1 py-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all border ${startDisabled
-                            ? 'bg-green-900/20 text-green-600 border-green-900/50 opacity-50 cursor-not-allowed'
-                            : 'bg-green-600 hover:bg-green-500 text-white border-green-500'
-                            }`}
-                        >
-                          <Play size={18} fill="currentColor" /> Partida
-                        </button>
-                        <button
-                          disabled={stopDisabled}
-                          onClick={() => handleControl('stop')}
-                          className={`flex-1 py-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all border ${stopDisabled
-                            ? 'bg-red-900/20 text-red-600 border-red-900/50 opacity-50 cursor-not-allowed'
-                            : 'bg-red-600 hover:bg-red-500 text-white border-red-500'
-                            }`}
-                        >
-                          <Square size={18} fill="currentColor" /> Parar
-                        </button>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Divider for mobile/desktop */}
-          <div className="hidden lg:block lg:col-span-1 border-l border-gray-800 mx-auto h-full w-px"></div>
-
-          {/* QTA (Right side - 6 cols) */}
-          <div className="lg:col-span-6 flex flex-col justify-center">
-            <div className="text-center mb-6">
-              <label className="text-xs text-gray-500 font-semibold block">Status da Transferência (QTA)</label>
-              <span className="text-xs font-mono text-gray-400">
-                {gen.operationMode === 'AUTO' ? 'Controle Automático Ativo' : gen.operationMode === 'INHIBITED' ? 'Modo Inibido Ativo' : 'Controle Manual Habilitado'}
-              </span>
-            </div>
-
-            <div className="flex flex-col items-center justify-center relative px-2 md:px-4 py-8 bg-gray-900/30 rounded-xl border border-dashed border-gray-800">
-              {/* SVG Single Line Diagram */}
-              <div className="w-full max-w-[500px] h-[120px] relative">
-                <svg viewBox="0 0 500 120" className="w-full h-full drop-shadow-lg">
-                  {/* DEFS for Glows */}
-                  <defs>
-                    <filter id="glow-green" x="-50%" y="-50%" width="200%" height="200%">
-                      <feGaussianBlur stdDeviation="4" result="coloredBlur" />
-                      <feMerge>
-                        <feMergeNode in="coloredBlur" />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                    <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
-                      <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                      <feMerge>
-                        <feMergeNode in="coloredBlur" />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                  </defs>
-
-                  {/* --- STATIC LINES --- */}
-                  <line x1="50" y1="80" x2="130" y2="80" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#ef4444"} strokeWidth="4" className="transition-colors duration-500" />
-                  <line x1="170" y1="80" x2="200" y2="80" stroke={gen.mainsBreakerClosed ? "#22c55e" : "#374151"} strokeWidth="4" className="transition-colors duration-500" />
-                  <line x1="300" y1="80" x2="330" y2="80" stroke={gen.genBreakerClosed ? "#22c55e" : "#374151"} strokeWidth="4" className="transition-colors duration-500" />
-                  <line x1="370" y1="80" x2="450" y2="80" stroke={gen.genBreakerClosed ? "#22c55e" : "#ef4444"} strokeWidth="4" className="transition-colors duration-500" />
-
-                  {/* --- ICONS --- */}
-                  {(() => {
-                    // Verde = rede energizada (tensão presente), mesmo com a chave aberta.
-                    // Cinza somente quando realmente não há tensão medida na rede.
-                    const isMainsPresent = [
-                      gen.mainsVoltageL1, gen.mainsVoltageL2, gen.mainsVoltageL3,
-                      gen.mainsVoltageL12, gen.mainsVoltageL23, gen.mainsVoltageL31,
-                    ].some(v => (v ?? 0) > 10);
-                    return (
-                      <g transform="translate(10, 50)" className={isMainsPresent ? "text-green-500" : "text-gray-500"}>
-                        <circle cx="20" cy="20" r="22" fill="none" stroke={isMainsPresent ? "#22c55e" : "#6b7280"} strokeWidth="3" />
-                        <UtilityPole size={24} x={8} y={8} className="text-current" strokeWidth={1.5} />
-                        {gen.mainsBreakerClosed && (
-                          <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
-                        )}
-                        <text x="20" y="-10" textAnchor="middle" fill="currentColor" fontSize="12" fontWeight="bold">REDE</text>
-                      </g>
-                    );
-                  })()}
-
-                  <g transform="translate(450, 55)">
-                    <circle cx="20" cy="20" r="22" fill="none" stroke={gen.status === GeneratorStatus.RUNNING ? "#22c55e" : "#6b7280"} strokeWidth="3" />
-                    <text x="20" y="26" textAnchor="middle" fill={gen.status === GeneratorStatus.RUNNING ? "#22c55e" : "#6b7280"} fontSize="20" fontWeight="bold">G</text>
-                    {gen.status === GeneratorStatus.RUNNING && (
-                      <circle cx="20" cy="20" r="28" fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="10 10" className="animate-spin-slow origin-[20px_20px] opacity-50" />
-                    )}
-                    <text x="20" y="-15" textAnchor="middle" fill="currentColor" className="text-gray-400" fontSize="12" fontWeight="bold">GERADOR</text>
-                  </g>
-
-                  <g transform="translate(200, 55)">
-                    <rect x="0" y="0" width="100" height="50" rx="4" fill="#1f2937" stroke={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#374151"} strokeWidth="3" />
-                    <text x="50" y="30" textAnchor="middle" fill={gen.mainsBreakerClosed || gen.genBreakerClosed ? "#f97316" : "#6b7280"} fontSize="14" fontWeight="bold" letterSpacing="2">CARGA</text>
-                  </g>
-
-                  {/* mainsBreakerClosed/genBreakerClosed vêm null quando o próprio
-                      controlador não reporta o contator (ex: este DSE4501 devolve
-                      "Unimplemented" pro relé de rede e de gerador via GenComm — não
-                      é falha de leitura, o equipamento não expõe esse dado). Um
-                      terceiro estado cinza "INDISPONÍVEL" evita mostrar ABERTO
-                      (vermelho) quando na verdade é "não sei". */}
-                  {(() => {
-                    const mainsUnknown = gen.mainsBreakerClosed == null;
-                    const mainsColor = mainsUnknown ? '#6b7280' : gen.mainsBreakerClosed ? '#22c55e' : '#ef4444';
-                    const mainsLabel = mainsUnknown ? 'INDISPONÍVEL' : gen.mainsBreakerClosed ? 'FECHADO' : 'ABERTO';
-                    return (
-                      <g
-                        className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED' ? 'cursor-not-allowed opacity-50' : ''}`}
-                        onClick={() => { if (gen.operationMode !== 'AUTO' && gen.operationMode !== 'INHIBITED') handleControl('toggleMains'); }}
-                      >
-                        <rect x="120" y="30" width="60" height="60" fill="transparent" />
-                        <line
-                          x1="130" y1="80" x2="170" y2="80"
-                          stroke={mainsColor}
-                          strokeWidth="6"
-                          strokeLinecap="round"
-                          className="transition-all duration-500 ease-in-out"
-                          transform={gen.mainsBreakerClosed ? "rotate(0 130 80)" : "rotate(-35 130 80)"}
-                        />
-                        <circle cx="130" cy="80" r="4" fill="#fff" />
-                        <circle cx="170" cy="80" r="4" fill="#fff" />
-                        <text x="150" y="110" textAnchor="middle" fontSize="10" fill={mainsColor} fontWeight="bold">
-                          {mainsLabel}
-                        </text>
-                      </g>
-                    );
-                  })()}
-
-                  {(() => {
-                    const genUnknown = gen.genBreakerClosed == null;
-                    const genColor = genUnknown ? '#6b7280' : gen.genBreakerClosed ? '#22c55e' : '#ef4444';
-                    const genLabel = genUnknown ? 'INDISPONÍVEL' : gen.genBreakerClosed ? 'FECHADO' : 'ABERTO';
-                    return (
-                      <g
-                        className={`cursor-pointer group hover:opacity-80 transition-all ${gen.operationMode === 'AUTO' || gen.operationMode === 'INHIBITED' ? 'cursor-not-allowed opacity-50' : ''}`}
-                        onClick={() => { if (gen.operationMode !== 'AUTO' && gen.operationMode !== 'INHIBITED') handleControl('toggleGen'); }}
-                      >
-                        <rect x="320" y="30" width="60" height="60" fill="transparent" />
-                        <line
-                          x1="370" y1="80" x2="330" y2="80"
-                          stroke={genColor}
-                          strokeWidth="6"
-                          strokeLinecap="round"
-                          className="transition-all duration-500 ease-in-out"
-                          transform={gen.genBreakerClosed ? "rotate(0 370 80)" : "rotate(35 370 80)"}
-                        />
-                        <circle cx="370" cy="80" r="4" fill="#fff" />
-                        <circle cx="330" cy="80" r="4" fill="#fff" />
-                        <text x="350" y="110" textAnchor="middle" fontSize="10" fill={genColor} fontWeight="bold">
-                          {genLabel}
-                        </text>
-                      </g>
-                    );
-                  })()}
-                </svg>
-
-                <div className="absolute top-0 right-0">
-                  {gen.operationMode === 'AUTO' && (
-                    <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">
-                      Controle Automático (Chaves Bloqueadas)
-                    </span>
-                  )}
-                  {gen.operationMode === 'INHIBITED' && (
-                    <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-1 rounded border border-amber-500/30">
-                      Modo Inibido (Controles Bloqueados)
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderMechanicalParameters = () => {
-    return (
-      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
-        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-          <Settings size={18} className="text-ciklo-orange" /> Parâmetros Mecânicos
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <CircularGauge value={gen.rpm} max={2500} label="RPM Motor" unit="rpm" color="text-blue-500" />
-          <CircularGauge value={gen.oilPressure} max={10} label="Pressão Óleo" unit="bar" color="text-red-500" />
-        </div>
-        <div className="mt-4 space-y-3">
-          <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-            <div className="flex items-center gap-2 text-gray-400">
-              <Thermometer size={18} /> Temp. Motor
-            </div>
-            <span className="text-xl font-bold text-white">
-              {gen.engineTemp === null || gen.engineTemp === undefined || gen.engineTemp === 65535 ? '-' : `${gen.engineTemp}°C`}
-            </span>
-          </div>
-          {gen.oilTemp != null && (
-            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-              <div className="flex items-center gap-2 text-gray-400">
-                <Thermometer size={18} /> Temp. Óleo
-              </div>
-              <span className="text-xl font-bold text-white">{gen.oilTemp}°C</span>
-            </div>
-          )}
-          <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-            <div className="flex items-center gap-2 text-gray-400">
-              <Droplets size={18} /> Nível Combustível
-            </div>
-            <span className={`text-xl font-bold ${gen.fuelLevel === null || gen.fuelLevel === undefined || gen.fuelLevel === 65535 ? 'text-gray-400' : gen.fuelLevel < 20 ? 'text-red-500' : 'text-green-500'}`}>
-              {gen.fuelLevel === null || gen.fuelLevel === undefined || gen.fuelLevel === 65535 ? '-' : `${gen.fuelLevel}%`}
-            </span>
-          </div>
-          <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-            <div className="flex items-center gap-2 text-gray-400">
-              <Battery size={18} /> Tensão Bateria
-            </div>
-            <span className="text-xl font-bold text-white">
-              {gen.batteryVoltage === null || gen.batteryVoltage === undefined || gen.batteryVoltage === 6553.5 ? '-' : `${gen.batteryVoltage} V`}
-            </span>
-          </div>
-          <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-            <div className="flex items-center gap-2 text-gray-400">
-              <Timer size={18} /> Horímetro Total
-            </div>
-            <span className="text-xl font-bold text-white">
-              {Number(gen.totalHours || 0).toFixed(2)} h
-            </span>
-          </div>
-          {gen.activeEnergy != null && (
-            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-              <div className="flex items-center gap-2 text-gray-400">
-                <Zap size={18} /> Energia Total Gerada
-              </div>
-              <span className="text-xl font-bold text-white">{Number(gen.activeEnergy).toFixed(1)} kWh</span>
-            </div>
-          )}
-          {gen.loadPercent != null && (
-            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-              <div className="flex items-center gap-2 text-gray-400">
-                <BarChart3 size={18} /> Carga
-              </div>
-              <span className={`text-xl font-bold ${gen.loadPercent >= 90 ? 'text-red-500' : gen.loadPercent >= 70 ? 'text-ciklo-orange' : 'text-green-500'}`}>
-                {gen.loadPercent}%
-              </span>
-            </div>
-          )}
-          {gen.avgCurrent != null && (
-            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-              <div className="flex items-center gap-2 text-gray-400">
-                <Zap size={18} /> Corrente Média
-              </div>
-              <span className="text-xl font-bold text-white">{gen.avgCurrent} A</span>
-            </div>
-          )}
-          {gen.startAttempts != null && (
-            <div className="bg-ciklo-dark p-3 rounded-lg flex items-center justify-between border border-gray-700/50">
-              <div className="flex items-center gap-2 text-gray-400">
-                <RotateCcw size={18} /> Nº de Partidas
-              </div>
-              <span className="text-xl font-bold text-white">{gen.startAttempts}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderElectricalParameters = () => {
-    return (
-      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6 h-full flex flex-col">
-        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-          <Zap size={18} className="text-ciklo-yellow" /> Parâmetros Elétricos
-        </h3>
-
-        {/* Big Power Display */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-ciklo-orange">
-            <p className="text-gray-400 text-xs font-medium">Potência Ativa Total</p>
-            <p className="text-3xl font-bold text-white mt-1">
-              {gen.activePowerTotal === null || gen.activePowerTotal === undefined || gen.activePowerTotal === 65535 ? '-' : Number(gen.activePowerTotal).toFixed(1)}{' '}
-              {gen.activePowerTotal !== null && gen.activePowerTotal !== undefined && gen.activePowerTotal !== 65535 && (
-                <span className="text-base font-normal text-gray-500">kW</span>
-              )}
-            </p>
-            {gen.apparentPower != null && gen.apparentPower > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
-                Aparente: <span className="text-gray-300">{Number(gen.apparentPower).toFixed(1)} kVA</span>
-              </p>
-            )}
-          </div>
-          <div className="bg-ciklo-dark rounded-lg p-4 border-l-4 border-blue-500">
-            <p className="text-gray-400 text-xs font-medium">Fator de Potência</p>
-            <p className="text-3xl font-bold text-white mt-1">
-              {formatPowerFactor(gen.powerFactor)}{' '}
-              {gen.powerFactor !== null && gen.powerFactor !== undefined && gen.powerFactor !== 655.35 && gen.powerFactor !== 6553.5 && gen.powerFactor !== 65535 && (
-                <span className="text-base font-normal text-gray-500">cos φ</span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* GENERATOR COLUMN */}
-          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
-              <div className="flex items-center gap-2 text-green-500">
-                <Power size={18} />
-                <span className="font-bold text-sm">Gerador</span>
-              </div>
-              <div className="flex items-center gap-3">
-                {/* Toggle Phase-Neutral / Phase-Phase */}
-                <div className="flex bg-gray-800 rounded-lg p-0.5">
-                  <button
-                    onClick={() => setVoltageViewMode('PP')}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                  >
-                    F-F
-                  </button>
-                  <button
-                    onClick={() => setVoltageViewMode('PN')}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${voltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                  >
-                    F-N
-                  </button>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs text-gray-400 block">Frequência</span>
-                  <span className="text-lg font-bold text-white">{formatFrequency(gen.frequency)}</span>
-                </div>
-              </div>
-            </div>
-            <table className="w-full text-left">
-              <thead className="text-[10px] text-gray-500 uppercase">
-                <tr>
-                  <th className="pb-2">Fase</th>
-                  <th className="pb-2 text-right">Tensão</th>
-                  <th className="pb-2 text-right">Corrente</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800 text-sm">
-                {voltageViewMode === 'PN' ? (
-                  <>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L1</td>
-                      <td className="py-2 text-right text-ciklo-yellow">{formatVoltage(gen.voltageL1)}</td>
-                      <td className="py-2 text-right text-blue-400">{formatCurrent(gen.currentL1)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L2</td>
-                      <td className="py-2 text-right text-ciklo-yellow">{formatVoltage(gen.voltageL2)}</td>
-                      <td className="py-2 text-right text-blue-400">{formatCurrent(gen.currentL2)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L3</td>
-                      <td className="py-2 text-right text-ciklo-yellow">{formatVoltage(gen.voltageL3)}</td>
-                      <td className="py-2 text-right text-blue-400">{formatCurrent(gen.currentL3)}</td>
-                    </tr>
-                  </>
-                ) : (
-                  <>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L1-L2</td>
-                      <td className="py-2 text-right text-ciklo-yellow">{formatVoltage(gen.voltageL12)}</td>
-                      <td className="py-2 text-right text-blue-400">{formatCurrent(gen.currentL1)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L2-L3</td>
-                      <td className="py-2 text-right text-ciklo-yellow">{formatVoltage(gen.voltageL23)}</td>
-                      <td className="py-2 text-right text-blue-400">{formatCurrent(gen.currentL2)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L3-L1</td>
-                      <td className="py-2 text-right text-ciklo-yellow">{formatVoltage(gen.voltageL31)}</td>
-                      <td className="py-2 text-right text-blue-400">{formatCurrent(gen.currentL3)}</td>
-                    </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* MAINS COLUMN */}
-          <div className="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-700">
-              <div className="flex items-center gap-2 text-gray-400">
-                <UtilityPole size={18} />
-                <span className="font-bold text-sm">Rede</span>
-                {(gen.mainsFailure || gen.mainsFeedingLoad === false || gen.mainsBreakerClosed === false) && (
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-red-900/40 text-red-400 border border-red-800">
-                    {gen.mainsFailure ? 'Falha de rede' : 'Sem alimentação'}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                {/* Toggle Phase-Neutral / Phase-Phase */}
-                <div className="flex bg-gray-800 rounded-lg p-0.5">
-                  <button
-                    onClick={() => setMainsVoltageViewMode('PP')}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PP' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                  >
-                    F-F
-                  </button>
-                  <button
-                    onClick={() => setMainsVoltageViewMode('PN')}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${mainsVoltageViewMode === 'PN' ? 'bg-gray-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
-                  >
-                    F-N
-                  </button>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs text-gray-400 block">Frequência</span>
-                  <span className="text-lg font-bold text-white">{formatFrequency(gen.mainsFrequency)}</span>
-                </div>
-              </div>
-            </div>
-            <table className="w-full text-left">
-              <thead className="text-[10px] text-gray-500 uppercase">
-                <tr>
-                  <th className="pb-2">Fase</th>
-                  <th className="pb-2 text-right">Tensão</th>
-                  <th className="pb-2 text-right">Corrente</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800 text-sm">
-                {mainsVoltageViewMode === 'PN' ? (
-                  <>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L1</td>
-                      <td className="py-2 text-right text-gray-400">{formatVoltage(gen.mainsVoltageL1)}</td>
-                      <td className="py-2 text-right text-gray-500">{formatCurrent(gen.mainsCurrentL1)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L2</td>
-                      <td className="py-2 text-right text-gray-400">{formatVoltage(gen.mainsVoltageL2)}</td>
-                      <td className="py-2 text-right text-gray-500">{formatCurrent(gen.mainsCurrentL2)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L3</td>
-                      <td className="py-2 text-right text-gray-400">{formatVoltage(gen.mainsVoltageL3)}</td>
-                      <td className="py-2 text-right text-gray-500">{formatCurrent(gen.mainsCurrentL3)}</td>
-                    </tr>
-                  </>
-                ) : (
-                  <>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L1-L2</td>
-                      <td className="py-2 text-right text-gray-400">{formatVoltage(gen.mainsVoltageL12)}</td>
-                      <td className="py-2 text-right text-blue-400">{formatCurrent(gen.mainsCurrentL1)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L2-L3</td>
-                      <td className="py-2 text-right text-gray-400">{formatVoltage(gen.mainsVoltageL23)}</td>
-                      <td className="py-2 text-right text-blue-400">{formatCurrent(gen.mainsCurrentL2)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 text-gray-300 font-bold">L3-L1</td>
-                      <td className="py-2 text-right text-gray-400">{formatVoltage(gen.mainsVoltageL31)}</td>
-                      <td className="py-2 text-right text-blue-400">{formatCurrent(gen.mainsCurrentL3)}</td>
-                    </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderLocation = () => {
-    if (!gen.gpsUpdatedAt) return null;
-
-    return (
-      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-6">
-        <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-          <MapPin size={18} className="text-ciklo-orange" /> Localização
-        </h3>
-
-        <LocationHistoryMap
-          generatorId={gen.id}
-          currentLat={gen.gpsHasFix ? gen.latitude : null}
-          currentLon={gen.gpsHasFix ? gen.longitude : null}
-        />
-
-        <p className="text-[10px] text-gray-600 mt-3">
-          Atualizado: {new Date(gen.gpsUpdatedAt).toLocaleString('pt-BR')}
-        </p>
-      </div>
-    );
-  };
-
-  const renderLoadCurve = () => {
-    const canSelectOnChart = powerHistory.length > 1 && !isChartZoomed;
-
-    return (
-      <div className="bg-ciklo-card rounded-xl border border-gray-800 p-3 sm:p-6">
-        <div className="mb-3 sm:mb-6 space-y-3">
-          <h3 className="text-white font-bold flex items-center gap-2 text-sm sm:text-base">
-            <TrendingUp size={18} className="text-ciklo-orange shrink-0" /> Curva de Carga (kW)
-          </h3>
-
-          <div className="flex flex-col gap-2">
-            <div className="flex bg-gray-900 rounded-lg p-0.5 border border-gray-700 w-full">
-              {([['24h', '24h'], ['7d', '7 dias'], ['30d', '1 mês']] as const).map(([value, label]) => (
-                <button
-                  key={value}
-                  onClick={() => setChartRange(value)}
-                  className={`flex-1 sm:flex-none px-2 sm:px-3 py-2 sm:py-1.5 text-xs font-bold rounded-md transition-all ${
-                    chartRange === value
-                      ? 'bg-ciklo-orange text-black shadow'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between gap-2 sm:hidden">
-              <span className="flex items-center gap-1.5 text-xs text-gray-400">
-                <div className="w-2 h-2 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50" />
-                Potência Ativa
-              </span>
-              <span className="text-gray-600 font-mono text-xs">
-                {chartLoading ? '...' : visiblePowerHistory.length > 0
-                  ? `${visiblePowerHistory.length}${isChartZoomed ? `/${powerHistory.length}` : ''} pts`
-                  : ''}
-              </span>
-            </div>
-
-            <div className="hidden sm:flex sm:flex-wrap sm:items-center sm:gap-3">
-              <span className="flex items-center gap-1.5 text-xs text-gray-400">
-                <div className="w-2.5 h-2.5 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50" />
-                Potência Ativa
-              </span>
-              <span className="text-gray-600 font-mono text-xs">
-                {chartLoading ? '...' : visiblePowerHistory.length > 0
-                  ? `${visiblePowerHistory.length}${isChartZoomed ? `/${powerHistory.length}` : ''} pts`
-                  : ''}
-              </span>
-              {isChartZoomed && (
-                <button
-                  type="button"
-                  onClick={() => setChartZoomRange(null)}
-                  className="text-xs font-bold text-ciklo-orange hover:text-orange-400 transition-colors"
-                >
-                  Ver período completo
-                </button>
-              )}
-            </div>
-
-            {isMobile && isChartZoomed && (
-              <button
-                type="button"
-                onClick={() => setChartZoomRange(null)}
-                className="w-full py-3 rounded-xl bg-ciklo-orange/15 border border-ciklo-orange/50 text-ciklo-orange font-bold text-sm active:scale-[0.98] transition-transform"
-              >
-                Ver período completo
-              </button>
-            )}
-
-            {isMobile && canSelectOnChart && (
-              <button
-                type="button"
-                onClick={() => setChartSelectMode((on) => !on)}
-                className={`w-full py-3 rounded-xl font-bold text-sm active:scale-[0.98] transition-all ${
-                  chartSelectMode
-                    ? 'bg-gray-800 border border-gray-600 text-gray-200'
-                    : 'bg-ciklo-orange text-black shadow-md shadow-orange-900/30'
-                }`}
-              >
-                {chartSelectMode ? 'Cancelar seleção' : 'Selecionar período no gráfico'}
-              </button>
-            )}
-
-            {isMobile && chartSelectMode && (
-              <p className="text-xs text-center text-ciklo-orange/90 px-1">
-                Toque no início e arraste até o fim do intervalo desejado
-              </p>
-            )}
-          </div>
-
-          {!isMobile && powerHistory.length > 5 && !isChartZoomed && (
-            <p className="text-[11px] text-gray-500">
-              Clique no início do período e arraste até o fim no gráfico.
-            </p>
-          )}
-          {isChartZoomed && (
-            <p className="text-[11px] text-ciklo-orange/80 break-words">
-              Período: {powerHistory[chartZoomStart]?.time} → {powerHistory[chartZoomEnd]?.time}
-            </p>
-          )}
-        </div>
-
-        <div
-          ref={chartContainerRef}
-          className={`relative h-[240px] sm:h-[350px] w-full select-none rounded-lg ${
-            isMobile && chartSelectMode ? 'ring-2 ring-ciklo-orange/60 ring-offset-2 ring-offset-ciklo-card' : ''
-          }`}
-          style={{
-            cursor: isChartZoomed ? 'default' : chartInteractionEnabled ? 'crosshair' : 'default',
-            touchAction: isMobile && !chartSelectMode && !isDraggingChart ? 'pan-y' : 'none',
-          }}
-          onPointerDown={chartInteractionEnabled ? handleChartPointerDown : undefined}
-          onPointerMove={chartInteractionEnabled ? handleChartPointerMove : undefined}
-          onPointerUp={chartInteractionEnabled ? handleChartPointerUp : undefined}
-          onPointerCancel={chartInteractionEnabled ? handleChartPointerCancel : undefined}
-          onMouseLeave={() => { if (!isMobile) setChartTooltipVisible(false); }}
-        >
-          {isMobile && chartSelectMode && !isDraggingChart && (
-            <div
-              className="absolute inset-0 z-10 pointer-events-none rounded-lg border border-dashed border-ciklo-orange/30 bg-ciklo-orange/[0.03]"
-              aria-hidden
-            />
-          )}
-          {chartLoading && powerHistory.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-600">
-              <TrendingUp size={48} className="mb-3 opacity-30 animate-pulse" />
-              <p className="text-sm">Carregando dados históricos...</p>
-            </div>
-          ) : powerHistory.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-600">
-              <TrendingUp size={48} className="mb-3 opacity-30" />
-              <p className="text-sm">Nenhum dado registrado para este período</p>
-              <p className="text-xs text-gray-700 mt-1">Os dados serão coletados automaticamente</p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chartDisplayData}
-                margin={{ top: 4, right: isMobile ? 4 : 10, left: 0, bottom: isMobile ? 16 : 5 }}
-                onMouseMove={handleChartHover}
-                onMouseLeave={() => setChartTooltipVisible(false)}
-                onClick={handleChartTap}
-              >
-                <defs>
-                  <linearGradient id="colorPowerLive" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#FACC15" stopOpacity={0.4} />
-                    <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
-                    <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-                <XAxis
-                  dataKey="time"
-                  stroke="#555"
-                  tick={{ fontSize: isMobile ? 9 : 10, fill: '#666' }}
-                  minTickGap={isMobile ? 32 : 40}
-                  axisLine={{ stroke: '#333' }}
-                  interval={isMobile && chartDisplayData.length > 8 ? 'preserveStartEnd' : 'preserveEnd'}
-                />
-                <YAxis
-                  stroke="#555"
-                  tick={{ fontSize: isMobile ? 9 : 10, fill: '#666' }}
-                  domain={[0, chartMaxPower]}
-                  unit={isMobile ? 'kW' : ' kW'}
-                  axisLine={{ stroke: '#333' }}
-                  width={isMobile ? 48 : 65}
-                />
-                <Tooltip
-                  active={chartTooltipVisible && !isDraggingChart && !chartSelectMode}
-                  contentStyle={{
-                    backgroundColor: '#111',
-                    borderColor: '#444',
-                    color: '#fff',
-                    borderRadius: '10px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                    padding: '12px 16px',
-                  }}
-                  labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
-                  itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
-                  formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
-                />
-                <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
-                {!isChartZoomed && selectionX1 && selectionX2 && selectionX1 !== selectionX2 && (
-                  <ReferenceArea
-                    x1={selectionX1}
-                    x2={selectionX2}
-                    stroke="#FACC15"
-                    strokeOpacity={0.9}
-                    fill="#FACC15"
-                    fillOpacity={0.2}
-                  />
-                )}
-                <Area
-                  type="monotone"
-                  dataKey="power"
-                  stroke="#FACC15"
-                  strokeWidth={2.5}
-                  fillOpacity={1}
-                  fill="url(#colorPowerLive)"
-                  dot={false}
-                  activeDot={chartTooltipVisible && !isDraggingChart ? { r: 5, fill: '#FACC15', stroke: '#000', strokeWidth: 2 } : false}
-                  animationDuration={500}
-                  isAnimationActive={chartDisplayData.length <= 2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Mini-relatório do período (segue o zoom/seleção do gráfico) */}
-        {!chartLoading && loadStats && chartDisplayData.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-800">
-            <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-              <h4 className="text-xs font-semibold text-gray-500">
-                Resumo do período
-              </h4>
-              <span className="text-[10px] text-gray-600 font-mono">
-                {isChartZoomed
-                  ? `trecho selecionado • ${chartDisplayData.length} pts`
-                  : chartRange === '24h' ? 'últimas 24 horas' : chartRange === '7d' ? 'últimos 7 dias' : 'últimos 30 dias'}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[11px] text-gray-500 font-medium mb-1">Pico máximo</p>
-                <p className="text-lg font-bold text-ciklo-yellow leading-tight">
-                  {loadStats.peak.toFixed(1)} <span className="text-xs text-gray-500 font-normal">kW</span>
-                </p>
-                {loadStats.peakTime && (
-                  <p className="text-[10px] text-gray-600 mt-0.5 truncate" title={loadStats.peakTime}>
-                    em {loadStats.peakTime}
-                  </p>
-                )}
-              </div>
-
-              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[11px] text-gray-500 font-medium mb-1">Média</p>
-                <p className="text-lg font-bold text-white leading-tight">
-                  {loadStats.avg.toFixed(1)} <span className="text-xs text-gray-500 font-normal">kW</span>
-                </p>
-              </div>
-
-              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[11px] text-gray-500 font-medium mb-1">Fator de carga</p>
-                {loadStats.loadFactor != null ? (
-                  <>
-                    <p className={`text-lg font-bold leading-tight ${
-                      loadStats.loadFactor < 30 ? 'text-amber-400' : 'text-green-400'
-                    }`}>
-                      {loadStats.loadFactor.toFixed(0)}<span className="text-xs text-gray-500 font-normal">%</span>
-                    </p>
-                    <p className="text-[10px] text-gray-600 mt-0.5">
-                      de {gen.powerKVA} kVA
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-lg font-bold text-gray-600 leading-tight">–</p>
-                )}
-              </div>
-
-              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[11px] text-gray-500 font-medium mb-1">Energia</p>
-                <p className="text-lg font-bold text-white leading-tight">
-                  {loadStats.energyKwh >= 1000
-                    ? `${(loadStats.energyKwh / 1000).toFixed(2)} `
-                    : `${loadStats.energyKwh.toFixed(1)} `}
-                  <span className="text-xs text-gray-500 font-normal">
-                    {loadStats.energyKwh >= 1000 ? 'MWh' : 'kWh'}
-                  </span>
-                </p>
-              </div>
-
-              <div className="bg-ciklo-dark p-3 rounded-lg border border-gray-700/50">
-                <p className="text-[11px] text-gray-500 font-medium mb-1">Em operação</p>
-                <p className="text-lg font-bold text-white leading-tight">
-                  {loadStats.runningHours.toFixed(1)} <span className="text-xs text-gray-500 font-normal">h</span>
-                </p>
-              </div>
-            </div>
-
-            {loadStats.loadFactor != null && loadStats.loadFactor < 30 && loadStats.runningHours > 0 && (
-              <p className="text-[10px] text-amber-400/80 mt-3 flex items-start gap-1.5">
-                <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                Fator de carga baixo — o gerador está operando bem abaixo da capacidade nominal no período.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const loadCurveCard = (
+    <LoadCurveCard
+      gen={gen}
+      isMobile={isMobile}
+      chartRange={chartRange}
+      onChartRangeChange={setChartRange}
+      powerHistory={powerHistory}
+      chartLoading={chartLoading}
+      chartDisplayData={chartDisplayData}
+      visiblePowerHistory={visiblePowerHistory}
+      isChartZoomed={isChartZoomed}
+      chartZoomStart={chartZoomStart}
+      chartZoomEnd={chartZoomEnd}
+      onClearZoom={() => setChartZoomRange(null)}
+      chartSelectMode={chartSelectMode}
+      onToggleChartSelectMode={() => setChartSelectMode((on) => !on)}
+      isDraggingChart={isDraggingChart}
+      chartContainerRef={chartContainerRef}
+      chartInteractionEnabled={chartInteractionEnabled}
+      onChartPointerDown={handleChartPointerDown}
+      onChartPointerMove={handleChartPointerMove}
+      onChartPointerUp={handleChartPointerUp}
+      onChartPointerCancel={handleChartPointerCancel}
+      chartTooltipVisible={chartTooltipVisible}
+      onHideTooltip={() => setChartTooltipVisible(false)}
+      onChartHover={handleChartHover}
+      onChartTap={handleChartTap}
+      chartMaxPower={chartMaxPower}
+      selectionX1={selectionX1}
+      selectionX2={selectionX2}
+      loadStats={loadStats}
+    />
+  );
 
   return (
     <div className={`space-y-6 relative ${showOperatorUi && canControl ? 'pb-28' : 'pb-10'}`}>
@@ -1874,137 +881,89 @@ const GeneratorDetail: React.FC = () => {
                 <>
               {/* Accordion: Controle Remoto */}
               {canControl && (
-                <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
-                  <button
-                    onClick={() => toggleSection('remote_control')}
-                    className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('remote_control') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
-                        <Radio size={22} className={expandedSections.has('remote_control') ? 'text-black' : 'text-ciklo-orange'} />
-                      </div>
-                      <div className="text-left">
-                        <span className="text-white font-bold text-base block">Controle Remoto</span>
-                        <span className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
-                          <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                          {isConnected ? 'Conectado' : 'Desconectado'} • {gen.operationMode || 'AUTO'}
-                        </span>
-                      </div>
-                    </div>
-                    {expandedSections.has('remote_control') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
-                  </button>
-                  {expandedSections.has('remote_control') && (
-                    <div className="px-3 pb-4 animate-in fade-in duration-200">
-                      {renderRemoteControl()}
-                    </div>
-                  )}
-                </div>
+                <AccordionSection
+                  icon={<Radio size={22} className={expandedSections.has('remote_control') ? 'text-black' : 'text-ciklo-orange'} />}
+                  title="Controle Remoto"
+                  summary={
+                    <span className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
+                      <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      {isConnected ? 'Conectado' : 'Desconectado'} • {gen.operationMode || 'AUTO'}
+                    </span>
+                  }
+                  expanded={expandedSections.has('remote_control')}
+                  onToggle={() => toggleSection('remote_control')}
+                >
+                  <RemoteControlPanel gen={gen} isConnected={isConnected} onControl={handleControl} />
+                </AccordionSection>
               )}
 
               {/* Accordion: Parâmetros Mecânicos */}
-              <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
-                <button
-                  onClick={() => toggleSection('mechanical')}
-                  className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('mechanical') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
-                      <Settings size={22} className={expandedSections.has('mechanical') ? 'text-black' : 'text-ciklo-orange'} />
-                    </div>
-                    <div className="text-left">
-                      <span className="text-white font-bold text-base block">Parâmetros Mecânicos</span>
-                      <span className="text-xs text-gray-400 mt-0.5 block">
-                        RPM: {gen.rpm === null || gen.rpm === undefined || gen.rpm === 65535 ? '-' : gen.rpm} • Temp: {gen.engineTemp === null || gen.engineTemp === undefined || gen.engineTemp === 65535 ? '-' : `${gen.engineTemp}°C`} • Comb: {gen.fuelLevel === null || gen.fuelLevel === undefined || gen.fuelLevel === 65535 ? '-' : `${gen.fuelLevel}%`}
-                      </span>
-                    </div>
-                  </div>
-                  {expandedSections.has('mechanical') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
-                </button>
-                {expandedSections.has('mechanical') && (
-                  <div className="px-3 pb-4 animate-in fade-in duration-200">
-                    {renderMechanicalParameters()}
-                  </div>
-                )}
-              </div>
+              <AccordionSection
+                icon={<Settings size={22} className={expandedSections.has('mechanical') ? 'text-black' : 'text-ciklo-orange'} />}
+                title="Parâmetros Mecânicos"
+                summary={
+                  <span className="text-xs text-gray-400 mt-0.5 block">
+                    RPM: {gen.rpm === null || gen.rpm === undefined || gen.rpm === 65535 ? '-' : gen.rpm} • Temp: {gen.engineTemp === null || gen.engineTemp === undefined || gen.engineTemp === 65535 ? '-' : `${gen.engineTemp}°C`} • Comb: {gen.fuelLevel === null || gen.fuelLevel === undefined || gen.fuelLevel === 65535 ? '-' : `${gen.fuelLevel}%`}
+                  </span>
+                }
+                expanded={expandedSections.has('mechanical')}
+                onToggle={() => toggleSection('mechanical')}
+              >
+                <MechanicalParametersCard gen={gen} />
+              </AccordionSection>
 
               {/* Accordion: Parâmetros Elétricos */}
-              <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
-                <button
-                  onClick={() => toggleSection('electrical')}
-                  className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('electrical') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
-                      <Zap size={22} className={expandedSections.has('electrical') ? 'text-black' : 'text-ciklo-yellow'} />
-                    </div>
-                    <div className="text-left">
-                      <span className="text-white font-bold text-base block">Parâmetros Elétricos</span>
-                      <span className="text-xs text-gray-400 mt-0.5 block">
-                        Potência: {gen.activePowerTotal === null || gen.activePowerTotal === undefined || gen.activePowerTotal === 65535 ? '-' : `${Number(gen.activePowerTotal).toFixed(1)} kW`} • FP: {formatPowerFactor(gen.powerFactor)}
-                      </span>
-                    </div>
-                  </div>
-                  {expandedSections.has('electrical') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
-                </button>
-                {expandedSections.has('electrical') && (
-                  <div className="px-3 pb-4 animate-in fade-in duration-200">
-                    {renderElectricalParameters()}
-                  </div>
-                )}
-              </div>
+              <AccordionSection
+                icon={<Zap size={22} className={expandedSections.has('electrical') ? 'text-black' : 'text-ciklo-yellow'} />}
+                title="Parâmetros Elétricos"
+                summary={
+                  <span className="text-xs text-gray-400 mt-0.5 block">
+                    Potência: {gen.activePowerTotal === null || gen.activePowerTotal === undefined || gen.activePowerTotal === 65535 ? '-' : `${Number(gen.activePowerTotal).toFixed(1)} kW`} • FP: {formatPowerFactor(gen.powerFactor)}
+                  </span>
+                }
+                expanded={expandedSections.has('electrical')}
+                onToggle={() => toggleSection('electrical')}
+              >
+                <ElectricalParametersCard
+                  gen={gen}
+                  voltageViewMode={voltageViewMode}
+                  onVoltageViewModeChange={setVoltageViewMode}
+                  mainsVoltageViewMode={mainsVoltageViewMode}
+                  onMainsVoltageViewModeChange={setMainsVoltageViewMode}
+                />
+              </AccordionSection>
 
               {/* Accordion: Curva de Carga */}
-              <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
-                <button
-                  onClick={() => toggleSection('load_curve')}
-                  className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('load_curve') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
-                      <TrendingUp size={22} className={expandedSections.has('load_curve') ? 'text-black' : 'text-ciklo-orange'} />
-                    </div>
-                    <div className="text-left">
-                      <span className="text-white font-bold text-base block">Curva de Carga</span>
-                      <span className="text-xs text-gray-400 mt-0.5 block">
-                        Período: {chartRange === '24h' ? '24 horas' : chartRange === '7d' ? '7 dias' : '1 mês'} • Potência: {Number(gen.activePowerTotal || 0).toFixed(1)} kW
-                      </span>
-                    </div>
-                  </div>
-                  {expandedSections.has('load_curve') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
-                </button>
-                {expandedSections.has('load_curve') && (
-                  <div className="px-1 pb-4 sm:px-3 animate-in fade-in duration-200">
-                    {renderLoadCurve()}
-                  </div>
-                )}
-              </div>
+              <AccordionSection
+                icon={<TrendingUp size={22} className={expandedSections.has('load_curve') ? 'text-black' : 'text-ciklo-orange'} />}
+                title="Curva de Carga"
+                summary={
+                  <span className="text-xs text-gray-400 mt-0.5 block">
+                    Período: {chartRange === '24h' ? '24 horas' : chartRange === '7d' ? '7 dias' : '1 mês'} • Potência: {Number(gen.activePowerTotal || 0).toFixed(1)} kW
+                  </span>
+                }
+                expanded={expandedSections.has('load_curve')}
+                onToggle={() => toggleSection('load_curve')}
+                contentClassName="px-1 pb-4 sm:px-3 animate-in fade-in duration-200"
+              >
+                {loadCurveCard}
+              </AccordionSection>
 
               {/* Accordion: Localização (só quando o gerador reporta GNSS) */}
               {gen.gpsUpdatedAt && (
-                <div className="rounded-2xl border border-gray-700/60 overflow-hidden bg-ciklo-card shadow-lg shadow-black/20">
-                  <button
-                    onClick={() => toggleSection('location')}
-                    className="w-full flex items-center justify-between px-5 py-5 hover:bg-white/5 transition-colors active:bg-white/10"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${expandedSections.has('location') ? 'bg-ciklo-orange shadow-md shadow-orange-900/30' : 'bg-gray-800 border border-gray-700'}`}>
-                        <MapPin size={22} className={expandedSections.has('location') ? 'text-black' : 'text-ciklo-orange'} />
-                      </div>
-                      <div className="text-left">
-                        <span className="text-white font-bold text-base block">Localização</span>
-                        <span className="text-xs text-gray-400 mt-0.5 block">
-                          {gen.gpsHasFix && gen.latitude != null ? `${gen.latitude.toFixed(4)}, ${gen.longitude!.toFixed(4)}` : 'Buscando sinal de GPS...'}
-                        </span>
-                      </div>
-                    </div>
-                    {expandedSections.has('location') ? <ChevronUp size={24} className="text-gray-400" /> : <ChevronDown size={24} className="text-gray-400" />}
-                  </button>
-                  {expandedSections.has('location') && (
-                    <div className="px-3 pb-4 animate-in fade-in duration-200">
-                      {renderLocation()}
-                    </div>
-                  )}
-                </div>
+                <AccordionSection
+                  icon={<MapPin size={22} className={expandedSections.has('location') ? 'text-black' : 'text-ciklo-orange'} />}
+                  title="Localização"
+                  summary={
+                    <span className="text-xs text-gray-400 mt-0.5 block">
+                      {gen.gpsHasFix && gen.latitude != null ? `${gen.latitude.toFixed(4)}, ${gen.longitude!.toFixed(4)}` : 'Buscando sinal de GPS...'}
+                    </span>
+                  }
+                  expanded={expandedSections.has('location')}
+                  onToggle={() => toggleSection('location')}
+                >
+                  <LocationCard gen={gen} />
+                </AccordionSection>
               )}
                 </>
               )}
@@ -2012,17 +971,23 @@ const GeneratorDetail: React.FC = () => {
           ) : (
             <>
               {/* Desktop Layout */}
-              {renderRemoteControl()}
+              {canControl && <RemoteControlPanel gen={gen} isConnected={isConnected} onControl={handleControl} />}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="space-y-6">
-                  {renderMechanicalParameters()}
+                  <MechanicalParametersCard gen={gen} />
                 </div>
                 <div className="lg:col-span-2 space-y-6">
-                  {renderElectricalParameters()}
+                  <ElectricalParametersCard
+                      gen={gen}
+                      voltageViewMode={voltageViewMode}
+                      onVoltageViewModeChange={setVoltageViewMode}
+                      mainsVoltageViewMode={mainsVoltageViewMode}
+                      onMainsVoltageViewModeChange={setMainsVoltageViewMode}
+                    />
                 </div>
               </div>
-              {renderLoadCurve()}
-              {renderLocation()}
+              {loadCurveCard}
+              <LocationCard gen={gen} />
             </>
           )}
         </div>
@@ -2032,267 +997,30 @@ const GeneratorDetail: React.FC = () => {
       {/* MODBUS CONTROL TAB */}
       {
         activeTab === 'modbus' && canAccessAdvanced && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Header Info */}
-            <div className="bg-ciklo-card p-6 rounded-xl border border-gray-800">
-              <h2 className="text-lg font-bold text-white mb-2">Comunicação Modbus</h2>
-              <p className="text-sm text-gray-400">Protocolo: <span className="text-white font-mono">{gen.protocol || 'modbus_tcp'}</span> | IP: <span className="text-white font-mono">{gen.ip || '192.168.1.100'}</span> | Porta: <span className="text-white font-mono">{gen.port || '502'}</span> | ID: <span className="text-white font-mono">{gen.slaveId || '1'}</span></p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* READ SECTION */}
-              <div className="bg-ciklo-card p-6 rounded-xl border border-gray-800 flex flex-col h-full">
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                  <LayoutDashboard size={18} className="text-blue-500" /> Monitoramento (Leitura)
-                </h3>
-
-                {/* Add Register Form */}
-                <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-4">
-                  <p className="text-xs text-gray-500 font-semibold mb-3">Adicionar Parâmetro</p>
-                  <div className="grid grid-cols-12 gap-2">
-                    <input
-                      type="text"
-                      placeholder="Endereço (Ex: 1024)"
-                      value={readAddress}
-                      onChange={(e) => setReadAddress(e.target.value)}
-                      className="col-span-3 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Nome do Parâmetro"
-                      value={readName}
-                      onChange={(e) => setReadName(e.target.value)}
-                      className="col-span-4 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Un."
-                      value={readUnit}
-                      onChange={(e) => setReadUnit(e.target.value)}
-                      className="col-span-2 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                    />
-                    <button
-                      onClick={handleAddReadParameter}
-                      className="col-span-3 bg-blue-600 hover:bg-blue-500 text-white rounded p-2 text-xs font-bold flex items-center justify-center gap-1"
-                    >
-                      <Plus size={12} /> Adicionar
-                    </button>
-                  </div>
-                </div>
-
-                {/* Reference table — known registers for THIS generator's controller,
-                    click a row to prefill the form above instead of guessing addresses. */}
-                {(refLoading || refRegisters.length > 0) && (
-                  <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs text-gray-500 font-semibold">
-                        Registradores conhecidos {gen.controller ? `(${gen.controller.toUpperCase()})` : ''}
-                      </p>
-                      {refLoading && <span className="text-[10px] text-gray-600">carregando...</span>}
-                    </div>
-                    {refRegisters.length > 0 && (
-                      <>
-                        <input
-                          type="text"
-                          placeholder="Buscar por nome ou endereço..."
-                          value={refFilter}
-                          onChange={(e) => setRefFilter(e.target.value)}
-                          className="w-full bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white mb-2"
-                        />
-                        <div className="max-h-48 overflow-auto border border-gray-800 rounded">
-                          <table className="w-full text-left text-xs">
-                            <tbody className="divide-y divide-gray-800">
-                              {refRegisters
-                                .filter(r =>
-                                  !refFilter ||
-                                  r.name.toLowerCase().includes(refFilter.toLowerCase()) ||
-                                  String(r.address).includes(refFilter)
-                                )
-                                .map((r, i) => (
-                                  <tr
-                                    key={i}
-                                    onClick={() => {
-                                      setReadAddress(String(r.address));
-                                      setReadName(r.name);
-                                      setReadUnit(r.unit === '-' ? '' : r.unit);
-                                    }}
-                                    className="hover:bg-gray-800/60 cursor-pointer"
-                                    title={r.notes || ''}
-                                  >
-                                    <td className="p-2 font-mono text-gray-400 whitespace-nowrap">{r.address}</td>
-                                    <td className="p-2 text-white">{r.name}</td>
-                                    <td className="p-2 text-gray-500 whitespace-nowrap">{r.unit}</td>
-                                    <td className="p-2 text-right whitespace-nowrap">
-                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${r.access.startsWith('ESCRITA') ? 'bg-orange-500/10 text-orange-400' : 'bg-blue-500/10 text-blue-400'}`}>
-                                        {r.access === 'LEITURA/ESCRITA' ? 'R/W' : r.access.startsWith('ESCRITA') ? 'W' : 'R'}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Register List */}
-                <div className="flex-1 overflow-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-800 text-gray-500 text-[10px] uppercase">
-                      <tr>
-                        <th className="p-3">Endereço</th>
-                        <th className="p-3">Nome</th>
-                        <th className="p-3 text-right">Valor</th>
-                        <th className="p-3 text-right">Ação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800 text-sm">
-                      {modbusRegisters.filter(r => r.type === 'READ').map(reg => (
-                        <tr key={reg.id} className="hover:bg-gray-800/30">
-                          <td className="p-3 font-mono text-gray-400">{reg.address}</td>
-                          <td className="p-3 text-white">{reg.name}</td>
-                          <td className="p-3 text-right font-mono font-bold text-ciklo-yellow">
-                            {reg.reading ? (
-                              <span className="text-gray-500 font-normal text-xs">lendo...</span>
-                            ) : reg.error ? (
-                              <span className="text-red-400 font-normal text-xs" title={reg.error}>{reg.error}</span>
-                            ) : (
-                              <>{reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span></>
-                            )}
-                          </td>
-                          <td className="p-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => readRegisterValue(reg.id, reg.address)}
-                                disabled={reg.reading}
-                                className="text-gray-500 hover:text-blue-400 disabled:opacity-40"
-                                title="Ler novamente"
-                              >
-                                <RefreshCw size={13} className={reg.reading ? 'animate-spin' : ''} />
-                              </button>
-                              <button onClick={() => handleRemoveRegister(reg.id)} className="text-gray-600 hover:text-red-500">
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {modbusRegisters.filter(r => r.type === 'READ').length === 0 && (
-                        <tr><td colSpan={4} className="p-4 text-center text-gray-600 text-xs">Nenhum parâmetro monitorado</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* WRITE SECTION - UPDATED TO TABLE & ALL REGISTERS */}
-              <div className="bg-ciklo-card p-6 rounded-xl border border-gray-800 flex flex-col h-full">
-                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                  <Sliders size={18} className="text-ciklo-orange" /> Comando (Escrita)
-                </h3>
-
-                {/* Add Control Form */}
-                <div className="bg-ciklo-dark p-4 rounded-lg border border-gray-700 mb-6">
-                  <p className="text-xs text-gray-500 font-semibold mb-3">Configurar Novo Comando</p>
-                  <div className="grid grid-cols-12 gap-2">
-                    <input
-                      type="text"
-                      placeholder="Endereço"
-                      value={writeAddress}
-                      onChange={(e) => setWriteAddress(e.target.value)}
-                      className="col-span-3 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Nome do Comando"
-                      value={writeName}
-                      onChange={(e) => setWriteName(e.target.value)}
-                      className="col-span-6 bg-gray-800 border border-gray-600 rounded p-2 text-xs text-white"
-                    />
-                    <button
-                      onClick={handleAddWriteCommand}
-                      className="col-span-3 bg-ciklo-orange hover:bg-orange-500 text-black rounded p-2 text-xs font-bold flex items-center justify-center gap-1"
-                    >
-                      <Plus size={12} /> Configurar
-                    </button>
-                  </div>
-                </div>
-
-                {/* Updated Table Layout for Write Commands (Showing ALL registers) */}
-                <div className="flex-1 overflow-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-800 text-gray-500 text-[10px] uppercase">
-                      <tr>
-                        <th className="p-3">Endereço</th>
-                        <th className="p-3">Nome</th>
-                        <th className="p-3 text-right">Valor Atual</th>
-                        <th className="p-3 text-right">Definir</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800 text-sm">
-                      {modbusRegisters.filter(r => r.type === 'WRITE').map(reg => (
-                        <tr key={reg.id} className="hover:bg-gray-800/30">
-                          <td className="p-3 font-mono text-gray-400">{reg.address}</td>
-                          <td className="p-3 text-white">{reg.name}</td>
-                          <td className="p-3 text-right font-mono font-bold text-ciklo-yellow">
-                            {reg.reading ? (
-                              <span className="text-gray-500 font-normal text-xs">lendo...</span>
-                            ) : reg.error ? (
-                              <span className="text-red-400 font-normal text-xs" title={reg.error}>{reg.error}</span>
-                            ) : (
-                              <>{reg.value} <span className="text-gray-600 text-xs font-normal">{reg.unit}</span></>
-                            )}
-                          </td>
-                          <td className="p-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => readRegisterValue(reg.id, reg.address)}
-                                disabled={reg.reading}
-                                className="text-gray-500 hover:text-blue-400 disabled:opacity-40"
-                                title="Ler novamente"
-                              >
-                                <RefreshCw size={13} className={reg.reading ? 'animate-spin' : ''} />
-                              </button>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                value={reg.newValue ?? ''}
-                                onChange={(e) => setModbusRegisters(prev => prev.map(r => r.id === reg.id ? { ...r, newValue: e.target.value, writeError: undefined } : r))}
-                                onKeyDown={(e) => { if (e.key === 'Enter') writeRegisterValue(reg.id, reg.address); }}
-                                disabled={reg.writing}
-                                className="w-16 bg-black border border-gray-700 rounded p-1 text-xs text-white text-right disabled:opacity-40"
-                                placeholder="Novo"
-                                title={reg.writeError || 'Valor a escrever (0-65535)'}
-                              />
-                              <button
-                                onClick={() => writeRegisterValue(reg.id, reg.address)}
-                                disabled={reg.writing || !reg.newValue}
-                                className="p-1.5 bg-ciklo-orange hover:bg-orange-500 text-black rounded disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
-                                title="Enviar valor pro equipamento"
-                              >
-                                <Send size={14} className={reg.writing ? 'animate-pulse' : ''} />
-                              </button>
-                              <button onClick={() => handleRemoveRegister(reg.id)} className="text-gray-600 hover:text-red-500 ml-1">
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                            {reg.writeError && (
-                              <div className="text-red-400 text-[10px] mt-1">{reg.writeError}</div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {modbusRegisters.length === 0 && (
-                        <tr><td colSpan={4} className="p-4 text-center text-gray-600 text-xs">Nenhum comando disponível</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ModbusPanel
+            gen={gen}
+            modbusRegisters={modbusRegisters}
+            onSetModbusRegisters={setModbusRegisters}
+            readAddress={readAddress}
+            onReadAddressChange={setReadAddress}
+            readName={readName}
+            onReadNameChange={setReadName}
+            readUnit={readUnit}
+            onReadUnitChange={setReadUnit}
+            writeAddress={writeAddress}
+            onWriteAddressChange={setWriteAddress}
+            writeName={writeName}
+            onWriteNameChange={setWriteName}
+            refRegisters={refRegisters}
+            refLoading={refLoading}
+            refFilter={refFilter}
+            onRefFilterChange={setRefFilter}
+            onAddReadParameter={handleAddReadParameter}
+            onAddWriteCommand={handleAddWriteCommand}
+            onReadRegister={readRegisterValue}
+            onWriteRegister={writeRegisterValue}
+            onRemoveRegister={handleRemoveRegister}
+          />
         )
       }
 

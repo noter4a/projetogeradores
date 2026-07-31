@@ -93,3 +93,18 @@ export const formatDuration = (startTime: string, endTime: string | null): strin
   if (mins < 60) return `${mins}m ${secs % 60}s`;
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 };
+
+/**
+ * Generator telemetry formatters — treat sentinel "not present" values
+ * (65535 and its scaled variants) as missing, same as raw Modbus registers do.
+ */
+export const formatVoltage = (val: any) => (val === null || val === undefined || val === 65535 ? '-' : `${Number(val).toFixed(0)} V`);
+export const formatCurrent = (val: any) => {
+  if (val === null || val === undefined || val === 65535) return '-';
+  const n = Number(val);
+  if (!Number.isFinite(n) || n > 8000) return '-';
+  return `${n.toFixed(0)} A`;
+};
+export const formatFrequency = (val: any) => (val === null || val === undefined || val === 6553.5 || val === 65535 ? '-' : `${Number(val).toFixed(1)} Hz`);
+export const formatPowerFactor = (val: any) => (val === null || val === undefined || val === 655.35 || val === 6553.5 || val === 65535 ? '-' : `${Number(val).toFixed(2)}`);
+export const formatPower = (val: any) => (val === null || val === undefined || val === 65535 ? '-' : `${Number(val).toFixed(1)} kW`);
