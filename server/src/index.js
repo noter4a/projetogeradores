@@ -33,7 +33,12 @@ const httpServer = createServer(app);
 // como fallback — mantém compatibilidade com qualquer integração externa que
 // já use esse header diretamente (ex.: scripts de terceiros) sem quebrar nada.
 const AUTH_COOKIE_NAME = 'ciklo_auth_token';
-const AUTH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h — mesmo prazo do JWT (expiresIn: '24h')
+// FIX 2026-07-31: 24h expulsava o usuário no meio do expediente (relatado como
+// "fica deslogando sozinho" — confirmado nos logs: /api/auth/profile voltando
+// 401 e o app se deslogando automaticamente a cada checagem de 60s, sem
+// nenhum login novo — sessão vencida de verdade, não bug de cookie). 30 dias é
+// o padrão comum pra painel administrativo interno como este.
+const AUTH_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias — mesmo prazo do JWT (expiresIn: '30d')
 // FIX 2026-07-28: 'strict' derrubava a sessão (cookie fica no navegador, mas
 // não é enviado) sempre que a navegação não "nasce" de dentro do próprio
 // site — exatamente o caso de abrir o PWA pelo ícone da tela inicial, um
@@ -766,7 +771,7 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
         const token = jwt.sign(
             { id: user.id, role: user.role, email: user.email, companyId: user.company_id },
             process.env.JWT_SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: '30d' }
         );
 
         logAudit({
@@ -820,7 +825,7 @@ router.post('/auth/verify-2fa', otpLimiter, async (req, res) => {
         const token = jwt.sign(
             { id: user.id, role: user.role, email: user.email, companyId: user.company_id },
             process.env.JWT_SECRET,
-            { expiresIn: '24h' }
+            { expiresIn: '30d' }
         );
         logAudit({
             user: { id: user.id, email: user.email },
