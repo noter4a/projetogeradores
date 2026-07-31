@@ -174,11 +174,24 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
           const creditsChanged = current && current.companyCredits !== updatedUser.companyCredits;
 
           if (permissionChanged) {
-            setIsSyncing(true);
-            setTimeout(() => {
+            if (!current) {
+              // Primeira carga (bootstrap no mount, ou logo após login) — não
+              // existe nada "mudando" da perspectiva do usuário, então nada de
+              // atraso artificial aqui. O atraso de 800ms abaixo existe só pra
+              // dar uma transição suave quando as permissões mudam ENQUANTO a
+              // pessoa já está usando o app (overlay "Atualizando Conta").
+              // Aplicá-lo também na carga inicial criava uma janela de ~800ms
+              // com isBootstrapping=false e user=null — tempo suficiente pra
+              // ProtectedRoute mandar pro /login mesmo com sessão válida.
+              // Bug real, reportado como "atualiza a página e desloga sempre".
               setUser(updatedUser);
-              setIsSyncing(false);
-            }, 800);
+            } else {
+              setIsSyncing(true);
+              setTimeout(() => {
+                setUser(updatedUser);
+                setIsSyncing(false);
+              }, 800);
+            }
           } else if (creditsChanged) {
             setUser(updatedUser);
           }
