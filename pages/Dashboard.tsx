@@ -58,6 +58,7 @@ const Dashboard: React.FC = () => {
 
   const runningGens = generators.filter(g => g.status === GeneratorStatus.RUNNING).length;
   const alarmGens = generators.filter(g => g.alarmCode && g.alarmCode > 0).length;
+  const warningGens = generators.filter(g => g.warningCode && g.warningCode > 0).length;
   const connectedGens = generators.filter(g => isGeneratorConnected(g.lastDataReceived)).length;
   const offlineGens = generators.filter(g => !isGeneratorConnected(g.lastDataReceived)).length;
 
@@ -120,6 +121,10 @@ const Dashboard: React.FC = () => {
                 <p className="text-xs text-red-400/80 font-medium">Alarmes</p>
                 <p className="text-xl font-mono font-bold text-red-400">{alarmGens}</p>
               </div>
+              <div className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 min-w-[100px]">
+                <p className="text-xs text-amber-400/80 font-medium">Avisos</p>
+                <p className="text-xl font-mono font-bold text-amber-400">{warningGens}</p>
+              </div>
               <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 min-w-[100px]">
                 <p className="text-xs text-blue-400/80 font-medium">Conectados</p>
                 <p className="text-xl font-mono font-bold text-blue-400">{connectedGens}</p>
@@ -134,7 +139,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {showOperatorUi && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           <div className="rounded-xl bg-green-500/10 border border-green-500/30 p-3 text-center">
             <p className="text-2xl font-mono font-bold text-green-400">{runningGens}</p>
             <p className="text-[10px] text-green-400/80 font-medium">Rodando</p>
@@ -142,6 +147,10 @@ const Dashboard: React.FC = () => {
           <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-3 text-center">
             <p className="text-2xl font-mono font-bold text-red-400">{alarmGens}</p>
             <p className="text-[10px] text-red-400/80 font-medium">Alarmes</p>
+          </div>
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-center">
+            <p className="text-2xl font-mono font-bold text-amber-400">{warningGens}</p>
+            <p className="text-[10px] text-amber-400/80 font-medium">Avisos</p>
           </div>
           <div className="rounded-xl bg-blue-500/10 border border-blue-500/30 p-3 text-center">
             <p className="text-2xl font-mono font-bold text-blue-400">{connectedGens}</p>
@@ -274,6 +283,18 @@ const Dashboard: React.FC = () => {
                             <AlertTriangle size={20} className="text-red-500 animate-pulse drop-shadow-[0_0_6px_rgba(239,68,68,0.7)]" />
                           </button>
                         )}
+                        {gen.warningCode && gen.warningCode > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/alarms?generatorId=${encodeURIComponent(gen.id)}`);
+                            }}
+                            className="inline-flex items-center flex-shrink-0 hover:scale-125 transition-transform cursor-pointer"
+                            title={`Aviso Ativo (Código ${gen.warningCode}) — Clique para ver alarmes`}
+                          >
+                            <AlertTriangle size={20} className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]" />
+                          </button>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-400 text-sm mt-1.5 truncate">
                         <MapPin size={14} className="text-gray-500 shrink-0" />
@@ -382,6 +403,22 @@ const Dashboard: React.FC = () => {
             {showOperatorUi
               ? `⚠ ${alarmGens} ALARME(S) ATIVO(S) — ABRIR`
               : `${alarmGens} gerador(es) com alarme — abrir Central de Alarmes`}
+          </button>
+        )}
+
+        {warningGens > 0 && (
+          <button
+            onClick={() => navigate('/alarms')}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-bold transition-colors ${
+              showOperatorUi
+                ? 'py-4 rounded-2xl bg-amber-500 text-black border-amber-500 active:bg-amber-400'
+                : 'border-amber-500/30 bg-amber-500/5 text-amber-400 hover:bg-amber-500/10'
+            }`}
+          >
+            <AlertTriangle size={16} />
+            {showOperatorUi
+              ? `⚠ ${warningGens} AVISO(S) ATIVO(S) — ABRIR`
+              : `${warningGens} gerador(es) com aviso — abrir Central de Alarmes`}
           </button>
         )}
       </div>

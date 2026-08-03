@@ -26,7 +26,7 @@ import {
     summarizeScanSession,
 } from '../utils/modbus-scan.js';
 import pool from '../db.js';
-import { sendAlarmEmail } from './email.js';
+import { sendAlarmEmail, sendWarningEmail } from './email.js';
 import { sendAlarmWhatsApp, sendAlarmResolvedWhatsApp } from './whatsapp.js';
 
 const notifyUsersAboutAlarm = async (clientPool, generatorId, generatorName, alarmCode, alarmMessage) => {
@@ -65,6 +65,50 @@ const notifyUsersAlarmResolved = async (clientPool, generatorId, generatorName) 
         }
     } catch (err) {
         console.error('[MQTT] Failed sending alarm resolved WhatsApp:', err.message);
+    }
+};
+
+// Mesmo padrão de notifyUsersAboutAlarm/notifyUsersAlarmResolved, mas pro canal
+// de Aviso (severidade mais branda, não bloqueia operação) — mesmo público-alvo
+// (empresa do gerador + ADMINs, respeitando email_alerts/whatsapp_alerts), só
+// troca o e-mail de falha (sendAlarmEmail) pelo de aviso (sendWarningEmail) e o
+// status do WhatsApp de 'ATIVO' pra 'AVISO'.
+const notifyUsersAboutWarning = async (clientPool, generatorId, generatorName, warningCode, warningMessage) => {
+    try {
+        const res = await clientPool.query(
+            `SELECT u.email, u.email_alerts, u.phone, u.whatsapp_alerts FROM users u
+             LEFT JOIN generators g ON g.company_id = u.company_id
+             WHERE u.role = 'ADMIN' OR g.id = $1`,
+            [generatorId]
+        );
+        const emailUsers = res.rows.filter(row => row.email && row.email_alerts !== false);
+        const emails = [...new Set(emailUsers.map(row => row.email))];
+        if (emails.length > 0) {
+            await sendWarningEmail(emails, generatorId, generatorName, { code: warningCode, description: warningMessage });
+        }
+        // WhatsApp notifications
+        const whatsappUsers = res.rows.filter(row => row.phone && row.whatsapp_alerts === true);
+        for (const user of whatsappUsers) {
+            await sendAlarmWhatsApp(user.phone, generatorName, warningMessage, 'AVISO');
+        }
+    } catch (err) {
+        console.error('[MQTT] Failed finding users for warning notification:', err.message);
+    }
+};
+
+const notifyUsersWarningResolved = async (clientPool, generatorId, generatorName) => {
+    try {
+        const res = await clientPool.query(
+            `SELECT u.phone, u.whatsapp_alerts FROM users u
+             LEFT JOIN generators g ON g.company_id = u.company_id
+             WHERE (u.role = 'ADMIN' OR g.id = $1) AND u.phone IS NOT NULL AND u.whatsapp_alerts = true`,
+            [generatorId]
+        );
+        for (const user of res.rows) {
+            await sendAlarmResolvedWhatsApp(user.phone, generatorName, 'Aviso normalizado');
+        }
+    } catch (err) {
+        console.error('[MQTT] Failed sending warning resolved WhatsApp:', err.message);
     }
 };
 
@@ -117,7 +161,110 @@ const mainsFailureState = new Map(); // deviceId -> boolean (true = rede present
 // que a janela de ~8s entre 774 e 2048) resolve isso sem deixar de notificar
 // alarmes reais — abrir nunca é atrasado, só fechar.
 const ALARM_CLEAR_DEBOUNCE_MS = 30000;
-const pendingAlarmClear = new Map(); // generatorId -> timestamp da primeira leitura "sem alarme" vista
+const pendingAlarmClear = new Map(); // "generatorId:alarmType" -> timestamp da primeira leitura "sem alarme/aviso" vista
+
+// Extraído do bloco original de persistência de Falha — agora parametrizado por
+// canal de severidade ('FALHA' ou 'AVISO') pra suportar os dois níveis sem
+// duplicar a lógica de debounce/dedupe. Chamado uma vez por canal, por mensagem
+// MQTT (ver uso mais abaixo, seção ALARM HISTORY PERSISTENCE). O debounce de
+// fechamento (pendingAlarmClear) é chaveado por "generatorId:alarmType" pra um
+// canal não interferir no fechamento do outro quando os dois estão ativos ao
+// mesmo tempo pro mesmo gerador.
+async function persistAlarmChannel(deviceId, code, message, alarmType, notifyActive, notifyResolved) {
+    const newAlarm = code;
+    const newMsg = message || `${alarmType === 'AVISO' ? 'Aviso' : 'Alarme'} Código ${newAlarm}`;
+
+    // Resolve the real Generator ID from the DB
+    let resolvedGenId = deviceId;
+    let resolvedGenName = deviceId;
+    try {
+        const resGen = await pool.query(
+            "SELECT id, name FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
+            [deviceId]
+        );
+        if (resGen.rows.length > 0) {
+            resolvedGenId = resGen.rows[0].id;
+            resolvedGenName = resGen.rows[0].name;
+        }
+    } catch (err) {
+        console.error(`[MQTT] Failed to resolve Generator ID for ${alarmType} History:`, err.message);
+    }
+
+    const pendingClearKey = `${resolvedGenId}:${alarmType}`;
+
+    // Check what's currently open in the DB (source of truth), escopado a este canal
+    let dbOpenAlarmCode = 0;
+    try {
+        const openResult = await pool.query(
+            "SELECT alarm_code FROM alarm_history WHERE generator_id = $1 AND alarm_type = $2 AND end_time IS NULL ORDER BY start_time DESC LIMIT 1",
+            [resolvedGenId, alarmType]
+        );
+        if (openResult.rows.length > 0) {
+            dbOpenAlarmCode = openResult.rows[0].alarm_code;
+        }
+    } catch (err) {
+        console.error(`[MQTT] Failed to check open ${alarmType} records:`, err.message);
+    }
+
+    console.log(`[MQTT-ALARM][${alarmType}] ${resolvedGenId}: MQTT code=${newAlarm}, DB open=${dbOpenAlarmCode}`);
+
+    if (newAlarm > 0 && dbOpenAlarmCode === 0) {
+        // STARTED — No open record in DB, insert one. Nunca atrasado pelo
+        // debounce — abrir é sempre instantâneo.
+        pendingAlarmClear.delete(pendingClearKey);
+        try {
+            await pool.query(
+                "INSERT INTO alarm_history (generator_id, alarm_code, alarm_message, alarm_type) VALUES ($1, $2, $3, $4)",
+                [resolvedGenId, newAlarm, newMsg, alarmType]
+            );
+            console.log(`[MQTT] ✅ ${alarmType} REGISTRADO: ${resolvedGenId} -> ${newAlarm} ("${newMsg}")`);
+            notifyActive(pool, resolvedGenId, resolvedGenName, newAlarm, newMsg);
+        } catch (insErr) {
+            console.error(`[MQTT] ${alarmType} INSERT Error:`, insErr.message);
+        }
+    } else if (newAlarm > 0 && dbOpenAlarmCode > 0 && newAlarm !== dbOpenAlarmCode) {
+        // CHANGED — Close old, open new
+        pendingAlarmClear.delete(pendingClearKey);
+        try {
+            await pool.query(
+                "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND alarm_type = $2 AND end_time IS NULL",
+                [resolvedGenId, alarmType]
+            );
+            await pool.query(
+                "INSERT INTO alarm_history (generator_id, alarm_code, alarm_message, alarm_type) VALUES ($1, $2, $3, $4)",
+                [resolvedGenId, newAlarm, newMsg, alarmType]
+            );
+            console.log(`[MQTT] ⚠️ ${alarmType} MUDOU: ${resolvedGenId} ${dbOpenAlarmCode} -> ${newAlarm}`);
+            notifyActive(pool, resolvedGenId, resolvedGenName, newAlarm, newMsg);
+        } catch (chgErr) {
+            console.error(`[MQTT] ${alarmType} CHANGE Error:`, chgErr.message);
+        }
+    } else if (newAlarm === 0 && dbOpenAlarmCode > 0) {
+        // CLEARED (candidato) — só fecha de verdade se a leitura "sem
+        // alarme/aviso" se mantiver por ALARM_CLEAR_DEBOUNCE_MS seguidos.
+        const firstClearSeen = pendingAlarmClear.get(pendingClearKey);
+        if (!firstClearSeen) {
+            pendingAlarmClear.set(pendingClearKey, Date.now());
+            console.log(`[MQTT-ALARM][${alarmType}] ${resolvedGenId}: leitura "sem ${alarmType.toLowerCase()}" recebida, aguardando confirmação (${ALARM_CLEAR_DEBOUNCE_MS / 1000}s) antes de fechar`);
+        } else if (Date.now() - firstClearSeen >= ALARM_CLEAR_DEBOUNCE_MS) {
+            try {
+                await pool.query(
+                    "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND alarm_type = $2 AND end_time IS NULL",
+                    [resolvedGenId, alarmType]
+                );
+                console.log(`[MQTT] ✅ ${alarmType} RESOLVIDO: ${resolvedGenId} (was ${dbOpenAlarmCode})`);
+                notifyResolved(pool, resolvedGenId, resolvedGenName);
+            } catch (clrErr) {
+                console.error(`[MQTT] ${alarmType} CLEAR Error:`, clrErr.message);
+            }
+            pendingAlarmClear.delete(pendingClearKey);
+        }
+        // else: ainda dentro da janela de debounce — aguarda confirmação
+    } else if (newAlarm > 0 && newAlarm === dbOpenAlarmCode) {
+        // Mesmo alarme/aviso confirmado de novo — cancela qualquer "clear" pendente
+        pendingAlarmClear.delete(pendingClearKey);
+    }
+}
 
 const notifyUsersAboutMainsFailure = async (clientPool, generatorId, generatorName) => {
     try {
@@ -1552,6 +1699,8 @@ export const initMqttService = (io) => {
                             unifiedData.alarms.startFailure = d.startFailure;
                             unifiedData.alarmCode = d.alarmCode;
                             unifiedData.alarmMessage = d.alarmMessage;
+                            unifiedData.warningCode = d.warningCode || 0;
+                            unifiedData.warningMessage = d.warningMessage || '';
 
                             // Let the centralized Alarm History Persistence logic at the end of this loop handle SQL and Emails.
                             // The old inline logic here was removed to avoid duplication and missing ID resolution bugs.
@@ -1892,6 +2041,8 @@ export const initMqttService = (io) => {
                             // Alarm mapping
                             unifiedData.alarmCode = d.alarmCode;
                             unifiedData.alarmMessage = d.alarmMessage;
+                            unifiedData.warningCode = d.warningCode || 0;
+                            unifiedData.warningMessage = d.warningMessage || '';
                             if (!unifiedData.alarms) unifiedData.alarms = {};
                             unifiedData.alarms.startFailure = d.isStartFailure;
 
@@ -1968,6 +2119,8 @@ export const initMqttService = (io) => {
                             unifiedData.running = d.running;
                             unifiedData.alarmCode = d.alarmCode;
                             unifiedData.alarmMessage = d.alarmMessage;
+                            unifiedData.warningCode = d.warningCode || 0;
+                            unifiedData.warningMessage = d.warningMessage || '';
                             if (!unifiedData.alarms) unifiedData.alarms = {};
                             unifiedData.alarms.shutdown = d.isShutdown;
                             if (d.genBreakerClosed != null) unifiedData.genBreakerClosed = d.genBreakerClosed;
@@ -2120,9 +2273,23 @@ export const initMqttService = (io) => {
                             if (d.shutdownAlarmActive || d.electricalTripActive) {
                                 unifiedData.alarmCode = unifiedData.alarmCode || 3;
                                 unifiedData.alarmMessage = unifiedData.alarmMessage || 'Alarme de shutdown no DSE';
-                            } else if (d.warningAlarmActive && !unifiedData.alarmCode) {
-                                unifiedData.alarmCode = 2;
-                                unifiedData.alarmMessage = unifiedData.alarmMessage || 'Alarme de aviso no DSE';
+                            } else if (d.warningAlarmActive) {
+                                // Reclassificado (antes virava alarmCode=2, ALARME de verdade com
+                                // e-mail/WhatsApp de falha) — agora vai pro canal de Aviso separado,
+                                // já que warningAlarmActive sozinho (sem shutdown/trip) não bloqueia
+                                // a operação do gerador.
+                                if (!unifiedData.warningCode) {
+                                    unifiedData.warningCode = 2;
+                                    unifiedData.warningMessage = unifiedData.warningMessage || 'Aviso no DSE';
+                                }
+                            } else if (unifiedData.warningCode === undefined) {
+                                // 774 é a ÚNICA fonte do canal de Aviso no DSE (o registrador 2048,
+                                // tabela de alarmes nomeados, não distingue severidade e por isso
+                                // nunca "confirma" nem fecha um Aviso, ao contrário do que faz com
+                                // alarmCode). Por isso, diferente da Falha, precisa zerar aqui mesmo
+                                // — sem isso um Aviso do DSE nunca fecharia sozinho no banco.
+                                unifiedData.warningCode = 0;
+                                unifiedData.warningMessage = '';
                             }
                         }
 
@@ -2383,102 +2550,19 @@ export const initMqttService = (io) => {
                             // --------------------------------------------------
 
                             // --- ALARM HISTORY PERSISTENCE (Robust / Self-Healing) ---
+                            // Dois canais de severidade independentes, mesma lógica de
+                            // debounce/dedupe (ver persistAlarmChannel, definida no topo do arquivo).
                             if (unifiedData.alarmCode !== undefined) {
-                                const newAlarm = unifiedData.alarmCode;
-                                const newMsg = unifiedData.alarmMessage || `Alarme Código ${newAlarm}`;
-
-                                // Resolve the real Generator ID from the DB
-                                let resolvedGenId = deviceId;
-                                let resolvedGenName = deviceId;
-                                try {
-                                    const resGen = await pool.query(
-                                        "SELECT id, name FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
-                                        [deviceId]
-                                    );
-                                    if (resGen.rows.length > 0) {
-                                        resolvedGenId = resGen.rows[0].id;
-                                        resolvedGenName = resGen.rows[0].name;
-                                    }
-                                } catch (err) {
-                                    console.error('[MQTT] Failed to resolve Generator ID for Alarm History:', err.message);
-                                }
-
-                                // Check what's currently open in the DB (source of truth)
-                                let dbOpenAlarmCode = 0;
-                                try {
-                                    const openResult = await pool.query(
-                                        "SELECT alarm_code FROM alarm_history WHERE generator_id = $1 AND end_time IS NULL ORDER BY start_time DESC LIMIT 1",
-                                        [resolvedGenId]
-                                    );
-                                    if (openResult.rows.length > 0) {
-                                        dbOpenAlarmCode = openResult.rows[0].alarm_code;
-                                    }
-                                } catch (err) {
-                                    console.error('[MQTT] Failed to check open alarms:', err.message);
-                                }
-
-                                console.log(`[MQTT-ALARM] ${resolvedGenId}: MQTT code=${newAlarm}, DB open=${dbOpenAlarmCode}`);
-
-                                if (newAlarm > 0 && dbOpenAlarmCode === 0) {
-                                    // ALARM STARTED — No open record in DB, insert one. Nunca
-                                    // atrasado pelo debounce — abrir é sempre instantâneo.
-                                    pendingAlarmClear.delete(resolvedGenId);
-                                    try {
-                                        await pool.query(
-                                            "INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) VALUES ($1, $2, $3)",
-                                            [resolvedGenId, newAlarm, newMsg]
-                                        );
-                                        console.log(`[MQTT] ✅ ALARME REGISTRADO: ${resolvedGenId} -> ${newAlarm} ("${newMsg}")`);
-                                        notifyUsersAboutAlarm(pool, resolvedGenId, resolvedGenName, newAlarm, newMsg);
-                                    } catch (insErr) {
-                                        console.error('[MQTT] Alarm INSERT Error:', insErr.message);
-                                    }
-                                } else if (newAlarm > 0 && dbOpenAlarmCode > 0 && newAlarm !== dbOpenAlarmCode) {
-                                    // ALARM CHANGED — Close old, open new
-                                    pendingAlarmClear.delete(resolvedGenId);
-                                    try {
-                                        await pool.query(
-                                            "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND end_time IS NULL",
-                                            [resolvedGenId]
-                                        );
-                                        await pool.query(
-                                            "INSERT INTO alarm_history (generator_id, alarm_code, alarm_message) VALUES ($1, $2, $3)",
-                                            [resolvedGenId, newAlarm, newMsg]
-                                        );
-                                        console.log(`[MQTT] ⚠️ ALARME MUDOU: ${resolvedGenId} ${dbOpenAlarmCode} -> ${newAlarm}`);
-                                        notifyUsersAboutAlarm(pool, resolvedGenId, resolvedGenName, newAlarm, newMsg);
-                                    } catch (chgErr) {
-                                        console.error('[MQTT] Alarm CHANGE Error:', chgErr.message);
-                                    }
-                                } else if (newAlarm === 0 && dbOpenAlarmCode > 0) {
-                                    // ALARM CLEARED (candidato) — só fecha de verdade se a leitura
-                                    // "sem alarme" se mantiver por ALARM_CLEAR_DEBOUNCE_MS seguidos.
-                                    // Evita fechar com base numa única mensagem que pode ser a
-                                    // resposta de 774/2048 discordando momentaneamente (ver comentário
-                                    // da declaração de pendingAlarmClear).
-                                    const firstClearSeen = pendingAlarmClear.get(resolvedGenId);
-                                    if (!firstClearSeen) {
-                                        pendingAlarmClear.set(resolvedGenId, Date.now());
-                                        console.log(`[MQTT-ALARM] ${resolvedGenId}: leitura "sem alarme" recebida, aguardando confirmação (${ALARM_CLEAR_DEBOUNCE_MS / 1000}s) antes de fechar`);
-                                    } else if (Date.now() - firstClearSeen >= ALARM_CLEAR_DEBOUNCE_MS) {
-                                        try {
-                                            await pool.query(
-                                                "UPDATE alarm_history SET end_time = NOW() WHERE generator_id = $1 AND end_time IS NULL",
-                                                [resolvedGenId]
-                                            );
-                                            console.log(`[MQTT] ✅ ALARME RESOLVIDO: ${resolvedGenId} (was ${dbOpenAlarmCode})`);
-                                            notifyUsersAlarmResolved(pool, resolvedGenId, resolvedGenName);
-                                        } catch (clrErr) {
-                                            console.error('[MQTT] Alarm CLEAR Error:', clrErr.message);
-                                        }
-                                        pendingAlarmClear.delete(resolvedGenId);
-                                    }
-                                    // else: ainda dentro da janela de debounce — aguarda confirmação
-                                } else if (newAlarm > 0 && newAlarm === dbOpenAlarmCode) {
-                                    // Mesmo alarme confirmado de novo — cancela qualquer "clear" pendente
-                                    // (774/2048 tinham discordado por um instante, voltaram a concordar).
-                                    pendingAlarmClear.delete(resolvedGenId);
-                                }
+                                await persistAlarmChannel(
+                                    deviceId, unifiedData.alarmCode, unifiedData.alarmMessage, 'FALHA',
+                                    notifyUsersAboutAlarm, notifyUsersAlarmResolved
+                                );
+                            }
+                            if (unifiedData.warningCode !== undefined) {
+                                await persistAlarmChannel(
+                                    deviceId, unifiedData.warningCode, unifiedData.warningMessage, 'AVISO',
+                                    notifyUsersAboutWarning, notifyUsersWarningResolved
+                                );
                             }
                             // --------------------------------------------------
 

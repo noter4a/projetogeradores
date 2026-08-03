@@ -64,10 +64,18 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
 
         const status = GENSET_STATE[gensetState] ?? 'STOPPED';
 
-        const alarmCode = activeFault || 0;
+        // faultType === 1 (Warning) vai pro canal de Aviso (separado), não pro de Falha —
+        // hoje isso virava alarmCode/ALARME de verdade só com o texto dizendo "Aviso".
+        let alarmCode = 0;
         let alarmMessage = 'Normal (Sem Alarme)';
-        if (activeFault > 0) {
-            const kind = faultType === 4 ? 'Shutdown' : faultType === 1 ? 'Aviso' : 'Falha';
+        let warningCode = 0;
+        let warningMessage = '';
+        if (activeFault > 0 && faultType === 1) {
+            warningCode = activeFault;
+            warningMessage = `Aviso Cummins (código ${activeFault})`;
+        } else if (activeFault > 0) {
+            const kind = faultType === 4 ? 'Shutdown' : 'Falha';
+            alarmCode = activeFault;
             alarmMessage = `${kind} Cummins (código ${activeFault})`;
         }
 
@@ -86,6 +94,8 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
             running: status === 'RUNNING',
             alarmCode,
             alarmMessage,
+            warningCode,
+            warningMessage,
             isShutdown: faultType === 4,
             genBreakerClosed: genSupplyingLoad, // "Genset Supplying Load" (sem status de chave de rede)
             // Tensões: L-N (40018-40020) e L-L (40022-40025)

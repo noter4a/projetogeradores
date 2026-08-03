@@ -235,7 +235,9 @@ const ALARM_DEFS_420 = {
 function decodeAlarms(startAddress, regs) {
   logReg76IfPresent(startAddress, regs);
   const activeAlarms = [];
+  const activeWarnings = [];
   let syntheticCode = 0;
+  let warningSyntheticCode = 0;
   let isStartFailure = false;
 
   for (let i = 0; i < regs.length; i++) {
@@ -260,16 +262,21 @@ function decodeAlarms(startAddress, regs) {
         if (addr === 73 && def.shift === 4) {
           isStartFailure = true;
         }
+      } else if (nibble === 1) { // Aviso — canal separado, não bloqueia operação
+        activeWarnings.push(def.name);
+        warningSyntheticCode += (addr * 100) + def.shift + nibble;
       }
     }
   }
 
-  console.log(`[PARSER-420] Alarms: code=${activeAlarms.length > 0 ? syntheticCode : 0} -> "${activeAlarms.length > 0 ? activeAlarms.join(' | ') : 'Normal (Sem Alarme)'}"`);
+  console.log(`[PARSER-420] Alarms: code=${activeAlarms.length > 0 ? syntheticCode : 0} -> "${activeAlarms.length > 0 ? activeAlarms.join(' | ') : 'Normal (Sem Alarme)'}" | Warnings: ${activeWarnings.length}`);
 
   return {
     block: 'ALARM_65_76',
     alarmCode: activeAlarms.length > 0 ? syntheticCode : 0,
     alarmMessage: activeAlarms.length > 0 ? activeAlarms.join(' | ') : 'Normal (Sem Alarme)',
+    warningCode: activeWarnings.length > 0 ? warningSyntheticCode : 0,
+    warningMessage: activeWarnings.length > 0 ? activeWarnings.join(' | ') : '',
     startFailure: isStartFailure,
   };
 }

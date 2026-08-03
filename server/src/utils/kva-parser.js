@@ -145,6 +145,15 @@ export function decodeKvaByBlock(slaveId, fn, startAddress, regs) {
             isStartFailure = activeFaults.includes('Falha na Partida');
         }
 
+        // Determine warning state (severidade mais branda — canal separado de alarmCode)
+        let warningCode = 0;
+        let warningMessage = '';
+
+        if (activeWarnings.length > 0) {
+            warningCode = (avisosH << 16) | avisosL;
+            warningMessage = activeWarnings.join(', ');
+        }
+
         console.log(`[KVA-PARSER] Status: Mode=${operationMode}, Motor=${motorRunning}, Faults=${activeFaults.length}, Warnings=${activeWarnings.length}, Hours=${totalHours}`);
 
         return {
@@ -163,6 +172,8 @@ export function decodeKvaByBlock(slaveId, fn, startAddress, regs) {
             hasWarning,
             alarmCode,
             alarmMessage,
+            warningCode,
+            warningMessage,
             isStartFailure,
             activeFaults,
             activeWarnings,

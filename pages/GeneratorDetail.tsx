@@ -875,6 +875,22 @@ const GeneratorDetail: React.FC = () => {
                 </button>
               )}
 
+              {/* Warning Alert Banner (Mobile) — severidade separada, não bloqueia operação */}
+              {gen.warningCode != null && gen.warningCode > 0 && (
+                <button
+                  onClick={() => navigate(`/alarms?generatorId=${encodeURIComponent(gen.id)}`)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 transition-colors shadow-lg shadow-amber-900/20"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shrink-0 shadow-md shadow-amber-900/40">
+                    <AlertTriangle size={22} className="text-black" />
+                  </div>
+                  <div className="text-left flex-1 min-w-0">
+                    <span className="text-amber-300 font-bold text-sm block">⚠ Aviso Ativo (Código {gen.warningCode})</span>
+                    <span className="text-amber-400/70 text-xs">Toque para ver na Central de Alarmes →</span>
+                  </div>
+                </button>
+              )}
+
               {showOperatorUi ? (
                 <OperatorGeneratorPanel gen={gen} />
               ) : (

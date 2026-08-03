@@ -202,14 +202,24 @@ const FleetManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                       <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wide border ${
-                         gen.status === GeneratorStatus.RUNNING ? 'bg-green-500/10 text-green-500 border-green-500/20' :
-                         gen.status === GeneratorStatus.ALARM ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                         'bg-gray-700/30 text-gray-400 border-gray-700'
-                       }`}>
-                         {gen.status === GeneratorStatus.RUNNING ? 'Ligado' : 
-                          gen.status === GeneratorStatus.ALARM ? 'Alerta' : 'Parado'}
-                       </span>
+                       <div className="flex items-center gap-1.5">
+                         <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wide border ${
+                           gen.status === GeneratorStatus.RUNNING ? 'bg-green-500/10 text-green-500 border-green-500/20' :
+                           gen.status === GeneratorStatus.ALARM ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                           'bg-gray-700/30 text-gray-400 border-gray-700'
+                         }`}>
+                           {gen.status === GeneratorStatus.RUNNING ? 'Ligado' :
+                            gen.status === GeneratorStatus.ALARM ? 'Alerta' : 'Parado'}
+                         </span>
+                         {gen.warningCode != null && gen.warningCode > 0 && (
+                           <span
+                             title={gen.warningMessage || 'Aviso ativo'}
+                             className="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wide border bg-amber-500/10 text-amber-400 border-amber-500/20"
+                           >
+                             Aviso
+                           </span>
+                         )}
+                       </div>
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-2">

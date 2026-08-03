@@ -86,6 +86,9 @@ export interface Generator {
     [key: string]: boolean | undefined;
   };
   alarmCode?: number;
+  /** Aviso (severidade mais branda que Falha) — canal separado, não bloqueia operação */
+  warningCode?: number;
+  warningMessage?: string;
 
   voltageL12?: number;
   voltageL23?: number;
@@ -160,6 +163,8 @@ export interface AlarmRecord {
   generator_name?: string;
   alarm_code: number;
   alarm_message: string;
+  /** 'AVISO' = severidade mais branda; ausente/legado = 'FALHA' */
+  alarm_type?: 'FALHA' | 'AVISO';
   start_time: string;
   end_time: string | null;
   acknowledged: boolean;

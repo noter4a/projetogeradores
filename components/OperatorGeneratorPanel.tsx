@@ -36,6 +36,13 @@ const OperatorGeneratorPanel: React.FC<OperatorGeneratorPanelProps> = ({ gen }) 
         <p className="text-sm mt-1 opacity-80">{gen.operationMode || 'AUTO'}</p>
       </div>
 
+      {gen.warningCode != null && gen.warningCode > 0 && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400 p-3 text-center">
+          <p className="text-xs font-bold uppercase tracking-wide">⚠️ Aviso</p>
+          {gen.warningMessage && <p className="text-xs mt-0.5 opacity-90">{gen.warningMessage}</p>}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-xl bg-ciklo-card border border-gray-800 p-4">
           <div className="flex items-center gap-2 text-gray-500 mb-1">

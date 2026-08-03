@@ -78,6 +78,8 @@ const AlarmCenter: React.FC = () => {
     };
 
     const activeCount = alarms.filter(a => !a.end_time).length;
+    const activeFaultCount = alarms.filter(a => !a.end_time && a.alarm_type !== 'AVISO').length;
+    const activeWarningCount = alarms.filter(a => !a.end_time && a.alarm_type === 'AVISO').length;
     const resolvedCount = alarms.filter(a => !!a.end_time).length;
 
     // Pagination
@@ -137,12 +139,19 @@ const AlarmCenter: React.FC = () => {
             )}
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-red-900/20 border border-red-900/40 rounded-xl p-4 flex items-center gap-3">
                     <AlertTriangle className="text-red-400" size={28} />
                     <div>
-                        <div className="text-2xl font-bold text-red-400">{activeCount}</div>
-                        <div className="text-xs text-gray-400">Alarmes Ativos</div>
+                        <div className="text-2xl font-bold text-red-400">{activeFaultCount}</div>
+                        <div className="text-xs text-gray-400">Falhas Ativas</div>
+                    </div>
+                </div>
+                <div className="bg-amber-900/20 border border-amber-900/40 rounded-xl p-4 flex items-center gap-3">
+                    <AlertTriangle className="text-amber-400" size={28} />
+                    <div>
+                        <div className="text-2xl font-bold text-amber-400">{activeWarningCount}</div>
+                        <div className="text-xs text-gray-400">Avisos Ativos</div>
                     </div>
                 </div>
                 <div className="bg-green-900/20 border border-green-900/40 rounded-xl p-4 flex items-center gap-3">
@@ -212,11 +221,14 @@ const AlarmCenter: React.FC = () => {
                             )}
                             {pagedAlarms.map(alarm => {
                                 const isActive = !alarm.end_time;
+                                const isWarning = alarm.alarm_type === 'AVISO';
                                 const duration = formatDuration(alarm.start_time, alarm.end_time);
                                 return (
                                     <tr
                                         key={alarm.id}
-                                        className={`hover:bg-gray-800/50 transition-colors ${isActive ? 'bg-red-900/10 border-l-2 border-red-600' : ''}`}
+                                        className={`hover:bg-gray-800/50 transition-colors ${
+                                            isActive ? (isWarning ? 'bg-amber-900/10 border-l-2 border-amber-500' : 'bg-red-900/10 border-l-2 border-red-600') : ''
+                                        }`}
                                     >
                                         <td className="p-4 text-gray-300 font-mono text-sm whitespace-nowrap">
                                             {new Date(alarm.start_time).toLocaleString('pt-BR')}
@@ -224,12 +236,13 @@ const AlarmCenter: React.FC = () => {
                                         <td className="p-4 text-white font-bold">
                                             {alarm.generator_name || alarm.generator_id}
                                         </td>
-                                        <td className="p-4 text-red-300 text-sm max-w-xs">
+                                        <td className={`p-4 text-sm max-w-xs ${isWarning ? 'text-amber-300' : 'text-red-300'}`}>
+                                            {isWarning && <span className="text-amber-400 font-bold mr-1">[Aviso]</span>}
                                             {alarm.alarm_message}
                                         </td>
                                         <td className="p-4 text-gray-500 text-sm hidden md:table-cell">
                                             {isActive
-                                                ? <span className="text-red-400 animate-pulse font-medium">⚡ Ativo</span>
+                                                ? <span className={`font-medium ${isWarning ? 'text-amber-400' : 'text-red-400 animate-pulse'}`}>⚡ Ativo</span>
                                                 : duration || '-'
                                             }
                                         </td>
@@ -239,9 +252,15 @@ const AlarmCenter: React.FC = () => {
                                                     <CheckCircle size={12} /> Ack por {alarm.acknowledged_by || '?'}
                                                 </span>
                                             ) : isActive ? (
-                                                <span className="text-red-400 text-xs bg-red-900/20 px-2 py-1 rounded border border-red-900 whitespace-nowrap">
-                                                    🔴 Ativo
-                                                </span>
+                                                isWarning ? (
+                                                    <span className="text-amber-400 text-xs bg-amber-900/20 px-2 py-1 rounded border border-amber-900 whitespace-nowrap">
+                                                        🟡 Aviso
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-red-400 text-xs bg-red-900/20 px-2 py-1 rounded border border-red-900 whitespace-nowrap">
+                                                        🔴 Ativo
+                                                    </span>
+                                                )
                                             ) : (
                                                 <span className="text-orange-400 text-xs bg-orange-900/20 px-2 py-1 rounded border border-orange-900 whitespace-nowrap">
                                                     Pendente

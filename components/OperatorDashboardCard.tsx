@@ -57,6 +57,11 @@ const OperatorDashboardCard: React.FC<OperatorDashboardCardProps> = ({ gen }) =>
           <AlertTriangle size={12} /> Alarme ativo — toque para abrir
         </p>
       )}
+      {gen.warningCode && gen.warningCode > 0 && (
+        <p className="mt-2 text-xs text-amber-400 font-bold flex items-center gap-1">
+          <AlertTriangle size={12} /> Aviso ativo — toque para abrir
+        </p>
+      )}
       <p className="mt-2 text-[10px] text-gray-500 font-mono">
         Atualizado {formatLastUpdate(gen.lastDataReceived)}
       </p>

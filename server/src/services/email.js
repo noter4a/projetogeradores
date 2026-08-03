@@ -83,3 +83,39 @@ export const sendAlarmEmail = async (toEmails, generatorId, generatorName, alarm
         console.error('[EMAIL] Failed to send alarm notification:', error);
     }
 };
+
+// Mesmo formato de sendAlarmEmail, mas severidade "Aviso" (âmbar) — condição que
+// não bloqueia operação, separada do canal de Falha/ALARME (vermelho).
+export const sendWarningEmail = async (toEmails, generatorId, generatorName, warningDetails) => {
+    if (!toEmails || toEmails.length === 0) {
+        console.log('[EMAIL] No recipients provided for warning notification.');
+        return;
+    }
+
+    const mailOptions = {
+        from: '"Ciklo Geradores Alarmes" <alarme@ciklogeradores.com.br>',
+        to: toEmails.join(','), // CSV string of emails
+        subject: `⚠️ Aviso Gerador ${generatorName}: ${warningDetails.description || 'Condição de Aviso'}`,
+        html: `
+            <div style="font-family: Arial, sans-serif; background-color: #1a1a1a; color: #ffffff; padding: 20px; border-radius: 8px; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #f59e0b; border-bottom: 2px solid #f59e0b; padding-bottom: 10px;">Aviso</h2>
+                <p>O gerador <strong>${generatorName}</strong> reportou uma nova condição de aviso.</p>
+                <div style="background-color: #2d2d2d; padding: 15px; border-left: 4px solid #f59e0b; margin: 20px 0;">
+                    <p style="margin: 5px 0; font-size: 18px;"><strong>⚠️ ${warningDetails.description}</strong></p>
+                    <p style="margin: 5px 0; color: #aaaaaa;"><strong>Código do Aviso:</strong> ${warningDetails.code}</p>
+                    <p style="margin: 5px 0;"><strong>Data/Hora:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+                </div>
+                <p style="color: #cccccc; font-size: 12px; margin-top: 30px; text-align: center;">
+                    Este é um e-mail automático do sistema Ciklo Geradores. Por favor não responda.
+                </p>
+            </div>
+        `
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[EMAIL] Warning notification sent to ${mailOptions.to}. Message ID: ${info.messageId}`);
+    } catch (error) {
+        console.error('[EMAIL] Failed to send warning notification:', error);
+    }
+};

@@ -234,7 +234,9 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
     };
 
     const activeAlarms = [];
+    const activeWarnings = [];
     let syntheticCode = 0;
+    let warningSyntheticCode = 0;
     let isStartFailure = false;
 
     // Varrer todos os registradores do bloco
@@ -251,7 +253,7 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
           if (def.name === "Falha Aquecimento ECU") continue;
 
           const nibble = (val >> def.shift) & 0x0F;
-          if (nibble > 1) { // Apenas Alarme Ativo Nível 2 ou 3 (Ignora Avisos = 1)
+          if (nibble > 1) { // Alarme Ativo Nível 2 ou 3 (Falha)
             let severityText = "";
             if (nibble === 2) severityText = "(Desarme Elétrico)";
             if (nibble === 3) severityText = "(Parada)";
@@ -264,6 +266,9 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
             if (addr === 66 && def.shift === 4) {
               isStartFailure = true;
             }
+          } else if (nibble === 1) { // Nível 1 = Aviso — canal separado, não bloqueia operação
+            activeWarnings.push(def.name);
+            warningSyntheticCode += (addr * 100) + def.shift + nibble;
           }
         }
       }
@@ -278,12 +283,21 @@ export function decodeSgc120ByBlock(slaveId, fn, startAddress, regs) {
       code = syntheticCode; // Garante que se o alarme mudar de nível (Aviso->Parada), o banco gera histórico novo
     }
 
-    console.log(`[PARSER] Alarm State Decoded: Code ${code} -> "${msg}"`);
+    let warningCode = 0;
+    let warningMessage = '';
+    if (activeWarnings.length > 0) {
+      warningMessage = activeWarnings.join(" | ");
+      warningCode = warningSyntheticCode;
+    }
+
+    console.log(`[PARSER] Alarm State Decoded: Code ${code} -> "${msg}" | Warnings: ${activeWarnings.length}`);
 
     return {
       block: startAddress === 65 ? "ALARM_65_76" : "ALARM_66",
       alarmCode: code,
       alarmMessage: msg,
+      warningCode,
+      warningMessage,
       startFailure: isStartFailure
     };
   }

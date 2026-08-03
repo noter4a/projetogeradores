@@ -139,6 +139,14 @@ const initDb = async (retries = 15, delay = 5000) => {
                 );
             `);
 
+            // Migration: severidade separada "Aviso" (amarelo) vs "Falha" (vermelho, default).
+            // Linhas antigas continuam FALHA pelo DEFAULT — nada muda pra trás.
+            try {
+                await client.query("ALTER TABLE alarm_history ADD COLUMN IF NOT EXISTS alarm_type VARCHAR(10) NOT NULL DEFAULT 'FALHA'");
+            } catch (e) {
+                console.log("Migration alarm_history.alarm_type already applied or failed:", e.message);
+            }
+
             // Create Generator Readings Table (Historical Power Data for Charts)
             await client.query(`
                 CREATE TABLE IF NOT EXISTS generator_readings (
