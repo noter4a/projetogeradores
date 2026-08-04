@@ -65,9 +65,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
     }
   }, [location]);
 
+  // Só aparece pra quem de fato tem uma empresa vinculada (CLIENT/TECHNICIAN/
+  // MONITOR com companyId setado) — é a mesma tela do ADMIN em "Administração",
+  // mas travada na própria empresa (ver pages/CompanyWarningSettings.tsx).
   const navItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/dashboard' },
     { icon: AlertTriangle, label: 'Central de Alarmes', path: '/alarms' },
+    ...(user?.companyId != null ? [{ icon: Bell, label: 'Configurações de Avisos', path: '/company-warnings' }] : []),
   ];
 
   const salesItems = [
@@ -432,6 +436,18 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                   </div>
                   <span className="text-sm font-bold text-white leading-tight">Central de Alarmes</span>
                 </NavLink>
+
+                {user?.companyId != null && (
+                  <NavLink
+                    to="/company-warnings"
+                    className="flex flex-col items-center justify-center p-6 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
+                  >
+                    <div className="w-14 h-14 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-3 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
+                      <Bell size={28} />
+                    </div>
+                    <span className="text-sm font-bold text-white leading-tight">Config. Avisos</span>
+                  </NavLink>
+                )}
               </div>
             </div>
           )}

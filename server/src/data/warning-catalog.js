@@ -165,3 +165,22 @@ export function getCatalogGroupedByCategory() {
 // Set com todas as keys válidas — usado pra validar o PUT (ignora/rejeita
 // keys desconhecidas em vez de gravar lixo em companies.enabled_warnings).
 export const VALID_WARNING_KEYS = new Set(WARNING_CATALOG.map(item => item.key));
+
+// Todos os códigos de controlador que aparecem no catálogo (derivado, não
+// precisa listar de novo à mão) — usado pra saber se um controlador tem
+// Avisos suportados antes de exibir a tela de configuração pra ele.
+export const CATALOG_CONTROLLER_CODES = new Set(WARNING_CATALOG.map(item => item.controller));
+
+// Mapeia o valor cru salvo em generators.connection_info.controller (o que o
+// formulário de cadastro grava, ex.: 'deif', 'kvar', 'sgc420') pro código do
+// catálogo ('SGC120', 'KVA', ...). Controladores sem Avisos implementados
+// (AGC150, ComAp) ou desconhecidos retornam null.
+export function mapRawControllerToCatalogCode(rawController) {
+    const c = (rawController || '').toLowerCase();
+    if (c === 'dse') return 'DSE';
+    if (c === 'kva' || c === 'kvar') return 'KVA';
+    if (c === 'cummins' || c === 'pcc1301' || c === 'powercommand') return 'CUMMINS';
+    if (c === 'sgc420' || c === 'deif420' || c === 'deif_sgc420') return 'SGC420';
+    if (c === 'deif') return 'SGC120';
+    return null; // agc150, comap, deif150/agc150 variants, vazio, etc — sem catálogo de Avisos
+}

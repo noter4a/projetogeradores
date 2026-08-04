@@ -1,12 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Bell, Building, Save, CheckSquare, Square } from 'lucide-react';
-import { Company, WarningCatalogCategory } from '../types';
+import { Company, UserRole, WarningCatalogCategory } from '../types';
 import AccordionSection from '../components/generator-detail/AccordionSection';
+import { useAuth } from '../context/AuthContext';
 
 const CompanyWarningSettings: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === UserRole.ADMIN;
+
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(isAdmin ? null : user?.companyId ?? null);
   const [categories, setCategories] = useState<WarningCatalogCategory[]>([]);
+  const [installedControllers, setInstalledControllers] = useState<Set<string> | null>(null);
   const [enabledKeys, setEnabledKeys] = useState<Set<string>>(new Set());
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -17,19 +22,22 @@ const CompanyWarningSettings: React.FC = () => {
   // Cookie httpOnly autentica sozinho — sem token manual, em todas as chamadas abaixo.
 
   useEffect(() => {
-    fetch('/api/companies')
-      .then(res => res.json())
-      .then((data: Company[]) => {
-        setCompanies(data);
-        if (data.length > 0) setSelectedCompanyId(data[0].id);
-      })
-      .catch(() => setCompanies([]));
+    // Só ADMIN escolhe entre empresas — usuário de empresa fica travado na própria.
+    if (isAdmin) {
+      fetch('/api/companies')
+        .then(res => res.json())
+        .then((data: Company[]) => {
+          setCompanies(data);
+          if (data.length > 0) setSelectedCompanyId(data[0].id);
+        })
+        .catch(() => setCompanies([]));
+    }
 
     fetch('/api/company-warnings/catalog')
       .then(res => res.json())
       .then(data => setCategories(data.categories || []))
       .catch(() => setCategories([]));
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (selectedCompanyId == null) return;
@@ -39,13 +47,26 @@ const CompanyWarningSettings: React.FC = () => {
       .then(res => res.json())
       .then(data => {
         setEnabledKeys(new Set(data.enabledWarnings || []));
+        setInstalledControllers(new Set(data.installedControllers || []));
         setDirty(false);
       })
-      .catch(() => setEnabledKeys(new Set()))
+      .catch(() => {
+        setEnabledKeys(new Set());
+        setInstalledControllers(new Set());
+      })
       .finally(() => setLoading(false));
   }, [selectedCompanyId]);
 
-  const totalItems = useMemo(() => categories.reduce((sum, cat) => sum + cat.items.length, 0), [categories]);
+  // Só os avisos dos controladores que essa empresa de fato tem cadastrado —
+  // não adianta mostrar aviso de KVA pra empresa que só tem SGC120.
+  const visibleCategories = useMemo(() => {
+    if (installedControllers == null) return categories;
+    return categories
+      .map(cat => ({ ...cat, items: cat.items.filter(item => installedControllers.has(item.controller)) }))
+      .filter(cat => cat.items.length > 0);
+  }, [categories, installedControllers]);
+
+  const totalItems = useMemo(() => visibleCategories.reduce((sum, cat) => sum + cat.items.length, 0), [visibleCategories]);
 
   const toggleCategory = (id: string) => {
     setExpandedCategories(prev => {
@@ -129,20 +150,28 @@ const CompanyWarningSettings: React.FC = () => {
       )}
 
       <div className="bg-ciklo-card rounded-xl border border-gray-800 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-        <label className="flex items-center gap-2 text-gray-400 text-sm font-semibold shrink-0">
-          <Building size={16} /> Empresa
-        </label>
-        <select
-          value={selectedCompanyId ?? ''}
-          onChange={(e) => setSelectedCompanyId(e.target.value ? Number(e.target.value) : null)}
-          className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
-        >
-          {companies.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
-          {companies.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <span className="text-xs text-gray-500 whitespace-nowrap">
+        {isAdmin ? (
+          <>
+            <label className="flex items-center gap-2 text-gray-400 text-sm font-semibold shrink-0">
+              <Building size={16} /> Empresa
+            </label>
+            <select
+              value={selectedCompanyId ?? ''}
+              onChange={(e) => setSelectedCompanyId(e.target.value ? Number(e.target.value) : null)}
+              className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+            >
+              {companies.length === 0 && <option value="">Nenhuma empresa cadastrada</option>}
+              {companies.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </>
+        ) : (
+          <span className="flex items-center gap-2 text-gray-300 text-sm font-semibold">
+            <Building size={16} className="text-ciklo-orange" /> {user?.companyName || 'Sua empresa'}
+          </span>
+        )}
+        <span className="text-xs text-gray-500 whitespace-nowrap sm:ml-auto">
           {enabledKeys.size} de {totalItems} avisos habilitados
         </span>
       </div>
@@ -151,11 +180,15 @@ const CompanyWarningSettings: React.FC = () => {
         <div className="text-center py-16 text-gray-500">Carregando...</div>
       ) : selectedCompanyId == null ? (
         <div className="text-center py-16 bg-ciklo-card rounded-xl border border-gray-800 border-dashed text-gray-400">
-          Cadastre uma empresa primeiro em Gerenciar Empresas.
+          {isAdmin ? 'Cadastre uma empresa primeiro em Gerenciar Empresas.' : 'Sua conta não está vinculada a nenhuma empresa.'}
+        </div>
+      ) : visibleCategories.length === 0 ? (
+        <div className="text-center py-16 bg-ciklo-card rounded-xl border border-gray-800 border-dashed text-gray-400">
+          Nenhum controlador com Avisos suportados cadastrado nesta empresa ainda.
         </div>
       ) : (
         <div className="space-y-3">
-          {categories.map(category => {
+          {visibleCategories.map(category => {
             const enabledInCategory = category.items.filter(item => enabledKeys.has(item.key)).length;
             const allEnabled = enabledInCategory === category.items.length;
             return (

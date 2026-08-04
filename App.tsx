@@ -332,9 +332,9 @@ const AppContent: React.FC = () => {
         } />
 
         <Route path="/company-warnings" element={
-          <AdminRoute>
+          <MonitoringRoute>
             <Layout><CompanyWarningSettings /></Layout>
-          </AdminRoute>
+          </MonitoringRoute>
         } />
 
         <Route path="/audit" element={
