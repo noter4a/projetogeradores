@@ -13,6 +13,21 @@ export interface Company {
   created_at?: string;
   credits?: number;
   last_credit_debit_date?: string;
+  /** Keys ("CONTROLLER:Nome do Aviso") dos Avisos habilitados — opt-in, vazio por padrão */
+  enabled_warnings?: string[];
+}
+
+export interface WarningCatalogItem {
+  key: string;
+  controller: string;
+  name: string;
+  category: string;
+}
+
+export interface WarningCatalogCategory {
+  id: string;
+  label: string;
+  items: WarningCatalogItem[];
 }
 
 export interface User {

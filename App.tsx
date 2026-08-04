@@ -12,6 +12,7 @@ import AddGenerator from './pages/AddGenerator';
 import UserManagement from './pages/UserManagement';
 import ProfileSettings from './pages/ProfileSettings';
 import CompanyManagement from './pages/CompanyManagement';
+import CompanyWarningSettings from './pages/CompanyWarningSettings';
 import Reports from './pages/Reports';
 import Maintenance from './pages/Maintenance';
 import NoCredits from './pages/NoCredits';
@@ -327,6 +328,12 @@ const AppContent: React.FC = () => {
         <Route path="/companies" element={
           <AdminRoute>
             <Layout><CompanyManagement /></Layout>
+          </AdminRoute>
+        } />
+
+        <Route path="/company-warnings" element={
+          <AdminRoute>
+            <Layout><CompanyWarningSettings /></Layout>
           </AdminRoute>
         } />
 

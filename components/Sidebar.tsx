@@ -20,7 +20,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   UserCircle,
-  ScrollText
+  ScrollText,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -219,6 +220,20 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
               >
                 <Building size={20} className="flex-shrink-0" />
                 {!collapsed && <span className="font-medium">Gerenciar Empresas</span>}
+              </NavLink>
+              <NavLink
+                to="/company-warnings"
+                title={collapsed ? 'Configurações de Avisos' : undefined}
+                className={({ isActive }) =>
+                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mb-1 ${
+                    isActive
+                      ? 'bg-ciklo-orange text-white'
+                      : 'hover:bg-gray-800 hover:text-white'
+                  }`
+                }
+              >
+                <Bell size={20} className="flex-shrink-0" />
+                {!collapsed && <span className="font-medium">Configurações de Avisos</span>}
               </NavLink>
               <NavLink
                 to="/users"
@@ -520,6 +535,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
                     <ScrollText size={24} />
                   </div>
                   <span className="text-xs font-bold text-white leading-tight text-center">Auditoria</span>
+                </NavLink>
+
+                <NavLink
+                  to="/company-warnings"
+                  className="flex flex-col items-center justify-center p-4 bg-ciklo-card border border-gray-800 hover:border-gray-700 active:scale-95 transition-all rounded-2xl aspect-square text-center group"
+                >
+                  <div className="w-12 h-12 rounded-2xl bg-ciklo-orange/10 text-ciklo-orange flex items-center justify-center mb-2 group-hover:bg-ciklo-orange group-hover:text-black transition-all">
+                    <Bell size={24} />
+                  </div>
+                  <span className="text-xs font-bold text-white leading-tight text-center">Config. Avisos</span>
                 </NavLink>
               </div>
             </div>

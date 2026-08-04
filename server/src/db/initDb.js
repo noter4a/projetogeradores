@@ -24,6 +24,27 @@ const initDb = async (retries = 15, delay = 5000) => {
                 console.log("Migration companies.credits already applied or failed:", e.message);
             }
 
+            // Migration: quais Avisos (severidade separada de Falha) a empresa quer
+            // receber — opt-in por padrão (nada ativo até a empresa configurar em
+            // Configurações de Avisos), EXCETO os dois itens que já disparavam ALARME
+            // de verdade antes dessa feature existir ("DSE:Aviso Genérico" e
+            // "CUMMINS:Aviso Genérico" — warningAlarmActive do DSE e faultType=1 do
+            // Cummins viravam alarmCode antes de serem reclassificados pro canal de
+            // Aviso). Esses dois vêm pré-marcados pra ninguém perder a visibilidade
+            // que já tinha; todo o resto (KVA e os ~86 itens do SGC120/420) é
+            // visibilidade nova e continua desmarcado. Vale tanto pra empresa já
+            // existente (o DEFAULT se aplica às linhas atuais numa coluna nova) quanto
+            // pra empresa criada depois (o INSERT em routes/companies.js não passa
+            // enabled_warnings, então cai no DEFAULT também).
+            try {
+                await client.query(
+                    `ALTER TABLE companies ADD COLUMN IF NOT EXISTS enabled_warnings JSONB NOT NULL
+                     DEFAULT '["DSE:Aviso Genérico", "CUMMINS:Aviso Genérico"]'::jsonb`
+                );
+            } catch (e) {
+                console.log("Migration companies.enabled_warnings already applied or failed:", e.message);
+            }
+
             // Create Users Table
             await client.query(`
               CREATE TABLE IF NOT EXISTS users (

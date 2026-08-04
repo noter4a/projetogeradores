@@ -26,6 +26,7 @@ import {
     summarizeScanSession,
 } from '../utils/modbus-scan.js';
 import pool from '../db.js';
+import { buildWarningKey } from '../data/warning-catalog.js';
 import { sendAlarmEmail, sendWarningEmail } from './email.js';
 import { sendAlarmWhatsApp, sendAlarmResolvedWhatsApp } from './whatsapp.js';
 
@@ -170,25 +171,12 @@ const pendingAlarmClear = new Map(); // "generatorId:alarmType" -> timestamp da 
 // fechamento (pendingAlarmClear) é chaveado por "generatorId:alarmType" pra um
 // canal não interferir no fechamento do outro quando os dois estão ativos ao
 // mesmo tempo pro mesmo gerador.
-async function persistAlarmChannel(deviceId, code, message, alarmType, notifyActive, notifyResolved) {
+// resolvedGenId/resolvedGenName vêm já resolvidos de resolveGeneratorContext()
+// (chamada uma vez por mensagem, ver uso mais abaixo) — evita resolver o mesmo
+// deviceId de novo pra cada canal (Falha e Aviso chamam isso na mesma mensagem).
+async function persistAlarmChannel(resolvedGenId, resolvedGenName, code, message, alarmType, notifyActive, notifyResolved) {
     const newAlarm = code;
     const newMsg = message || `${alarmType === 'AVISO' ? 'Aviso' : 'Alarme'} Código ${newAlarm}`;
-
-    // Resolve the real Generator ID from the DB
-    let resolvedGenId = deviceId;
-    let resolvedGenName = deviceId;
-    try {
-        const resGen = await pool.query(
-            "SELECT id, name FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
-            [deviceId]
-        );
-        if (resGen.rows.length > 0) {
-            resolvedGenId = resGen.rows[0].id;
-            resolvedGenName = resGen.rows[0].name;
-        }
-    } catch (err) {
-        console.error(`[MQTT] Failed to resolve Generator ID for ${alarmType} History:`, err.message);
-    }
 
     const pendingClearKey = `${resolvedGenId}:${alarmType}`;
 
@@ -264,6 +252,74 @@ async function persistAlarmChannel(deviceId, code, message, alarmType, notifyAct
         // Mesmo alarme/aviso confirmado de novo — cancela qualquer "clear" pendente
         pendingAlarmClear.delete(pendingClearKey);
     }
+}
+
+// Resolve a identidade "oficial" do gerador (id/nome no banco + empresa) a
+// partir do deviceId do MQTT (que pode ser o IP/nome de conexão, não o id do
+// banco). Chamada uma vez por mensagem, o resultado é reaproveitado pelo
+// filtro de Avisos e pelas duas chamadas de persistAlarmChannel (Falha e
+// Aviso) — evita resolver a mesma coisa 2-3x por mensagem.
+async function resolveGeneratorContext(deviceId) {
+    try {
+        const result = await pool.query(
+            "SELECT id, name, company_id FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
+            [deviceId]
+        );
+        if (result.rows.length > 0) {
+            return {
+                resolvedGenId: result.rows[0].id,
+                resolvedGenName: result.rows[0].name,
+                companyId: result.rows[0].company_id,
+            };
+        }
+    } catch (err) {
+        console.error('[MQTT] Failed to resolve generator context:', err.message);
+    }
+    return { resolvedGenId: deviceId, resolvedGenName: deviceId, companyId: null };
+}
+
+// Cache das configurações de Avisos por empresa (evita bater no banco a cada
+// mensagem MQTT — uma configuração pode levar até COMPANY_WARNINGS_CACHE_TTL_MS
+// pra valer em campo depois de mudada na tela de Configurações de Avisos,
+// aceitável já que não é um dado de segurança crítica).
+const COMPANY_WARNINGS_CACHE_TTL_MS = 60000;
+const companyWarningsCache = new Map(); // companyId -> { set: Set<string>, expiresAt }
+
+// Sem empresa (companyId null, gerador não atribuído a nenhuma) = nenhum
+// Aviso habilitado — opt-in, nada ativo até a empresa configurar.
+async function getCompanyEnabledWarnings(companyId) {
+    if (companyId == null) return new Set();
+    const cached = companyWarningsCache.get(companyId);
+    if (cached && cached.expiresAt > Date.now()) return cached.set;
+    try {
+        const result = await pool.query('SELECT enabled_warnings FROM companies WHERE id = $1', [companyId]);
+        const list = result.rows[0]?.enabled_warnings;
+        const set = new Set(Array.isArray(list) ? list : []);
+        companyWarningsCache.set(companyId, { set, expiresAt: Date.now() + COMPANY_WARNINGS_CACHE_TTL_MS });
+        return set;
+    } catch (err) {
+        console.error('[MQTT] Failed to load company warning settings:', err.message);
+        return cached?.set || new Set();
+    }
+}
+
+// A partir de uma lista de nomes de aviso já FILTRADA pelos habilitados da
+// empresa, monta um código sintético (só precisa ser estável e mudar quando o
+// CONJUNTO muda — não tem significado numérico, ao contrário do alarmCode de
+// Falha que os parsers derivam do bitmask real) e a mensagem concatenada,
+// mesmo formato que alarmCode/alarmMessage já usam pra Falha.
+function computeWarningCodeAndMessage(filteredNames) {
+    if (!filteredNames || filteredNames.length === 0) return { code: 0, message: '' };
+    let code = 0;
+    for (let i = 0; i < filteredNames.length; i++) {
+        const name = filteredNames[i];
+        for (let c = 0; c < name.length; c++) {
+            code = (code + name.charCodeAt(c) * (c + 1) * (i + 1)) % 0x7fffffff;
+        }
+    }
+    // 0 = "sem aviso" em todo o resto do pipeline — garante que uma lista não
+    // vazia nunca colida com esse valor por acaso.
+    return { code: code || 1, message: filteredNames.join(' | ') };
 }
 
 const notifyUsersAboutMainsFailure = async (clientPool, generatorId, generatorName) => {
@@ -1610,6 +1666,12 @@ export const initMqttService = (io) => {
                 // and merge all decoded fields.
                 let unifiedData = {};
 
+                // Resolve identidade/empresa do gerador UMA vez por mensagem — reaproveitado
+                // pelo filtro de Avisos abaixo (opt-in por empresa) e por persistAlarmChannel
+                // mais adiante, em vez de cada um resolver de novo por conta própria.
+                const genContext = await resolveGeneratorContext(deviceId);
+                const enabledWarnings = await getCompanyEnabledWarnings(genContext.companyId);
+
                 // Global Cache for stateful aggregation (Hours + Minutes)
                 if (!global.mqttDeviceCache) global.mqttDeviceCache = {};
 
@@ -1699,8 +1761,19 @@ export const initMqttService = (io) => {
                             unifiedData.alarms.startFailure = d.startFailure;
                             unifiedData.alarmCode = d.alarmCode;
                             unifiedData.alarmMessage = d.alarmMessage;
-                            unifiedData.warningCode = d.warningCode || 0;
-                            unifiedData.warningMessage = d.warningMessage || '';
+
+                            // Avisos são opt-in por empresa (Configurações de Avisos) — filtra
+                            // d.activeWarnings (o que o hardware está reportando) pelos itens que
+                            // a empresa habilitou antes de montar warningCode/warningMessage.
+                            // d.warningCode/d.warningMessage (calculados pelo parser com TUDO
+                            // ativo) não são mais usados aqui de propósito.
+                            const sgcController = isSgc420Device ? 'SGC420' : 'SGC120';
+                            const enabledSgcWarnings = (d.activeWarnings || []).filter(name =>
+                                enabledWarnings.has(buildWarningKey(sgcController, name))
+                            );
+                            const sgcWarning = computeWarningCodeAndMessage(enabledSgcWarnings);
+                            unifiedData.warningCode = sgcWarning.code;
+                            unifiedData.warningMessage = sgcWarning.message;
 
                             // Let the centralized Alarm History Persistence logic at the end of this loop handle SQL and Emails.
                             // The old inline logic here was removed to avoid duplication and missing ID resolution bugs.
@@ -2041,8 +2114,16 @@ export const initMqttService = (io) => {
                             // Alarm mapping
                             unifiedData.alarmCode = d.alarmCode;
                             unifiedData.alarmMessage = d.alarmMessage;
-                            unifiedData.warningCode = d.warningCode || 0;
-                            unifiedData.warningMessage = d.warningMessage || '';
+
+                            // Avisos são opt-in por empresa — mesmo filtro do bloco SGC120/420
+                            // acima (ver comentário lá). d.warningCode/d.warningMessage (com
+                            // TUDO ativo) não são usados aqui de propósito.
+                            const enabledKvaWarnings = (d.activeWarnings || []).filter(name =>
+                                enabledWarnings.has(buildWarningKey('KVA', name))
+                            );
+                            const kvaWarning = computeWarningCodeAndMessage(enabledKvaWarnings);
+                            unifiedData.warningCode = kvaWarning.code;
+                            unifiedData.warningMessage = kvaWarning.message;
                             if (!unifiedData.alarms) unifiedData.alarms = {};
                             unifiedData.alarms.startFailure = d.isStartFailure;
 
@@ -2119,8 +2200,13 @@ export const initMqttService = (io) => {
                             unifiedData.running = d.running;
                             unifiedData.alarmCode = d.alarmCode;
                             unifiedData.alarmMessage = d.alarmMessage;
-                            unifiedData.warningCode = d.warningCode || 0;
-                            unifiedData.warningMessage = d.warningMessage || '';
+
+                            // Cummins não distingue avisos individuais (só um flag geral) —
+                            // opt-in é um único item de catálogo, "CUMMINS:Aviso Genérico".
+                            const cumminsWarningEnabled = (d.warningCode || 0) > 0
+                                && enabledWarnings.has(buildWarningKey('CUMMINS', 'Aviso Genérico'));
+                            unifiedData.warningCode = cumminsWarningEnabled ? d.warningCode : 0;
+                            unifiedData.warningMessage = cumminsWarningEnabled ? (d.warningMessage || '') : '';
                             if (!unifiedData.alarms) unifiedData.alarms = {};
                             unifiedData.alarms.shutdown = d.isShutdown;
                             if (d.genBreakerClosed != null) unifiedData.genBreakerClosed = d.genBreakerClosed;
@@ -2273,11 +2359,12 @@ export const initMqttService = (io) => {
                             if (d.shutdownAlarmActive || d.electricalTripActive) {
                                 unifiedData.alarmCode = unifiedData.alarmCode || 3;
                                 unifiedData.alarmMessage = unifiedData.alarmMessage || 'Alarme de shutdown no DSE';
-                            } else if (d.warningAlarmActive) {
+                            } else if (d.warningAlarmActive && enabledWarnings.has(buildWarningKey('DSE', 'Aviso Genérico'))) {
                                 // Reclassificado (antes virava alarmCode=2, ALARME de verdade com
                                 // e-mail/WhatsApp de falha) — agora vai pro canal de Aviso separado,
                                 // já que warningAlarmActive sozinho (sem shutdown/trip) não bloqueia
-                                // a operação do gerador.
+                                // a operação do gerador. DSE não distingue avisos individuais (só um
+                                // flag geral), então o opt-in é um único item, "DSE:Aviso Genérico".
                                 if (!unifiedData.warningCode) {
                                     unifiedData.warningCode = 2;
                                     unifiedData.warningMessage = unifiedData.warningMessage || 'Aviso no DSE';
@@ -2287,7 +2374,9 @@ export const initMqttService = (io) => {
                                 // tabela de alarmes nomeados, não distingue severidade e por isso
                                 // nunca "confirma" nem fecha um Aviso, ao contrário do que faz com
                                 // alarmCode). Por isso, diferente da Falha, precisa zerar aqui mesmo
-                                // — sem isso um Aviso do DSE nunca fecharia sozinho no banco.
+                                // — sem isso um Aviso do DSE nunca fecharia sozinho no banco. Zera
+                                // também quando o warningAlarmActive está ligado mas a empresa não
+                                // habilitou o item no catálogo (mesmo efeito de "sem aviso").
                                 unifiedData.warningCode = 0;
                                 unifiedData.warningMessage = '';
                             }
@@ -2552,15 +2641,19 @@ export const initMqttService = (io) => {
                             // --- ALARM HISTORY PERSISTENCE (Robust / Self-Healing) ---
                             // Dois canais de severidade independentes, mesma lógica de
                             // debounce/dedupe (ver persistAlarmChannel, definida no topo do arquivo).
+                            // resolvedGenId/resolvedGenName vêm de genContext (resolvido uma vez
+                            // no início do processamento desta mensagem, ver acima).
                             if (unifiedData.alarmCode !== undefined) {
                                 await persistAlarmChannel(
-                                    deviceId, unifiedData.alarmCode, unifiedData.alarmMessage, 'FALHA',
+                                    genContext.resolvedGenId, genContext.resolvedGenName,
+                                    unifiedData.alarmCode, unifiedData.alarmMessage, 'FALHA',
                                     notifyUsersAboutAlarm, notifyUsersAlarmResolved
                                 );
                             }
                             if (unifiedData.warningCode !== undefined) {
                                 await persistAlarmChannel(
-                                    deviceId, unifiedData.warningCode, unifiedData.warningMessage, 'AVISO',
+                                    genContext.resolvedGenId, genContext.resolvedGenName,
+                                    unifiedData.warningCode, unifiedData.warningMessage, 'AVISO',
                                     notifyUsersAboutWarning, notifyUsersWarningResolved
                                 );
                             }
