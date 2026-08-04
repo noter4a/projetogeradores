@@ -1584,7 +1584,7 @@ export const initMqttService = (io) => {
         if (!lastConnectionError) lastConnectionError = "Client went offline";
     });
 
-    client.on('message', (topic, message) => {
+    client.on('message', async (topic, message) => {
         try {
             console.log(`[MQTT] Message received on ${topic}`); // Debug log
 
