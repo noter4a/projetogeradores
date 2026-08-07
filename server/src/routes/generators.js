@@ -9,6 +9,30 @@ import { getIo } from '../lib/socket.js';
 
 const router = express.Router();
 
+// Garante que o "ID do Dispositivo" (campo `ip` — é o tópico MQTT ou o
+// host/IP, dependendo do protocolo) não fique duplicado entre dois
+// geradores. mqtt.js resolve a mensagem recebida via
+// `WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1` — se dois
+// geradores tivessem o mesmo valor aqui, a telemetria de um deles nunca
+// mais apareceria (sempre cai no primeiro que o banco devolver). Vazio
+// não conta como duplicado (alguns cadastros legítimos ficam sem, ex.
+// enquanto o dispositivo físico ainda não chegou). excludeId é usado na
+// edição, pra não acusar o próprio gerador de "duplicado" dele mesmo —
+// e por isso o mesmo ID pode ser reaproveitado livremente assim que o
+// gerador que o usava for excluído (a linha some da tabela).
+async function findDeviceIdConflict(ip, excludeId = null) {
+    const trimmed = (ip || '').trim();
+    if (!trimmed) return null;
+    const params = excludeId ? [trimmed, excludeId] : [trimmed];
+    const result = await pool.query(
+        `SELECT id, name FROM generators
+         WHERE connection_info->>'ip' = $1 ${excludeId ? 'AND id != $2' : ''}
+         LIMIT 1`,
+        params
+    );
+    return result.rows[0] || null;
+}
+
 // PATCH /api/generators/:id/polling — pause/resume MQTT reads for a single generator
 // Lets operators stop polling a problematic unit so it doesn't occupy the shared RS485 bus.
 router.patch('/:id/polling', async (req, res) => {
@@ -142,6 +166,13 @@ router.get('/', async (req, res) => {
 router.post('/', requireRole('ADMIN'), async (req, res) => {
     const gen = req.body;
     try {
+        const conflict = await findDeviceIdConflict(gen.ip);
+        if (conflict) {
+            return res.status(409).json({
+                message: `Já existe um gerador cadastrado com este ID de dispositivo ("${gen.ip}"): ${conflict.name}. Exclua-o antes ou use um ID diferente.`,
+            });
+        }
+
         const connectionInfo = {
             connectionName: gen.connectionName,
             controller: gen.controller,
@@ -168,6 +199,12 @@ router.post('/', requireRole('ADMIN'), async (req, res) => {
 
         res.status(201).json({ message: 'Gerador criado com sucesso' });
     } catch (err) {
+        // 23505 = unique_violation — fallback pra corrida entre duas criações
+        // simultâneas com o mesmo ID (a checagem acima já cobre o caso comum,
+        // isso só pega a janela entre o SELECT e o INSERT).
+        if (err.code === '23505') {
+            return res.status(409).json({ message: 'Já existe um gerador cadastrado com este ID.' });
+        }
         console.error('Create generator error:', err);
         res.status(500).json({ message: 'Erro ao criar gerador' });
     }
@@ -178,6 +215,13 @@ router.put('/:id', requireRole('ADMIN'), async (req, res) => {
     const { id } = req.params;
     const gen = req.body;
     try {
+        const conflict = await findDeviceIdConflict(gen.ip, id);
+        if (conflict) {
+            return res.status(409).json({
+                message: `Já existe um gerador cadastrado com este ID de dispositivo ("${gen.ip}"): ${conflict.name}. Exclua-o antes ou use um ID diferente.`,
+            });
+        }
+
         // Preserve the polling pause flag (managed by the dedicated /polling endpoint)
         // so editing a generator here doesn't accidentally re-enable reads.
         const existing = await pool.query("SELECT connection_info FROM generators WHERE id=$1", [id]);

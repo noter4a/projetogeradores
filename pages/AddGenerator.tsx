@@ -30,6 +30,7 @@ const AddGenerator: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState<GeneratorFormData>({
@@ -122,6 +123,7 @@ const AddGenerator: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    setSaveError(null);
 
     // Edit mode: ask for confirmation only when something actually changed
     if (id) {
@@ -136,32 +138,37 @@ const AddGenerator: React.FC = () => {
     doSave();
   };
 
-  const doSave = () => {
+  const doSave = async () => {
     setShowConfirm(false);
+    setSaveError(null);
     setLoading(true);
+
+    let result: { ok: boolean; message?: string };
 
     if (id) {
       // Edit Mode
       const existingGen = generators.find(g => g.id === id);
-      if (existingGen) {
-        const updatedGen: Generator = {
-          ...existingGen,
-          name: formData.name,
-          location: formData.location,
-          model: formData.model,
-          powerKVA: Number(formData.power),
-          connectionName: formData.connectionName,
-          controller: formData.controller,
-          protocol: formData.protocol,
-          ip: formData.ip,
-          port: formData.port,
-          slaveId: formData.slaveId,
-          deviceType: formData.deviceType,
-          companyId: formData.companyId ? Number(formData.companyId) : undefined,
-          agc150Profile: formData.controller === 'agc150' ? formData.agc150Profile : undefined,
-        };
-        updateGenerator(updatedGen);
+      if (!existingGen) {
+        setLoading(false);
+        return;
       }
+      const updatedGen: Generator = {
+        ...existingGen,
+        name: formData.name,
+        location: formData.location,
+        model: formData.model,
+        powerKVA: Number(formData.power),
+        connectionName: formData.connectionName,
+        controller: formData.controller,
+        protocol: formData.protocol,
+        ip: formData.ip,
+        port: formData.port,
+        slaveId: formData.slaveId,
+        deviceType: formData.deviceType,
+        companyId: formData.companyId ? Number(formData.companyId) : undefined,
+        agc150Profile: formData.controller === 'agc150' ? formData.agc150Profile : undefined,
+      };
+      result = await updateGenerator(updatedGen);
     } else {
       // Add Mode
       const newGen: Generator = {
@@ -197,11 +204,16 @@ const AddGenerator: React.FC = () => {
         companyId: formData.companyId ? Number(formData.companyId) : undefined,
         agc150Profile: formData.controller === 'agc150' ? formData.agc150Profile : undefined,
       };
-      addGenerator(newGen);
+      result = await addGenerator(newGen);
     }
 
-    // TODO: Wait for real API success response
     setLoading(false);
+
+    if (!result.ok) {
+      setSaveError(result.message || 'Não foi possível salvar o gerador.');
+      return;
+    }
+
     navigate(id ? '/fleet' : '/');
   };
 
@@ -211,6 +223,13 @@ const AddGenerator: React.FC = () => {
         <h2 className="text-2xl font-bold text-white">{id ? 'Editar Gerador' : 'Adicionar Novo Gerador'}</h2>
         <p className="text-gray-400 text-sm">Cadastro e configuração de comunicação</p>
       </div>
+
+      {saveError && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-red-900/40 bg-red-900/20 px-4 py-3 text-sm text-red-300">
+          <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+          <span>{saveError}</span>
+        </div>
+      )}
 
       <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* General Info Card */}

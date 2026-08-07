@@ -8,14 +8,19 @@ let socket: Socket | null = null;
 
 export const getSocket = () => socket;
 
+export interface SaveGeneratorResult {
+  ok: boolean;
+  message?: string;
+}
+
 interface GeneratorContextType {
   generators: Generator[];
   isLoading: boolean;
   isSocketConnected: boolean;
   fetchGenerators: () => Promise<void>;
-  addGenerator: (gen: Generator) => void;
+  addGenerator: (gen: Generator) => Promise<SaveGeneratorResult>;
   removeGenerator: (id: string) => void;
-  updateGenerator: (gen: Generator) => void;
+  updateGenerator: (gen: Generator) => Promise<SaveGeneratorResult>;
 }
 
 const GeneratorContext = createContext<GeneratorContextType | undefined>(undefined);
@@ -132,20 +137,27 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
   }, [user, fetchGenerators]);
 
   const addGenerator = useCallback(
-    async (gen: Generator) => {
-      if (!user) return;
-      setGenerators(prev => [...prev, gen]);
+    async (gen: Generator): Promise<SaveGeneratorResult> => {
+      if (!user) return { ok: false, message: 'Não autenticado.' };
+      // Espera a validação do servidor (ex.: ID de dispositivo duplicado) antes
+      // de aplicar localmente — evita mostrar um gerador "criado" que na
+      // verdade foi rejeitado.
       try {
         const res = await fetch('/api/generators', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(gen),
         });
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          console.error('Failed to save generator on server');
+          console.error('Failed to save generator on server:', data.message);
+          return { ok: false, message: data.message || 'Erro ao salvar gerador.' };
         }
+        setGenerators(prev => [...prev, gen]);
+        return { ok: true };
       } catch (error) {
         console.error('Failed to save generator:', error);
+        return { ok: false, message: 'Erro de conexão ao salvar gerador.' };
       }
     },
     [user]
@@ -165,17 +177,24 @@ export const GeneratorProvider = ({ children }: PropsWithChildren<{}>) => {
   );
 
   const updateGenerator = useCallback(
-    async (updatedGen: Generator) => {
-      if (!user) return;
-      setGenerators(prev => prev.map(g => (g.id === updatedGen.id ? updatedGen : g)));
+    async (updatedGen: Generator): Promise<SaveGeneratorResult> => {
+      if (!user) return { ok: false, message: 'Não autenticado.' };
       try {
-        await fetch(`/api/generators/${updatedGen.id}`, {
+        const res = await fetch(`/api/generators/${updatedGen.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedGen),
         });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.error('Failed to update generator on server:', data.message);
+          return { ok: false, message: data.message || 'Erro ao atualizar gerador.' };
+        }
+        setGenerators(prev => prev.map(g => (g.id === updatedGen.id ? updatedGen : g)));
+        return { ok: true };
       } catch (error) {
         console.error('Failed to update generator:', error);
+        return { ok: false, message: 'Erro de conexão ao atualizar gerador.' };
       }
     },
     [user]
