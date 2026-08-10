@@ -12,7 +12,7 @@ IMPORTS
         FROM SNMPv2-SMI;
 
 generatorGateway MODULE-IDENTITY
-    LAST-UPDATED "202607110000Z"
+    LAST-UPDATED "202608100000Z"
     ORGANIZATION "Sua Empresa"
     CONTACT-INFO "seu-email@empresa.com"
     DESCRIPTION
@@ -45,8 +45,18 @@ GeneratorEntry ::= SEQUENCE {
     generatorName       OCTET STRING,
     statusCode          INTEGER,
     connected           INTEGER,
-    mainsVoltage        Gauge32,
-    genVoltage          Gauge32,
+    mainsVoltageL1      Gauge32,
+    mainsVoltageL2      Gauge32,
+    mainsVoltageL3      Gauge32,
+    genVoltageL1        Gauge32,
+    genVoltageL2        Gauge32,
+    genVoltageL3        Gauge32,
+    mainsCurrentL1      Gauge32,
+    mainsCurrentL2      Gauge32,
+    mainsCurrentL3      Gauge32,
+    genCurrentL1        Gauge32,
+    genCurrentL2        Gauge32,
+    genCurrentL3        Gauge32,
     frequency           Gauge32,
     rpm                 Gauge32,
     fuelLevel           Gauge32,
@@ -56,17 +66,7 @@ GeneratorEntry ::= SEQUENCE {
     activePower         Gauge32,
     alarmCode           Integer32,
     runHours            Gauge32,
-    lastUpdateEpoch     Gauge32,
-    genVoltageL2        Gauge32,
-    genVoltageL3        Gauge32,
-    mainsVoltageL2      Gauge32,
-    mainsVoltageL3      Gauge32,
-    genCurrentL1        Gauge32,
-    genCurrentL2        Gauge32,
-    genCurrentL3        Gauge32,
-    mainsCurrentL1      Gauge32,
-    mainsCurrentL2      Gauge32,
-    mainsCurrentL3      Gauge32
+    lastUpdateEpoch     Gauge32
 }
 
 generatorIndex OBJECT-TYPE
@@ -104,163 +104,166 @@ connected OBJECT-TYPE
     DESCRIPTION "Se o gerador reportou dados nos ultimos 120s."
     ::= { generatorEntry 5 }
 
-mainsVoltage OBJECT-TYPE
+-- RENUMERADO em 2026-08-10: a v1 desta MIB (colunas 1-17) so tinha a fase 1
+-- de tensao, com L2/L3 e as correntes penduradas no final (18-27) pra nao
+-- quebrar o cliente que ja consumia a v1 em producao. Dessa vez o cliente vai
+-- reconfigurar do lado dele, entao a tabela foi reagrupada de vez: tensao
+-- junto com tensao, corrente junto com corrente, cada uma com L1/L2/L3 em
+-- sequencia. Numero de coluna a partir da 6 mudou em relacao a v1 — qualquer
+-- integracao externa precisa atualizar os OIDs que consulta.
+
+mainsVoltageL1 OBJECT-TYPE
     SYNTAX      Gauge32
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Tensao da rede eletrica, fase 1 (V)."
     ::= { generatorEntry 6 }
 
-genVoltage OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Tensao gerada pelo grupo gerador, fase 1 (V)."
-    ::= { generatorEntry 7 }
-
-frequency OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Frequencia do gerador, em Hz x10 (600 = 60.0 Hz)."
-    ::= { generatorEntry 8 }
-
-rpm OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Rotacao do motor (RPM)."
-    ::= { generatorEntry 9 }
-
-fuelLevel OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Nivel de combustivel (%)."
-    ::= { generatorEntry 10 }
-
-batteryVoltage OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Tensao da bateria de partida, em V x10 (272 = 27.2V)."
-    ::= { generatorEntry 11 }
-
-oilPressure OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Pressao do oleo, em bar x100 (550 = 5.50 bar)."
-    ::= { generatorEntry 12 }
-
-engineTemp OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Temperatura do motor/liquido de arrefecimento (graus C)."
-    ::= { generatorEntry 13 }
-
-activePower OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Potencia ativa, em kW x10 (453 = 45.3 kW)."
-    ::= { generatorEntry 14 }
-
-alarmCode OBJECT-TYPE
-    SYNTAX      Integer32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Codigo do alarme atualmente ativo (0 = sem alarme)."
-    ::= { generatorEntry 15 }
-
-runHours OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Horimetro total, em horas x100 (9666 = 96.66h)."
-    ::= { generatorEntry 16 }
-
-lastUpdateEpoch OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Timestamp Unix (segundos) da ultima leitura recebida."
-    ::= { generatorEntry 17 }
-
--- Colunas 18+ adicionadas em 2026-07-30 para tensao e corrente por fase.
--- Numeradas em sequencia a partir de 18 — as colunas 1-17 acima NUNCA mudam
--- de numero uma vez entregues a um cliente (um cliente ja consome essa MIB
--- em producao); todo campo novo entra so no final.
-
-genVoltageL2 OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Tensao gerada pelo grupo gerador, fase 2 (V)."
-    ::= { generatorEntry 18 }
-
-genVoltageL3 OBJECT-TYPE
-    SYNTAX      Gauge32
-    MAX-ACCESS  read-only
-    STATUS      current
-    DESCRIPTION "Tensao gerada pelo grupo gerador, fase 3 (V)."
-    ::= { generatorEntry 19 }
-
 mainsVoltageL2 OBJECT-TYPE
     SYNTAX      Gauge32
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Tensao da rede eletrica, fase 2 (V)."
-    ::= { generatorEntry 20 }
+    ::= { generatorEntry 7 }
 
 mainsVoltageL3 OBJECT-TYPE
     SYNTAX      Gauge32
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Tensao da rede eletrica, fase 3 (V)."
-    ::= { generatorEntry 21 }
+    ::= { generatorEntry 8 }
 
-genCurrentL1 OBJECT-TYPE
+genVoltageL1 OBJECT-TYPE
     SYNTAX      Gauge32
     MAX-ACCESS  read-only
     STATUS      current
-    DESCRIPTION "Corrente do grupo gerador, fase 1, em A x10 (152 = 15.2A)."
-    ::= { generatorEntry 22 }
+    DESCRIPTION "Tensao gerada pelo grupo gerador, fase 1 (V)."
+    ::= { generatorEntry 9 }
 
-genCurrentL2 OBJECT-TYPE
+genVoltageL2 OBJECT-TYPE
     SYNTAX      Gauge32
     MAX-ACCESS  read-only
     STATUS      current
-    DESCRIPTION "Corrente do grupo gerador, fase 2, em A x10 (152 = 15.2A)."
-    ::= { generatorEntry 23 }
+    DESCRIPTION "Tensao gerada pelo grupo gerador, fase 2 (V)."
+    ::= { generatorEntry 10 }
 
-genCurrentL3 OBJECT-TYPE
+genVoltageL3 OBJECT-TYPE
     SYNTAX      Gauge32
     MAX-ACCESS  read-only
     STATUS      current
-    DESCRIPTION "Corrente do grupo gerador, fase 3, em A x10 (152 = 15.2A)."
-    ::= { generatorEntry 24 }
+    DESCRIPTION "Tensao gerada pelo grupo gerador, fase 3 (V)."
+    ::= { generatorEntry 11 }
 
 mainsCurrentL1 OBJECT-TYPE
     SYNTAX      Gauge32
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Corrente da rede eletrica, fase 1, em A x10 (152 = 15.2A)."
-    ::= { generatorEntry 25 }
+    ::= { generatorEntry 12 }
 
 mainsCurrentL2 OBJECT-TYPE
     SYNTAX      Gauge32
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Corrente da rede eletrica, fase 2, em A x10 (152 = 15.2A)."
-    ::= { generatorEntry 26 }
+    ::= { generatorEntry 13 }
 
 mainsCurrentL3 OBJECT-TYPE
     SYNTAX      Gauge32
     MAX-ACCESS  read-only
     STATUS      current
     DESCRIPTION "Corrente da rede eletrica, fase 3, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 14 }
+
+genCurrentL1 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Corrente do grupo gerador, fase 1, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 15 }
+
+genCurrentL2 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Corrente do grupo gerador, fase 2, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 16 }
+
+genCurrentL3 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Corrente do grupo gerador, fase 3, em A x10 (152 = 15.2A)."
+    ::= { generatorEntry 17 }
+
+frequency OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Frequencia do gerador, em Hz x10 (600 = 60.0 Hz)."
+    ::= { generatorEntry 18 }
+
+rpm OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Rotacao do motor (RPM)."
+    ::= { generatorEntry 19 }
+
+fuelLevel OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Nivel de combustivel (%)."
+    ::= { generatorEntry 20 }
+
+batteryVoltage OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Tensao da bateria de partida, em V x10 (272 = 27.2V)."
+    ::= { generatorEntry 21 }
+
+oilPressure OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Pressao do oleo, em bar x100 (550 = 5.50 bar)."
+    ::= { generatorEntry 22 }
+
+engineTemp OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Temperatura do motor/liquido de arrefecimento (graus C)."
+    ::= { generatorEntry 23 }
+
+activePower OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Potencia ativa, em kW x10 (453 = 45.3 kW)."
+    ::= { generatorEntry 24 }
+
+alarmCode OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Codigo do alarme atualmente ativo (0 = sem alarme)."
+    ::= { generatorEntry 25 }
+
+runHours OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Horimetro total, em horas x100 (9666 = 96.66h)."
+    ::= { generatorEntry 26 }
+
+lastUpdateEpoch OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Timestamp Unix (segundos) da ultima leitura recebida."
     ::= { generatorEntry 27 }
 
 -- Notificacoes (traps). Disparadas pelo agente (nao fazem parte da tabela)

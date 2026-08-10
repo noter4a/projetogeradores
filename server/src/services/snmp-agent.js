@@ -59,39 +59,47 @@ const STATUS_ENUM = { STOPPED: 1, RUNNING: 2, ALARM: 3, OFFLINE: 4 };
 // Column definition: Gauge32/Integer are integer-only on the wire, so non-
 // integer telemetry (voltage, frequency, hours, etc.) is scaled up and
 // documented as such in the MIB (e.g. "Hz x10", "V x10").
+//
+// RENUMERADO em 2026-08-10 (pedido do usuário): a v1 desta tabela (colunas
+// 1-17) tinha só a fase 1 de tensão, com L2/L3 e as correntes enfiadas no
+// final (18-27) pra não quebrar o cliente (Adyl/Zabbix) que já tinha a MIB
+// antiga documentada. Dessa vez o cliente vai reconfigurar do lado dele, então
+// a tabela foi reorganizada de vez: tensão agrupada com tensão, corrente
+// agrupada com corrente, cada uma com L1/L2/L3 em sequência — sem "resto"
+// solto no fim. Isso MUDA o número de toda coluna a partir da 6 em diante em
+// relação à v1 — qualquer integração externa (Zabbix, etc.) precisa atualizar
+// os OIDs que consulta.
 const COLUMNS = [
     { number: 1, name: 'generatorIndex', type: snmp.ObjectType.Integer },
     { number: 2, name: 'generatorId', type: snmp.ObjectType.OctetString },
     { number: 3, name: 'generatorName', type: snmp.ObjectType.OctetString },
     { number: 4, name: 'statusCode', type: snmp.ObjectType.Integer },
     { number: 5, name: 'connected', type: snmp.ObjectType.Integer }, // 0=no, 1=yes
-    { number: 6, name: 'mainsVoltage', type: snmp.ObjectType.Gauge32 },
-    { number: 7, name: 'genVoltage', type: snmp.ObjectType.Gauge32 },
-    { number: 8, name: 'frequency', type: snmp.ObjectType.Gauge32 },     // Hz x10
-    { number: 9, name: 'rpm', type: snmp.ObjectType.Gauge32 },
-    { number: 10, name: 'fuelLevel', type: snmp.ObjectType.Gauge32 },     // %
-    { number: 11, name: 'batteryVoltage', type: snmp.ObjectType.Gauge32 }, // V x10
-    { number: 12, name: 'oilPressure', type: snmp.ObjectType.Gauge32 },   // bar x100
-    { number: 13, name: 'engineTemp', type: snmp.ObjectType.Gauge32 },    // degC
-    { number: 14, name: 'activePower', type: snmp.ObjectType.Gauge32 },   // kW x10
-    { number: 15, name: 'alarmCode', type: snmp.ObjectType.Integer },
-    { number: 16, name: 'runHours', type: snmp.ObjectType.Gauge32 },      // hours x100
-    { number: 17, name: 'lastUpdateEpoch', type: snmp.ObjectType.Gauge32 }, // unix seconds
-    // Colunas 18+ adicionadas depois (2026-07-30) pra tensão/corrente por fase —
-    // numeradas em sequência a partir daqui, NUNCA renumerando 1-17: um cliente
-    // (Adyl/Zabbix) já recebeu a tabela de OIDs 1-17 documentada por fora do
-    // sistema (arquivo MIB entregue manualmente); mudar o número de uma coluna
-    // existente quebraria a configuração dele sem aviso.
-    { number: 18, name: 'genVoltageL2', type: snmp.ObjectType.Gauge32 },     // V (coluna 7 = genVoltage = fase L1)
-    { number: 19, name: 'genVoltageL3', type: snmp.ObjectType.Gauge32 },     // V
-    { number: 20, name: 'mainsVoltageL2', type: snmp.ObjectType.Gauge32 },   // V (coluna 6 = mainsVoltage = fase L1)
-    { number: 21, name: 'mainsVoltageL3', type: snmp.ObjectType.Gauge32 },   // V
-    { number: 22, name: 'genCurrentL1', type: snmp.ObjectType.Gauge32 },     // A x10
-    { number: 23, name: 'genCurrentL2', type: snmp.ObjectType.Gauge32 },     // A x10
-    { number: 24, name: 'genCurrentL3', type: snmp.ObjectType.Gauge32 },     // A x10
-    { number: 25, name: 'mainsCurrentL1', type: snmp.ObjectType.Gauge32 },   // A x10
-    { number: 26, name: 'mainsCurrentL2', type: snmp.ObjectType.Gauge32 },   // A x10
-    { number: 27, name: 'mainsCurrentL3', type: snmp.ObjectType.Gauge32 },   // A x10
+    // Tensão — rede primeiro, depois gerador, cada uma L1/L2/L3 em sequência.
+    { number: 6, name: 'mainsVoltageL1', type: snmp.ObjectType.Gauge32 },  // V
+    { number: 7, name: 'mainsVoltageL2', type: snmp.ObjectType.Gauge32 },  // V
+    { number: 8, name: 'mainsVoltageL3', type: snmp.ObjectType.Gauge32 },  // V
+    { number: 9, name: 'genVoltageL1', type: snmp.ObjectType.Gauge32 },    // V
+    { number: 10, name: 'genVoltageL2', type: snmp.ObjectType.Gauge32 },   // V
+    { number: 11, name: 'genVoltageL3', type: snmp.ObjectType.Gauge32 },   // V
+    // Corrente — mesma ordem (rede, depois gerador), L1/L2/L3 em sequência.
+    { number: 12, name: 'mainsCurrentL1', type: snmp.ObjectType.Gauge32 }, // A x10
+    { number: 13, name: 'mainsCurrentL2', type: snmp.ObjectType.Gauge32 }, // A x10
+    { number: 14, name: 'mainsCurrentL3', type: snmp.ObjectType.Gauge32 }, // A x10
+    { number: 15, name: 'genCurrentL1', type: snmp.ObjectType.Gauge32 },   // A x10
+    { number: 16, name: 'genCurrentL2', type: snmp.ObjectType.Gauge32 },   // A x10
+    { number: 17, name: 'genCurrentL3', type: snmp.ObjectType.Gauge32 },   // A x10
+    // Resto — um valor por gerador, sem fase.
+    { number: 18, name: 'frequency', type: snmp.ObjectType.Gauge32 },      // Hz x10
+    { number: 19, name: 'rpm', type: snmp.ObjectType.Gauge32 },
+    { number: 20, name: 'fuelLevel', type: snmp.ObjectType.Gauge32 },      // %
+    { number: 21, name: 'batteryVoltage', type: snmp.ObjectType.Gauge32 }, // V x10
+    { number: 22, name: 'oilPressure', type: snmp.ObjectType.Gauge32 },    // bar x100
+    { number: 23, name: 'engineTemp', type: snmp.ObjectType.Gauge32 },     // degC
+    { number: 24, name: 'activePower', type: snmp.ObjectType.Gauge32 },    // kW x10
+    { number: 25, name: 'alarmCode', type: snmp.ObjectType.Integer },
+    { number: 26, name: 'runHours', type: snmp.ObjectType.Gauge32 },       // hours x100
+    { number: 27, name: 'lastUpdateEpoch', type: snmp.ObjectType.Gauge32 }, // unix seconds
 ];
 
 function toIntOrZero(v, scale = 1) {
@@ -142,8 +150,21 @@ function rowToColumns(row, stableIndexFor) {
         String(row.name || ''),
         statusCode,
         connected ? 1 : 0,
+        // Tensão — rede L1/L2/L3, depois gerador L1/L2/L3.
         toIntOrZero(row.mains_voltage_l1),
+        toIntOrZero(row.mains_voltage_l2),
+        toIntOrZero(row.mains_voltage_l3),
         toIntOrZero(row.voltage_l1),
+        toIntOrZero(row.voltage_l2),
+        toIntOrZero(row.voltage_l3),
+        // Corrente — mesma ordem.
+        toIntOrZero(row.mains_current_l1, 10),
+        toIntOrZero(row.mains_current_l2, 10),
+        toIntOrZero(row.mains_current_l3, 10),
+        toIntOrZero(row.current_l1, 10),
+        toIntOrZero(row.current_l2, 10),
+        toIntOrZero(row.current_l3, 10),
+        // Resto — sem fase.
         toIntOrZero(row.frequency, 10),
         toIntOrZero(row.rpm),
         toIntOrZero(row.fuel_level),
@@ -154,20 +175,10 @@ function rowToColumns(row, stableIndexFor) {
         toIntOrZero(row.alarm_code),
         toIntOrZero(row.run_hours, 100),
         lastUpdateEpoch,
-        toIntOrZero(row.voltage_l2),
-        toIntOrZero(row.voltage_l3),
-        toIntOrZero(row.mains_voltage_l2),
-        toIntOrZero(row.mains_voltage_l3),
-        toIntOrZero(row.current_l1, 10),
-        toIntOrZero(row.current_l2, 10),
-        toIntOrZero(row.current_l3, 10),
-        toIntOrZero(row.mains_current_l1, 10),
-        toIntOrZero(row.mains_current_l2, 10),
-        toIntOrZero(row.mains_current_l3, 10),
     ];
 }
 
-const ALARM_CODE_COLUMN_INDEX = 14; // 0-based position in the `cols` array (column number 15)
+const ALARM_CODE_COLUMN_INDEX = 24; // 0-based position in the `cols` array (column number 25)
 
 /**
  * Builds a one-shot trap sender bound to a target/community, or a no-op if

@@ -45,8 +45,8 @@ snmpwalk -v2c -c troque-isso-em-producao <IP_DO_SERVIDOR> 1.3.6.1.4.1.99999.1
 # Formato tabular
 snmptable -v2c -c troque-isso-em-producao <IP_DO_SERVIDOR> 1.3.6.1.4.1.99999.1
 
-# Um campo específico (ex: tensão do gerador, linha 1)
-snmpget -v2c -c troque-isso-em-producao <IP_DO_SERVIDOR> 1.3.6.1.4.1.99999.1.1.7.1
+# Um campo específico (ex: tensão do gerador fase 1, linha 1)
+snmpget -v2c -c troque-isso-em-producao <IP_DO_SERVIDOR> 1.3.6.1.4.1.99999.1.1.9.1
 ```
 
 ## 4. O que é exposto (ver `GENERATOR-MIB.mib`)
@@ -54,16 +54,27 @@ snmpget -v2c -c troque-isso-em-producao <IP_DO_SERVIDOR> 1.3.6.1.4.1.99999.1.1.7
 Uma linha por gerador — `generatorIndex` é um índice interno estável
 (não é o ID do gerador no painel; é atribuído a cada gerador na primeira
 vez que o agente o vê, e mantido pelo tempo de vida do processo).
-Colunas: `generatorId`, `generatorName`, `statusCode`
-(1=parado,2=rodando,3=alarme,4=offline), `connected` (dado recente nos
-últimos 120s), tensão de rede/gerador, frequência (Hz×10), RPM,
-combustível (%), bateria (V×10), pressão de óleo (bar×100), temperatura
-do motor, potência ativa (kW×10), código de alarme, horímetro (h×100) e
-timestamp da última leitura.
+
+Colunas, na ordem (número do OID = posição nessa lista, começando em 1):
+`generatorId`, `generatorName`, `statusCode` (1=parado,2=rodando,3=alarme,
+4=offline), `connected` (dado recente nos últimos 120s), **tensão** —
+rede L1/L2/L3 depois gerador L1/L2/L3 (colunas 6-11), **corrente** — rede
+L1/L2/L3 depois gerador L1/L2/L3, em A×10 (colunas 12-17), frequência
+(Hz×10), RPM, combustível (%), bateria (V×10), pressão de óleo (bar×100),
+temperatura do motor, potência ativa (kW×10), código de alarme, horímetro
+(h×100) e timestamp da última leitura. Veja `GENERATOR-MIB.mib` pra
+numeração exata de cada uma.
 
 Os valores decimais vêm multiplicados (documentado na descrição de cada
 OID) porque os tipos SNMP padrão (`Gauge32`/`Integer`) só armazenam
 inteiros.
+
+> **Renumerado em 2026-08-10**: até então tensão/corrente por fase estavam
+> espalhadas (L1 no início da tabela, L2/L3 e as correntes no final) pra não
+> quebrar um cliente já integrado. A tabela foi reagrupada por completo —
+> tensão junto com tensão, corrente junto com corrente, cada uma com
+> L1/L2/L3 em sequência. Se você tinha uma integração (Zabbix, etc.) usando
+> os OIDs antigos, precisa atualizar pros números novos — confira a MIB.
 
 ## 5. Dar acesso a um cliente para **só um gerador** (ex: Ciklo70)
 
@@ -111,7 +122,7 @@ Só aparece a linha do Ciklo70 — nenhum outro gerador da frota.
 
 ## 6. Alarmes por trap (push, sem precisar ficar consultando)
 
-Além de o `alarmCode` (coluna 15) já mostrar o alarme ativo quando
+Além de o `alarmCode` (coluna 25) já mostrar o alarme ativo quando
 consultado, cada instância do agente pode **avisar sozinha** o sistema
 de monitoramento do cliente assim que perceber, no próprio ciclo de
 poll, que o `alarmCode` de um gerador mudou — abriu (`0 -> N`), trocou
