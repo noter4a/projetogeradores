@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUsers } from '../context/UserContext';
 import { useGenerators } from '../context/GeneratorContext';
@@ -7,6 +8,8 @@ import { Trash2, UserPlus, Mail, Shield, User as UserIcon, Check, Pencil, Lock, 
 import { normalizeSearch as normalize } from '../utils/formatters';
 
 const UserManagement: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { users, loading, error, refreshUsers, addUser, removeUser, updateUser } = useUsers();
   const { user: currentUser } = useAuth();
   const { generators } = useGenerators();
@@ -104,6 +107,19 @@ const UserManagement: React.FC = () => {
     });
     setIsFormOpen(true);
   };
+
+  // Chegou aqui vindo do lápis em Gerenciar Empresas (Associar Usuários) —
+  // abre direto no formulário de edição desse usuário. Limpa o state da
+  // navegação em seguida pra não reabrir de novo num refresh/voltar.
+  useEffect(() => {
+    const editUserId = (location.state as { editUserId?: string } | null)?.editUserId;
+    if (!editUserId) return;
+    const target = users.find(u => u.id === editUserId);
+    if (target) {
+      handleOpenEdit(target);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, users]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

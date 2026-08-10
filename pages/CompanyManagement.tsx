@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { useUsers } from '../context/UserContext';
 import { Company, User, UserRole } from '../types';
-import { Building, Plus, Trash2, Edit, Check, X, Server, CreditCard, Search, Users as UsersIcon } from 'lucide-react';
+import { Building, Plus, Trash2, Edit, Check, X, Server, CreditCard, Search, Users as UsersIcon, Pencil } from 'lucide-react';
 import { normalizeSearch as normalize } from '../utils/formatters';
 
 const roleLabel = (role: UserRole) =>
@@ -13,6 +14,7 @@ const roleLabel = (role: UserRole) =>
   role === UserRole.ORCAMENTOS ? 'Orçamentos' : 'Monitoramento';
 
 const CompanyManagement: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { generators, fetchGenerators } = useGenerators();
   const { users, refreshUsers } = useUsers();
@@ -431,14 +433,24 @@ const CompanyManagement: React.FC = () => {
                       <p className="text-sm font-medium text-ciklo-yellow truncate">{u.name}</p>
                       <p className="text-xs text-gray-500 truncate">{u.email} · {roleLabel(u.role)}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleUserSelection(u.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
-                      title="Remover"
-                    >
-                      <X size={16} />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => navigate('/users', { state: { editUserId: u.id } })}
+                        className="p-1.5 text-gray-400 hover:text-ciklo-orange hover:bg-ciklo-orange/10 rounded-lg transition-colors"
+                        title="Editar Usuário"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleUserSelection(u.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        title="Remover"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {selectedUsers.length === 0 && (
