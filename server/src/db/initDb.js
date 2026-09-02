@@ -342,7 +342,10 @@ const initDb = async (retries = 15, delay = 5000) => {
                 "run_hours NUMERIC(10,2) DEFAULT 0",
                 "mains_current_l1 NUMERIC(6,1) DEFAULT 0",
                 "mains_current_l2 NUMERIC(6,1) DEFAULT 0",
-                "mains_current_l3 NUMERIC(6,1) DEFAULT 0"
+                "mains_current_l3 NUMERIC(6,1) DEFAULT 0",
+                // Número de série do controlador, lido via Modbus quando o protocolo expõe
+                // (DSE GenComm Page 3 offset 2-3; Cummins PowerCommand reg 43049-43064).
+                "serial_number VARCHAR(64)"
             ];
 
             for (const col of columnsToAdd) {

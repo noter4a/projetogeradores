@@ -763,6 +763,9 @@ const GeneratorDetail: React.FC = () => {
                 <span className={`w-2 h-2 rounded-full ${gen.status === GeneratorStatus.RUNNING ? 'bg-green-500' : 'bg-red-500'}`}></span>
                 Status: {gen.status} | {gen.model}
               </p>
+              {gen.serialNumber && (
+                <p className="text-xs text-gray-500 mt-0.5">Nº de série do controlador: <span className="font-mono text-gray-400">{gen.serialNumber}</span></p>
+              )}
             </div>
           </div>
           {canControl && (
@@ -800,6 +803,9 @@ const GeneratorDetail: React.FC = () => {
           <div>
             <h1 className="text-lg font-bold text-white font-mono leading-tight">{gen.name}</h1>
             <p className="text-xs text-gray-400 mt-1">{gen.model} • {gen.operationMode || 'AUTO'}</p>
+            {gen.serialNumber && (
+              <p className="text-[10px] text-gray-500 mt-0.5 font-mono">S/N: {gen.serialNumber}</p>
+            )}
             <p className="text-[10px] text-gray-500 mt-2">{formatLastUpdate(gen.lastDataReceived)}</p>
           </div>
           {canControl && (

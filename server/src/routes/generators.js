@@ -105,6 +105,7 @@ router.get('/', async (req, res) => {
             name: row.name,
             location: row.location,
             model: row.model,
+            serialNumber: row.serial_number || null,
             powerKVA: row.power_kva,
             status: row.status,
             connectionName: row.connection_info?.connectionName || null,

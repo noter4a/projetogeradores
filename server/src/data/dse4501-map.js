@@ -200,6 +200,7 @@ export const DSE4501_POLL_SEQUENCE = [
     { startAddress: 1038, quantity: 14 }, // Page 4: gen L-L + currents
     { startAddress: 1052, quantity: 6 },  // Page 4: per-phase power
     { startAddress: 1058, quantity: 15 }, // Page 4: mains voltages + freq
+    { startAddress: 770, quantity: 2 },   // Page 3: serial number (32-bit)
     { startAddress: 772, quantity: 1 },   // Page 3: control mode
     { startAddress: 774, quantity: 1 },   // Page 3: status/alarm flags
     { startAddress: 1536, quantity: 2 },  // Page 6: total active power

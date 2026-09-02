@@ -259,6 +259,21 @@ export function decodeDseByBlock(slaveId, fn, startAddress, regs) {
         };
     }
 
+    // ---- Block 2a: Serial number (Reg 770-771, Page 3 offset 2-3, 32-bit) ----
+    // GenComm.pdf "Page 3 - Generating Set Status Information": offset 0 =
+    // Manufacturer code, offset 1 = Model number, offset 2-3 = Serial number
+    // (unsigned 32-bit, range 0-999999999) — confirmado contra a mesma página
+    // já usada pelos blocos de Control mode (772 = offset 4) e Status flags
+    // (774 = offset 6) logo abaixo, então o endereçamento bate.
+    if (startAddress === 770 && regs.length >= 2) {
+        const serialNumberRaw = u32(regs, 0);
+
+        return {
+            block: 'DSE_SERIAL_770',
+            serialNumber: serialNumberRaw > 0 ? String(serialNumberRaw) : null,
+        };
+    }
+
     // ---- Block 3: Control mode (Reg 772, Page 3 offset 4) ----
     if (startAddress === 772 && regs.length >= 1) {
         const controlModeRaw = u16(regs, 0);

@@ -59,6 +59,8 @@ export interface Generator {
   name: string;
   location: string;
   model: string;
+  /** Número de série do controlador, lido via Modbus quando o protocolo expõe (DSE, Cummins). Null nos demais. */
+  serialNumber?: string | null;
   powerKVA: number;
   status: GeneratorStatus;
   companyId?: number;

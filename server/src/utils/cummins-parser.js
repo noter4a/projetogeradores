@@ -28,6 +28,10 @@ export const CUMMINS_POLL_SEQUENCE = [
     // Se o sender de nível estiver fiado em qualquer canal, a tensão aparece aqui
     // mesmo sem a entrada estar configurada como "Fuel Level" no InPower.
     { startAddress: 3722, quantity: 8, fn: 3 }, // 43723-43730: AUX101 input 1..8 Voltage
+    // Número de série do controlador — 16 registradores, 1 caractere ASCII (8
+    // bits) cada, char #1 em 43049 até char #16 em 43064. Documentado no manual
+    // A029X159 cap. 14 como "Read Only".
+    { startAddress: 3048, quantity: 16, fn: 3 }, // 43049-43064: número de série
     // NOTA (verificado ao vivo em 2026-07): os registradores do mapa estendido
     // PowerCommand 2.x/3.x 40118-40123 (Utility) e 40039 (PF) retornam exceção
     // Modbus 2 nesta unidade — ela implementa estritamente o mapa do cap.14
@@ -197,6 +201,22 @@ export function decodeCumminsByBlock(slaveId, fn, startAddress, regs) {
         const valid = raw > 0 && raw !== 65535;
         console.log(`[CUMMINS-FUEL] 43745 AUX101 Fuel Level raw=${raw} (valid=${valid})`);
         return { block: 'CUMMINS_FUEL', fuelRaw: raw, fuelLevel: valid ? raw : null };
+    }
+
+    // ---- Número de série (addr 3048 = 43049-43064, 16 regs, 1 char ASCII cada) ----
+    // Manual A029X159 cap. 14: "Byte 1..16 for serial number" / "Sign: Char" /
+    // "Size(Bits): 8" — cada registrador carrega 1 caractere ASCII no byte
+    // baixo, char #1 em 43049 até char #16 em 43064.
+    if (startAddress === 3048 && regs.length >= 16) {
+        const codes = Array.from({ length: 16 }, (_, k) => u16(regs, k) & 0xFF);
+        const raw = String.fromCharCode(...codes);
+        // Registradores não usados vêm como 0x00 (terminador) — corta ali antes
+        // de aparar espaço, em vez de incluir lixo/padding no fim da string.
+        const nullIndex = raw.indexOf(String.fromCharCode(0));
+        const cut = nullIndex >= 0 ? raw.slice(0, nullIndex) : raw;
+        const serialNumber = cut.trim() || null;
+        console.log(`[CUMMINS-SERIAL] 43049-43064 raw bytes=[${codes.join(',')}] -> "${serialNumber}"`);
+        return { block: 'CUMMINS_SERIAL', serialNumber };
     }
 
     console.log(`[CUMMINS-PARSER] Bloco desconhecido no endereço ${startAddress} (${regs.length} regs)`);

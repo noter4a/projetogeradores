@@ -2258,6 +2258,14 @@ export const initMqttService = (io) => {
                             unifiedData.runHours = d.runHours;
                             if (d.startAttempts != null) unifiedData.startAttempts = d.startAttempts;
                         }
+
+                        // Número de série é estático — se essa leitura vier vazia (glitch de
+                        // comunicação num ciclo isolado), mantém o último valor conhecido em
+                        // vez de apagar o que já estava exibido.
+                        if (d.block === 'CUMMINS_SERIAL') {
+                            const persisted = currentGeneratorsState[deviceId]?.data || {};
+                            unifiedData.serialNumber = d.serialNumber ?? persisted.serialNumber ?? null;
+                        }
                     }
                 });
 
@@ -2334,6 +2342,14 @@ export const initMqttService = (io) => {
                             unifiedData.powerL1 = d.powerL1;
                             unifiedData.powerL2 = d.powerL2;
                             unifiedData.powerL3 = d.powerL3;
+                        }
+
+                        // Número de série é estático — se essa leitura vier vazia (glitch de
+                        // comunicação num ciclo isolado), mantém o último valor conhecido em
+                        // vez de apagar o que já estava exibido.
+                        if (d.block === 'DSE_SERIAL_770') {
+                            const persisted = currentGeneratorsState[deviceId]?.data || {};
+                            unifiedData.serialNumber = d.serialNumber ?? persisted.serialNumber ?? null;
                         }
 
                         if (d.block === 'DSE_CONTROL_772') {
@@ -2687,6 +2703,7 @@ export const initMqttService = (io) => {
                                     mains_current_l1 = COALESCE($25, mains_current_l1),
                                     mains_current_l2 = COALESCE($26, mains_current_l2),
                                     mains_current_l3 = COALESCE($27, mains_current_l3),
+                                    serial_number = COALESCE($28, serial_number),
                                     last_connected = NOW()
                                 WHERE id = $18 OR connection_info->>'ip' = $18
                             `;
@@ -2758,7 +2775,8 @@ export const initMqttService = (io) => {
                                 safeFloat(unifiedData.powerFactor),
                                 safeFloat(unifiedData.mainsCurrentL1),
                                 safeFloat(unifiedData.mainsCurrentL2),
-                                safeFloat(unifiedData.mainsCurrentL3)
+                                safeFloat(unifiedData.mainsCurrentL3),
+                                unifiedData.serialNumber || null
                             ];
 
                             await pool.query(query, values);
