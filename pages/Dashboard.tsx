@@ -6,7 +6,7 @@ import { useGenerators } from '../context/GeneratorContext';
 import { useOperatorMode } from '../context/OperatorModeContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio, Search, X } from 'lucide-react';
+import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio, Search, X, Building, Cpu } from 'lucide-react';
 import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorDashboardCard from '../components/OperatorDashboardCard';
 import PullToRefreshIndicator from '../components/ui/PullToRefreshIndicator';
@@ -63,8 +63,30 @@ const Dashboard: React.FC = () => {
   const offlineGens = generators.filter(g => !isGeneratorConnected(g.lastDataReceived)).length;
 
   // Filtro do painel: busca (nome do gerador / empresa / local) + status de conexão
+  // + empresa + modelo (esses dois últimos pra reduzir a poluição visual em
+  // frotas grandes com várias empresas/modelos misturados).
   const [search, setSearch] = useState('');
   const [connFilter, setConnFilter] = useState<'all' | 'connected' | 'disconnected'>('all');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [modelFilter, setModelFilter] = useState('');
+
+  // Só ADMIN vê gerador de mais de uma empresa (outros perfis já ficam
+  // travados na própria empresa lá em cima) — sem sentido mostrar o filtro
+  // de empresa pra quem só tem uma opção possível.
+  const companyOptions = useMemo(() => {
+    if (user?.role !== UserRole.ADMIN) return [];
+    return Array.from(new Set(generators.map(g => g.companyName).filter((n): n is string => !!n))).sort();
+  }, [generators, user?.role]);
+
+  const hasUngroupedGenerators = useMemo(
+    () => user?.role === UserRole.ADMIN && generators.some(g => !g.companyName),
+    [generators, user?.role]
+  );
+
+  const modelOptions = useMemo(
+    () => Array.from(new Set(generators.map(g => g.model).filter((m): m is string => !!m))).sort(),
+    [generators]
+  );
 
   const filteredGenerators = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -76,11 +98,21 @@ const Dashboard: React.FC = () => {
       const connected = isGeneratorConnected(g.lastDataReceived);
       const matchesConn = connFilter === 'all'
         || (connFilter === 'connected' ? connected : !connected);
-      return matchesSearch && matchesConn;
+      const matchesCompany = !companyFilter
+        || (companyFilter === '__none__' ? !g.companyName : g.companyName === companyFilter);
+      const matchesModel = !modelFilter || g.model === modelFilter;
+      return matchesSearch && matchesConn && matchesCompany && matchesModel;
     });
-  }, [generators, search, connFilter]);
+  }, [generators, search, connFilter, companyFilter, modelFilter]);
 
-  const isFiltering = search.trim() !== '' || connFilter !== 'all';
+  const isFiltering = search.trim() !== '' || connFilter !== 'all' || companyFilter !== '' || modelFilter !== '';
+
+  const clearFilters = () => {
+    setSearch('');
+    setConnFilter('all');
+    setCompanyFilter('');
+    setModelFilter('');
+  };
 
   const connFilterOptions: { value: typeof connFilter; label: string }[] = [
     { value: 'all', label: 'Todos' },
@@ -176,8 +208,8 @@ const Dashboard: React.FC = () => {
 
         {/* Filtro do painel */}
         {!isLoading && generators.length > 0 && (
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-3">
+            <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
               <input
                 type="text"
@@ -196,20 +228,65 @@ const Dashboard: React.FC = () => {
                 </button>
               )}
             </div>
-            <div className="flex bg-ciklo-card border border-gray-700 rounded-xl p-1 shrink-0">
-              {connFilterOptions.map((opt) => (
+
+            <div className="flex flex-wrap items-center gap-3">
+              {companyOptions.length > 1 && (
+                <div className="relative">
+                  <Building size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                  <select
+                    value={companyFilter}
+                    onChange={(e) => setCompanyFilter(e.target.value)}
+                    className="appearance-none bg-ciklo-card border border-gray-700 rounded-xl pl-9 pr-8 py-2.5 text-sm text-white focus:outline-none focus:border-ciklo-orange focus:ring-1 focus:ring-ciklo-orange transition-colors"
+                  >
+                    <option value="">Todas as Empresas</option>
+                    {hasUngroupedGenerators && <option value="__none__">Sem Empresa</option>}
+                    {companyOptions.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {modelOptions.length > 1 && (
+                <div className="relative">
+                  <Cpu size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                  <select
+                    value={modelFilter}
+                    onChange={(e) => setModelFilter(e.target.value)}
+                    className="appearance-none bg-ciklo-card border border-gray-700 rounded-xl pl-9 pr-8 py-2.5 text-sm text-white focus:outline-none focus:border-ciklo-orange focus:ring-1 focus:ring-ciklo-orange transition-colors"
+                  >
+                    <option value="">Todos os Modelos</option>
+                    {modelOptions.map((model) => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex bg-ciklo-card border border-gray-700 rounded-xl p-1 shrink-0">
+                {connFilterOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setConnFilter(opt.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      connFilter === opt.value
+                        ? 'bg-ciklo-orange text-black shadow'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {isFiltering && (
                 <button
-                  key={opt.value}
-                  onClick={() => setConnFilter(opt.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                    connFilter === opt.value
-                      ? 'bg-ciklo-orange text-black shadow'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
+                  onClick={clearFilters}
+                  className="text-xs font-medium text-gray-500 hover:text-white transition-colors"
                 >
-                  {opt.label}
+                  Limpar filtros
                 </button>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -244,7 +321,7 @@ const Dashboard: React.FC = () => {
           <div className="text-center py-16 bg-ciklo-card rounded-xl border border-gray-800 border-dashed">
             <p className="text-gray-400 text-lg">Nenhum gerador corresponde ao filtro.</p>
             <button
-              onClick={() => { setSearch(''); setConnFilter('all'); }}
+              onClick={clearFilters}
               className="mt-4 text-ciklo-orange font-medium hover:underline"
             >
               Limpar filtros
