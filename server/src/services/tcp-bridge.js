@@ -22,6 +22,7 @@
 import net from 'net';
 import mqtt from 'mqtt';
 import pool from '../db.js';
+import { sendAlarmWhatsApp } from './whatsapp.js';
 
 const DATA_TOPIC = (id) => `devices/data/${id}`;
 const COMMAND_TOPIC_WILDCARD = 'devices/command/+';
@@ -43,6 +44,15 @@ function buildMqttOptions() {
 // last recorded position — keeps location_history from filling with near-identical
 // points while a generator sits still (which is most of the time).
 const MIN_TRAIL_MOVE_METERS = 100;
+
+// Limita o alerta de WhatsApp de movimentação a no máximo um a cada 10 minutos
+// POR GERADOR, mesmo que ele continue passando de 100m repetidamente nesse meio
+// tempo (ex: sendo transportado) — sem isso, uma viagem de 50km disparasse ~500
+// mensagens. A trilha em si (location_history) continua registrando cada 100m
+// normalmente; só a notificação é limitada. Reseta sozinho quando o movimento
+// para (o cooldown só é checado quando há um novo ponto de deslocamento real).
+const MOVEMENT_ALERT_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutos
+const lastMovementAlertAt = new Map(); // generatorId -> epoch ms do último alerta enviado
 
 /** Great-circle distance between two lat/lon points, in meters (haversine). */
 function haversineMeters(lat1, lon1, lat2, lon2) {
@@ -202,10 +212,47 @@ export function initTcpBridge() {
 }
 
 /**
+ * Alerta por WhatsApp (ADMINs + usuários da empresa do gerador, respeitando
+ * whatsapp_alerts como qualquer outra notificação) sempre que um deslocamento
+ * de verdade é detectado — mesmo limiar MIN_TRAIL_MOVE_METERS já usado pra
+ * decidir se grava um ponto novo na trilha. Reaproveita o mesmo template do
+ * Twilio usado pros alarmes (sendAlarmWhatsApp), só com status "MOVIMENTO".
+ * Erro de envio não deve derrubar o registro da trilha — por isso tem seu
+ * próprio try/catch, chamado depois do INSERT já ter sido confirmado.
+ */
+async function notifyUsersAboutMovement(generatorId, distanceMeters, pos) {
+    try {
+        const res = await pool.query(
+            `SELECT u.phone, g.name AS generator_name
+             FROM users u
+             JOIN generators g ON g.id = $1
+             WHERE (u.role = 'ADMIN' OR u.company_id = g.company_id)
+               AND u.phone IS NOT NULL
+               AND u.whatsapp_alerts = true`,
+            [generatorId]
+        );
+        if (res.rowCount === 0) return;
+
+        const generatorName = res.rows[0].generator_name || generatorId;
+        const mapsLink = `https://www.google.com/maps?q=${pos.lat},${pos.lon}`;
+        const message = `Movimentação detectada: ${Math.round(distanceMeters)}m. Nova posição: ${mapsLink}`;
+
+        for (const user of res.rows) {
+            await sendAlarmWhatsApp(user.phone, generatorName, message, 'MOVIMENTO');
+        }
+    } catch (err) {
+        console.error(`[GNSS] Failed sending movement alert for ${generatorId}:`, err.message);
+    }
+}
+
+/**
  * Append a point to location_history for a generator, but only if it has moved
  * at least MIN_TRAIL_MOVE_METERS from the most recent stored point (or if this is
  * the first point ever). This keeps the trail meaningful — one point per real
  * displacement — instead of thousands of duplicates while the unit sits still.
+ *
+ * Um deslocamento real (não o primeiro ponto — esse é só "começou a rastrear",
+ * não "se moveu") também dispara um alerta de WhatsApp — ver notifyUsersAboutMovement.
  */
 async function recordTrailPoint(generatorId, pos) {
     try {
@@ -215,12 +262,13 @@ async function recordTrailPoint(generatorId, pos) {
             [generatorId]
         );
 
+        let movedMeters = null;
         if (last.rowCount > 0) {
             const prev = last.rows[0];
-            const moved = haversineMeters(
+            movedMeters = haversineMeters(
                 Number(prev.latitude), Number(prev.longitude), pos.lat, pos.lon
             );
-            if (moved < MIN_TRAIL_MOVE_METERS) return; // still parked — skip
+            if (movedMeters < MIN_TRAIL_MOVE_METERS) return; // still parked — skip
         }
 
         await pool.query(
@@ -228,6 +276,19 @@ async function recordTrailPoint(generatorId, pos) {
             [generatorId, pos.lat, pos.lon]
         );
         console.log(`[GNSS] ${generatorId}: trail point recorded (${pos.lat}, ${pos.lon})`);
+
+        // movedMeters só é null no primeiríssimo ponto (nada pra comparar ainda) —
+        // não alerta nesse caso, só quando há de fato um deslocamento medido. E só
+        // dispara de novo depois do cooldown, mesmo que continue se movendo entre
+        // um alerta e outro (senão uma viagem longa vira uma enxurrada de mensagens).
+        if (movedMeters !== null) {
+            const now = Date.now();
+            const lastAlert = lastMovementAlertAt.get(generatorId) || 0;
+            if (now - lastAlert >= MOVEMENT_ALERT_COOLDOWN_MS) {
+                lastMovementAlertAt.set(generatorId, now);
+                notifyUsersAboutMovement(generatorId, movedMeters, pos);
+            }
+        }
     } catch (err) {
         console.error(`[GNSS] Failed to record trail point for ${generatorId}:`, err.message);
     }
