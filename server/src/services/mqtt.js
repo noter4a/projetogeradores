@@ -262,7 +262,7 @@ async function persistAlarmChannel(resolvedGenId, resolvedGenName, code, message
 async function resolveGeneratorContext(deviceId) {
     try {
         const result = await pool.query(
-            "SELECT id, name, company_id FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
+            "SELECT id, name, company_id FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1 LIMIT 1",
             [deviceId]
         );
         if (result.rows.length > 0) {
@@ -435,7 +435,7 @@ function emitDr164LinkHeartbeat(deviceId, io) {
     if (now - lastDb > 15000) {
         lastLinkHeartbeatDb.set(deviceId, now);
         pool.query(
-            "UPDATE generators SET last_connected = NOW() WHERE id = $1 OR connection_info->>'ip' = $1",
+            "UPDATE generators SET last_connected = NOW() WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1",
             [deviceId]
         ).catch(err => console.error('[MQTT] Link heartbeat DB error:', err.message));
     }
@@ -2627,7 +2627,7 @@ export const initMqttService = (io) => {
                                     let resolvedGenName = deviceId;
                                     try {
                                         const resGen = await pool.query(
-                                            "SELECT id, name FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
+                                            "SELECT id, name FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1 LIMIT 1",
                                             [deviceId]
                                         );
                                         if (resGen.rows.length > 0) {
@@ -2705,7 +2705,7 @@ export const initMqttService = (io) => {
                                     mains_current_l3 = COALESCE($27, mains_current_l3),
                                     serial_number = COALESCE($28, serial_number),
                                     last_connected = NOW()
-                                WHERE id = $18 OR connection_info->>'ip' = $18
+                                WHERE id = $18 OR connection_info->>'ip' = $18 OR connection_info->>'connectionName' = $18
                             `;
 
                             // FIX: Safe rounding/float mapping
@@ -2788,7 +2788,7 @@ export const initMqttService = (io) => {
                                     // Resolve the real generator ID for readings
                                     let readingGenId = deviceId;
                                     const genLookup = await pool.query(
-                                        "SELECT id FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 LIMIT 1",
+                                        "SELECT id FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1 LIMIT 1",
                                         [deviceId]
                                     );
                                     if (genLookup.rows.length > 0) readingGenId = genLookup.rows[0].id;
