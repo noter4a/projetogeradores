@@ -294,7 +294,7 @@ const Dashboard: React.FC = () => {
                             {c.name}
                           </h4>
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {c.total} gerador{c.total !== 1 ? 'es' : ''} · {healthPct}% conectados
+                            {c.total} gerador{c.total !== 1 ? 'es' : ''} · {c.connected} conectado{c.connected !== 1 ? 's' : ''}
                           </p>
                         </div>
                       </div>
