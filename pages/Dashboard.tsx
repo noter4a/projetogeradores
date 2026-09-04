@@ -6,7 +6,7 @@ import { useGenerators } from '../context/GeneratorContext';
 import { useOperatorMode } from '../context/OperatorModeContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
-import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio, Search, X, Building, Cpu } from 'lucide-react';
+import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio, Search, X, Building } from 'lucide-react';
 import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorDashboardCard from '../components/OperatorDashboardCard';
 import PullToRefreshIndicator from '../components/ui/PullToRefreshIndicator';
@@ -63,12 +63,11 @@ const Dashboard: React.FC = () => {
   const offlineGens = generators.filter(g => !isGeneratorConnected(g.lastDataReceived)).length;
 
   // Filtro do painel: busca (nome do gerador / empresa / local) + status de conexão
-  // + empresa + modelo (esses dois últimos pra reduzir a poluição visual em
-  // frotas grandes com várias empresas/modelos misturados).
+  // + empresa (pra reduzir a poluição visual em frotas grandes com várias
+  // empresas misturadas).
   const [search, setSearch] = useState('');
   const [connFilter, setConnFilter] = useState<'all' | 'connected' | 'disconnected'>('all');
   const [companyFilter, setCompanyFilter] = useState('');
-  const [modelFilter, setModelFilter] = useState('');
 
   // Só ADMIN vê gerador de mais de uma empresa (outros perfis já ficam
   // travados na própria empresa lá em cima) — sem sentido mostrar o filtro
@@ -83,11 +82,6 @@ const Dashboard: React.FC = () => {
     [generators, user?.role]
   );
 
-  const modelOptions = useMemo(
-    () => Array.from(new Set(generators.map(g => g.model).filter((m): m is string => !!m))).sort(),
-    [generators]
-  );
-
   const filteredGenerators = useMemo(() => {
     const q = search.trim().toLowerCase();
     return generators.filter(g => {
@@ -100,18 +94,16 @@ const Dashboard: React.FC = () => {
         || (connFilter === 'connected' ? connected : !connected);
       const matchesCompany = !companyFilter
         || (companyFilter === '__none__' ? !g.companyName : g.companyName === companyFilter);
-      const matchesModel = !modelFilter || g.model === modelFilter;
-      return matchesSearch && matchesConn && matchesCompany && matchesModel;
+      return matchesSearch && matchesConn && matchesCompany;
     });
-  }, [generators, search, connFilter, companyFilter, modelFilter]);
+  }, [generators, search, connFilter, companyFilter]);
 
-  const isFiltering = search.trim() !== '' || connFilter !== 'all' || companyFilter !== '' || modelFilter !== '';
+  const isFiltering = search.trim() !== '' || connFilter !== 'all' || companyFilter !== '';
 
   const clearFilters = () => {
     setSearch('');
     setConnFilter('all');
     setCompanyFilter('');
-    setModelFilter('');
   };
 
   const connFilterOptions: { value: typeof connFilter; label: string }[] = [
@@ -242,22 +234,6 @@ const Dashboard: React.FC = () => {
                     {hasUngroupedGenerators && <option value="__none__">Sem Empresa</option>}
                     {companyOptions.map((name) => (
                       <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {modelOptions.length > 1 && (
-                <div className="relative">
-                  <Cpu size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                  <select
-                    value={modelFilter}
-                    onChange={(e) => setModelFilter(e.target.value)}
-                    className="appearance-none bg-ciklo-card border border-gray-700 rounded-xl pl-9 pr-8 py-2.5 text-sm text-white focus:outline-none focus:border-ciklo-orange focus:ring-1 focus:ring-ciklo-orange transition-colors"
-                  >
-                    <option value="">Todos os Modelos</option>
-                    {modelOptions.map((model) => (
-                      <option key={model} value={model}>{model}</option>
                     ))}
                   </select>
                 </div>
