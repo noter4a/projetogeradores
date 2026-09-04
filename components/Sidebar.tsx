@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Zap, 
+import {
+  LayoutDashboard,
+  Zap,
   LogOut,
   Settings2,
   Users,
@@ -10,15 +10,16 @@ import {
   Wallet,
   CreditCard,
   AlertTriangle,
-  BookOpen, 
-  FileText, 
-  FolderOpen, 
-  Sun, 
-  Moon, 
+  BookOpen,
+  FileText,
+  FolderOpen,
+  Sun,
+  Moon,
   Building,
   Server,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
   UserCircle,
   ScrollText,
   Bell
@@ -45,6 +46,19 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
     credits <= 0 ? 'bg-red-500/10 border-red-500/30 text-red-400' :
     credits <= 7 ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' :
     'bg-gray-800/50 border-gray-700 text-gray-400';
+
+  // Desktop collapsible menu groups — all closed by default, toggled on click.
+  // Auto-open a group when the current route belongs to it so deep links land expanded.
+  const inMonitoring = ['/dashboard', '/alarms', '/company-warnings', '/generator/', '/maintenance', '/reports'].some(p => location.pathname === p || location.pathname.startsWith(p));
+  const inSales = location.pathname.startsWith('/sales');
+  const inAdmin = ['/fleet', '/companies', '/users', '/audit', '/add-generator', '/edit-generator'].some(p => location.pathname === p || location.pathname.startsWith(p));
+
+  const [openGroups, setOpenGroups] = useState({
+    monitoring: inMonitoring,
+    sales: inSales,
+    admin: inAdmin,
+  });
+  const toggleGroup = (g: keyof typeof openGroups) => setOpenGroups(s => ({ ...s, [g]: !s[g] }));
 
   // Mobile navigation view state
   const [currentView, setCurrentView] = useState<'main' | 'generators' | 'sales' | 'admin'>(() => {
@@ -144,25 +158,35 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
         )}
 
         {/* Navigation */}
-        <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-4'} space-y-2 overflow-y-auto`}>
+        <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-4'} space-y-1 overflow-y-auto`}>
           {user?.role !== UserRole.ORCAMENTOS && (
-            <div className="mb-6">
-              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 mb-2">Monitoramento</p>}
-              {navItems.map((item) => (
+            <div className="mb-2">
+              {collapsed ? (
+                <div className="border-t border-gray-800 my-2"></div>
+              ) : (
+                <button
+                  onClick={() => toggleGroup('monitoring')}
+                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  <span>Monitoramento</span>
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${openGroups.monitoring ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+              {(collapsed || openGroups.monitoring) && navItems.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
                   title={collapsed ? item.label : undefined}
                   className={({ isActive }) =>
-                    `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 ${
+                    `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4 pl-6'} py-2.5 rounded-lg transition-all duration-200 ${
                       isActive
                         ? 'bg-ciklo-orange text-white'
                         : 'hover:bg-gray-800 hover:text-white'
                     }`
                   }
                 >
-                  <item.icon size={20} className="flex-shrink-0" />
-                  {!collapsed && <span className="font-medium">{item.label}</span>}
+                  <item.icon size={18} className="flex-shrink-0" />
+                  {!collapsed && <span className="font-medium text-sm">{item.label}</span>}
                 </NavLink>
               ))}
             </div>
@@ -170,24 +194,33 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
           {/* Sales & Quotation Module */}
           {(user?.role === UserRole.ADMIN || user?.role === UserRole.ORCAMENTOS) && (
-            <div className="mb-6">
-              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 mb-2">Vendas & Orçamentos</p>}
-              {collapsed && <div className="border-t border-gray-800 my-3"></div>}
-              {salesItems.map((item) => (
+            <div className="mb-2">
+              {collapsed ? (
+                <div className="border-t border-gray-800 my-2"></div>
+              ) : (
+                <button
+                  onClick={() => toggleGroup('sales')}
+                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  <span>Vendas & Orçamentos</span>
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${openGroups.sales ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+              {(collapsed || openGroups.sales) && salesItems.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
                   title={collapsed ? item.label : undefined}
                   className={({ isActive }) =>
-                    `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mb-1 ${
+                    `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4 pl-6'} py-2.5 rounded-lg transition-all duration-200 ${
                       isActive
                         ? 'bg-ciklo-orange text-white'
                         : 'hover:bg-gray-800 hover:text-white'
                     }`
                   }
                 >
-                  <item.icon size={20} className="flex-shrink-0" />
-                  {!collapsed && <span className="font-medium">{item.label}</span>}
+                  <item.icon size={18} className="flex-shrink-0" />
+                  {!collapsed && <span className="font-medium text-sm">{item.label}</span>}
                 </NavLink>
               ))}
             </div>
@@ -195,78 +228,92 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
           {/* Administration */}
           {user?.role === UserRole.ADMIN && (
-            <div className={`pt-4 mt-4 border-t border-gray-800`}>
-              {!collapsed && <p className="px-4 text-xs font-semibold text-gray-500 mb-2">Administração</p>}
-              <NavLink
-                to="/fleet"
-                title={collapsed ? 'Gerenciar Grupos Geradores' : undefined}
-                className={({ isActive }) =>
-                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-ciklo-orange text-white'
-                      : 'hover:bg-gray-800 hover:text-white'
-                  }`
-                }
-              >
-                <Settings2 size={20} className="flex-shrink-0" />
-                {!collapsed && <span className="font-medium">Gerenciar Grupos Geradores</span>}
-              </NavLink>
-              <NavLink
-                to="/companies"
-                title={collapsed ? 'Gerenciar Empresas' : undefined}
-                className={({ isActive }) =>
-                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mb-1 ${
-                    isActive
-                      ? 'bg-ciklo-orange text-white'
-                      : 'hover:bg-gray-800 hover:text-white'
-                  }`
-                }
-              >
-                <Building size={20} className="flex-shrink-0" />
-                {!collapsed && <span className="font-medium">Gerenciar Empresas</span>}
-              </NavLink>
-              <NavLink
-                to="/company-warnings"
-                title={collapsed ? 'Configurações de Avisos' : undefined}
-                className={({ isActive }) =>
-                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mb-1 ${
-                    isActive
-                      ? 'bg-ciklo-orange text-white'
-                      : 'hover:bg-gray-800 hover:text-white'
-                  }`
-                }
-              >
-                <Bell size={20} className="flex-shrink-0" />
-                {!collapsed && <span className="font-medium">Configurações de Avisos</span>}
-              </NavLink>
-              <NavLink
-                to="/users"
-                title={collapsed ? 'Controle de Contas' : undefined}
-                className={({ isActive }) =>
-                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-ciklo-orange text-white'
-                      : 'hover:bg-gray-800 hover:text-white'
-                  }`
-                }
-              >
-                <Users size={20} className="flex-shrink-0" />
-                {!collapsed && <span className="font-medium">Controle de Contas</span>}
-              </NavLink>
-              <NavLink
-                to="/audit"
-                title={collapsed ? 'Trilha de Auditoria' : undefined}
-                className={({ isActive }) =>
-                  `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 rounded-lg transition-all duration-200 mt-1 ${
-                    isActive
-                      ? 'bg-ciklo-orange text-white'
-                      : 'hover:bg-gray-800 hover:text-white'
-                  }`
-                }
-              >
-                <ScrollText size={20} className="flex-shrink-0" />
-                {!collapsed && <span className="font-medium">Trilha de Auditoria</span>}
-              </NavLink>
+            <div className={`mb-2 ${!collapsed ? 'pt-2 mt-2 border-t border-gray-800' : ''}`}>
+              {collapsed ? (
+                <div className="border-t border-gray-800 my-2"></div>
+              ) : (
+                <button
+                  onClick={() => toggleGroup('admin')}
+                  className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  <span>Administração</span>
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${openGroups.admin ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+              {(collapsed || openGroups.admin) && (
+                <>
+                  <NavLink
+                    to="/fleet"
+                    title={collapsed ? 'Gerenciar Grupos Geradores' : undefined}
+                    className={({ isActive }) =>
+                      `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4 pl-6'} py-2.5 rounded-lg transition-all duration-200 ${
+                        isActive
+                          ? 'bg-ciklo-orange text-white'
+                          : 'hover:bg-gray-800 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Settings2 size={18} className="flex-shrink-0" />
+                    {!collapsed && <span className="font-medium text-sm">Gerenciar Grupos Geradores</span>}
+                  </NavLink>
+                  <NavLink
+                    to="/companies"
+                    title={collapsed ? 'Gerenciar Empresas' : undefined}
+                    className={({ isActive }) =>
+                      `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4 pl-6'} py-2.5 rounded-lg transition-all duration-200 ${
+                        isActive
+                          ? 'bg-ciklo-orange text-white'
+                          : 'hover:bg-gray-800 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Building size={18} className="flex-shrink-0" />
+                    {!collapsed && <span className="font-medium text-sm">Gerenciar Empresas</span>}
+                  </NavLink>
+                  <NavLink
+                    to="/company-warnings"
+                    title={collapsed ? 'Configurações de Avisos' : undefined}
+                    className={({ isActive }) =>
+                      `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4 pl-6'} py-2.5 rounded-lg transition-all duration-200 ${
+                        isActive
+                          ? 'bg-ciklo-orange text-white'
+                          : 'hover:bg-gray-800 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Bell size={18} className="flex-shrink-0" />
+                    {!collapsed && <span className="font-medium text-sm">Configurações de Avisos</span>}
+                  </NavLink>
+                  <NavLink
+                    to="/users"
+                    title={collapsed ? 'Controle de Contas' : undefined}
+                    className={({ isActive }) =>
+                      `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4 pl-6'} py-2.5 rounded-lg transition-all duration-200 ${
+                        isActive
+                          ? 'bg-ciklo-orange text-white'
+                          : 'hover:bg-gray-800 hover:text-white'
+                      }`
+                    }
+                  >
+                    <Users size={18} className="flex-shrink-0" />
+                    {!collapsed && <span className="font-medium text-sm">Controle de Contas</span>}
+                  </NavLink>
+                  <NavLink
+                    to="/audit"
+                    title={collapsed ? 'Trilha de Auditoria' : undefined}
+                    className={({ isActive }) =>
+                      `flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4 pl-6'} py-2.5 rounded-lg transition-all duration-200 ${
+                        isActive
+                          ? 'bg-ciklo-orange text-white'
+                          : 'hover:bg-gray-800 hover:text-white'
+                      }`
+                    }
+                  >
+                    <ScrollText size={18} className="flex-shrink-0" />
+                    {!collapsed && <span className="font-medium text-sm">Trilha de Auditoria</span>}
+                  </NavLink>
+                </>
+              )}
             </div>
           )}
         </nav>
