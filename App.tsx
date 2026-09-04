@@ -37,6 +37,7 @@ import { OperatorModeProvider } from './context/OperatorModeContext';
 import { useIsMobile } from './hooks/useIsMobile';
 import SocketConnectionBanner from './components/ui/SocketConnectionBanner';
 import CreditsWarningBanner from './components/ui/CreditsWarningBanner';
+import WhatsAppFab from './components/WhatsAppFab';
 
 // ADMIN is never blocked. Users with no company (companyCredits is null/undefined)
 // are not gated either — the gate only applies once a user belongs to a company.
@@ -228,6 +229,8 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
           {children}
         </main>
       </div>
+
+      <WhatsAppFab />
     </div>
   );
 };
