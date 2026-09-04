@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Server, Cpu, MapPin, Zap, Building, AlertTriangle, X } from 'lucide-react';
+import { Save, Server, Cpu, Zap, Building, AlertTriangle, X } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGenerators } from '../context/GeneratorContext';
 import { useAuth } from '../context/AuthContext';
@@ -249,22 +249,6 @@ const AddGenerator: React.FC = () => {
               className="w-full bg-ciklo-black border border-gray-700 rounded-lg p-2.5 text-white focus:border-ciklo-orange outline-none transition-colors"
               placeholder="Ex: Gerador Principal - Sede"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Localização</label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-2.5 text-gray-600" size={18} />
-              <input
-                type="text"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                required
-                className="w-full bg-ciklo-black border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-white focus:border-ciklo-orange outline-none transition-colors"
-                placeholder="Ex: São Paulo, SP"
-              />
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
