@@ -65,9 +65,6 @@ const WhatsAppFab: React.FC = () => {
         title="Suporte via WhatsApp"
       >
         {open ? <X size={24} /> : <WhatsAppIcon size={28} />}
-        {!open && (
-          <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-30" />
-        )}
       </button>
 
       <style>{`
