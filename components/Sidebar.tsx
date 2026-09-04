@@ -614,16 +614,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
             <span className="text-[10px] text-gray-500 font-semibold">Alternar</span>
           </button>
 
-          <a
-            href="https://wa.me/555432931095"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full p-3 bg-green-600/10 border border-green-500/20 rounded-xl text-sm font-bold text-green-400 hover:bg-green-600/20 active:scale-95 transition-all"
-          >
-            <MessageCircle size={18} />
-            Suporte WhatsApp
-          </a>
-
           <NavLink
             to="/profile"
             className={({ isActive }) =>
