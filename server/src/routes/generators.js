@@ -482,12 +482,13 @@ router.get('/:id/readings', async (req, res) => {
                 ROUND(AVG(active_power)::numeric, 2) as power,
                 ROUND(MAX(active_power)::numeric, 2) as power_max,
                 ROUND(MIN(active_power)::numeric, 2) as power_min,
+                ROUND(AVG(mains_active_power) FILTER (WHERE mains_active_power IS NOT NULL)::numeric, 2) as mains_power,
                 COUNT(*) as samples,
                 COUNT(*) FILTER (WHERE active_power > 0) as active_samples,
                 ROUND(AVG(rpm)::numeric, 0) as rpm,
                 ROUND(AVG(frequency)::numeric, 2) as frequency
             FROM generator_readings
-            WHERE (generator_id = $1 OR generator_id = (SELECT connection_info->>'ip' FROM generators WHERE id = $1 LIMIT 1))
+            WHERE (generator_id = $1 OR generator_id = (SELECT connection_info->>'ip' FROM generators WHERE id = $1 LIMIT 1) OR generator_id = (SELECT connection_info->>'connectionName' FROM generators WHERE id = $1 LIMIT 1))
               AND recorded_at >= NOW() - $3::interval
             GROUP BY time
             ORDER BY time ASC

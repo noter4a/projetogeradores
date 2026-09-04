@@ -3,6 +3,9 @@
 export interface PowerPoint {
   time: string;
   power: number;
+  /** Potência ativa da rede (mains) no mesmo bucket — null quando o controlador
+   *  não reporta separadamente (só AGC-150 hoje). Ausente em buckets antigos. */
+  mainsPower: number | null;
   powerMax: number;
   powerMin: number;
   samples: number;

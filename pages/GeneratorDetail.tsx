@@ -309,6 +309,7 @@ const GeneratorDetail: React.FC = () => {
           return {
             time: timeLabel,
             power,
+            mainsPower: row.mains_power != null ? Number(row.mains_power) : null,
             // Fall back to the average when a bucket predates the max/min columns.
             powerMax: row.power_max != null ? Number(row.power_max) : power,
             powerMin: row.power_min != null ? Number(row.power_min) : power,

@@ -2794,11 +2794,12 @@ export const initMqttService = (io) => {
                                     if (genLookup.rows.length > 0) readingGenId = genLookup.rows[0].id;
 
                                     await pool.query(
-                                        `INSERT INTO generator_readings (generator_id, active_power, rpm, frequency, voltage_l1, current_l1, fuel_level, engine_temp)
-                                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                                        `INSERT INTO generator_readings (generator_id, active_power, mains_active_power, rpm, frequency, voltage_l1, current_l1, fuel_level, engine_temp)
+                                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
                                         [
                                             readingGenId,
                                             safeFloat(unifiedData.activePower || unifiedData.activePowerTotal || 0),
+                                            unifiedData.mainsActivePower != null ? safeFloat(unifiedData.mainsActivePower) : null,
                                             safeRound(unifiedData.rpm),
                                             safeFloat(unifiedData.frequency),
                                             safeFloat(unifiedData.voltageL1),

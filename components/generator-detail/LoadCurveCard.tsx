@@ -98,8 +98,14 @@ const LoadCurveCard: React.FC<LoadCurveCardProps> = ({
           <div className="flex items-center justify-between gap-2 sm:hidden">
             <span className="flex items-center gap-1.5 text-xs text-gray-400">
               <div className="w-2 h-2 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50" />
-              Potência Ativa
+              Gerador
             </span>
+            {chartDisplayData.some(p => p.mainsPower != null) && (
+              <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                <div className="w-2 h-2 rounded-sm bg-blue-400 shadow-sm shadow-blue-500/50" />
+                Rede
+              </span>
+            )}
             <span className="text-gray-600 font-mono text-xs">
               {chartLoading ? '...' : visiblePowerHistory.length > 0
                 ? `${visiblePowerHistory.length}${isChartZoomed ? `/${powerHistory.length}` : ''} pts`
@@ -110,8 +116,14 @@ const LoadCurveCard: React.FC<LoadCurveCardProps> = ({
           <div className="hidden sm:flex sm:flex-wrap sm:items-center sm:gap-3">
             <span className="flex items-center gap-1.5 text-xs text-gray-400">
               <div className="w-2.5 h-2.5 rounded-full bg-ciklo-yellow shadow-sm shadow-yellow-500/50" />
-              Potência Ativa
+              Gerador
             </span>
+            {chartDisplayData.some(p => p.mainsPower != null) && (
+              <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                <div className="w-2.5 h-1 rounded-sm bg-blue-400 shadow-sm shadow-blue-500/50" style={{ borderTop: '1px dashed #60A5FA' }} />
+                Rede
+              </span>
+            )}
             <span className="text-gray-600 font-mono text-xs">
               {chartLoading ? '...' : visiblePowerHistory.length > 0
                 ? `${visiblePowerHistory.length}${isChartZoomed ? `/${powerHistory.length}` : ''} pts`
@@ -218,6 +230,11 @@ const LoadCurveCard: React.FC<LoadCurveCardProps> = ({
                   <stop offset="50%" stopColor="#FACC15" stopOpacity={0.1} />
                   <stop offset="95%" stopColor="#FACC15" stopOpacity={0} />
                 </linearGradient>
+                <linearGradient id="colorMainsPower" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.25} />
+                  <stop offset="50%" stopColor="#60A5FA" stopOpacity={0.08} />
+                  <stop offset="95%" stopColor="#60A5FA" stopOpacity={0} />
+                </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
               <XAxis
@@ -238,6 +255,30 @@ const LoadCurveCard: React.FC<LoadCurveCardProps> = ({
               />
               <Tooltip
                 active={chartTooltipVisible && !isDraggingChart && !chartSelectMode}
+                content={({ active, payload, label }) => {
+                  if (!active || !payload || payload.length === 0) return null;
+                  const powerEntry = payload.find(p => p.dataKey === 'power');
+                  const mainsEntry = payload.find(p => p.dataKey === 'mainsPower');
+                  const powerVal = powerEntry?.value != null ? Number(powerEntry.value) : null;
+                  const mainsVal = mainsEntry?.value != null ? Number(mainsEntry.value) : null;
+                  return (
+                    <div style={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: 8, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                      <p style={{ color: '#999', fontSize: 11, margin: '0 0 6px' }}>{label}</p>
+                      {powerVal != null && (
+                        <p style={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14, margin: '2px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#FACC15', display: 'inline-block' }} />
+                          Gerador: {powerVal.toFixed(1)} kW
+                        </p>
+                      )}
+                      {mainsVal != null && (
+                        <p style={{ color: '#60A5FA', fontWeight: 'bold', fontSize: 14, margin: '2px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 2, background: '#60A5FA', display: 'inline-block' }} />
+                          Rede: {mainsVal.toFixed(1)} kW
+                        </p>
+                      )}
+                    </div>
+                  );
+                }}
                 contentStyle={{
                   backgroundColor: '#111',
                   borderColor: '#444',
@@ -247,8 +288,6 @@ const LoadCurveCard: React.FC<LoadCurveCardProps> = ({
                   padding: '12px 16px',
                 }}
                 labelStyle={{ color: '#999', fontSize: 11, marginBottom: 4 }}
-                itemStyle={{ color: '#FACC15', fontWeight: 'bold', fontSize: 14 }}
-                formatter={(value: number) => [`${value.toFixed(1)} kW`, 'Potência Ativa']}
               />
               <ReferenceLine y={0} stroke="#444" strokeDasharray="3 3" />
               {!isChartZoomed && selectionX1 && selectionX2 && selectionX1 !== selectionX2 && (
@@ -259,6 +298,22 @@ const LoadCurveCard: React.FC<LoadCurveCardProps> = ({
                   strokeOpacity={0.9}
                   fill="#FACC15"
                   fillOpacity={0.2}
+                />
+              )}
+              {chartDisplayData.some(p => p.mainsPower != null) && (
+                <Area
+                  type="monotone"
+                  dataKey="mainsPower"
+                  stroke="#60A5FA"
+                  strokeWidth={2}
+                  strokeDasharray="4 3"
+                  fillOpacity={1}
+                  fill="url(#colorMainsPower)"
+                  dot={false}
+                  activeDot={chartTooltipVisible && !isDraggingChart ? { r: 4, fill: '#60A5FA', stroke: '#000', strokeWidth: 2 } : false}
+                  animationDuration={500}
+                  isAnimationActive={chartDisplayData.length <= 2}
+                  connectNulls={false}
                 />
               )}
               <Area

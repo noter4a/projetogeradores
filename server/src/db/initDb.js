@@ -174,6 +174,7 @@ const initDb = async (retries = 15, delay = 5000) => {
                     id SERIAL PRIMARY KEY,
                     generator_id VARCHAR(50) NOT NULL,
                     active_power NUMERIC(10,2) DEFAULT 0,
+                    mains_active_power NUMERIC(10,2),
                     rpm NUMERIC DEFAULT 0,
                     frequency NUMERIC(5,2) DEFAULT 0,
                     voltage_l1 NUMERIC DEFAULT 0,
@@ -183,6 +184,15 @@ const initDb = async (retries = 15, delay = 5000) => {
                     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             `);
+
+            // Migration: add mains_active_power column to existing tables.
+            // Only AGC-150 (and any future controller that reports mains bus
+            // power separately) populates this; NULL means "not reported".
+            try {
+                await client.query("ALTER TABLE generator_readings ADD COLUMN IF NOT EXISTS mains_active_power NUMERIC(10,2)");
+            } catch (e) {
+                console.log("Migration generator_readings.mains_active_power already applied or failed:", e.message);
+            }
 
             // Create Location History Table (GPS trail for modems with GNSS).
             // A new row is only written when the unit moves ≥100m from the last
