@@ -320,16 +320,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
         {/* Footer actions */}
         <div className={`${collapsed ? 'p-2' : 'p-4'} border-t border-gray-800 space-y-2`}>
-          <a 
-            href="https://wa.me/555432931095" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className={`flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 w-full rounded-lg text-gray-400 hover:bg-green-500/10 hover:text-green-400 transition-all duration-200`}
-            title={collapsed ? 'Suporte WhatsApp' : undefined}
-          >
-            <MessageCircle size={20} className="flex-shrink-0" />
-            {!collapsed && <span className="font-medium">Suporte WhatsApp</span>}
-          </a>
           <NavLink
             to="/profile"
             title={collapsed ? 'Meu Perfil' : undefined}
