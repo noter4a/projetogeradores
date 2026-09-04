@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User as UserIcon, Mail, Phone, Lock, Eye, EyeOff, Check, AlertCircle, Shield, ShieldCheck } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import { User as UserIcon, Mail, Phone, Lock, Eye, EyeOff, Check, AlertCircle, Shield, ShieldCheck, Sun, Moon } from 'lucide-react';
 
 const ProfileSettings: React.FC = () => {
   const { user, updateProfile } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   // Form state
   const [name, setName] = useState(user?.name || '');
@@ -360,6 +362,37 @@ const ProfileSettings: React.FC = () => {
           </div>
         </div>
       </form>
+
+      {/* Appearance Card */}
+      <div className="bg-ciklo-card border border-gray-800 rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-3">
+          {theme === 'dark' ? <Moon size={20} className="text-ciklo-orange" /> : <Sun size={20} className="text-ciklo-orange" />}
+          <h3 className="text-white font-bold">Aparência</h3>
+        </div>
+        <div className="p-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1">
+              <p className="text-sm text-gray-300 font-medium">Tema da interface</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Alterne entre o modo claro e escuro. A preferência é salva neste navegador.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'bg-ciklo-orange' : 'bg-gray-700'}`}
+              title={theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
+            >
+              <span className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform flex items-center justify-center ${theme === 'dark' ? 'translate-x-7' : 'translate-x-1'}`}>
+                {theme === 'dark' ? <Moon size={12} className="text-ciklo-orange" /> : <Sun size={12} className="text-yellow-500" />}
+              </span>
+            </button>
+          </div>
+          <p className={`text-xs mt-3 font-medium ${theme === 'dark' ? 'text-ciklo-orange' : 'text-gray-500'}`}>
+            {theme === 'dark' ? '● Modo Escuro' : '○ Modo Claro'}
+          </p>
+        </div>
+      </div>
 
       {/* Two-Factor (2FA) Card */}
       <div className="bg-ciklo-card border border-gray-800 rounded-2xl overflow-hidden">

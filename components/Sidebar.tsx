@@ -320,19 +320,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
         {/* Footer actions */}
         <div className={`${collapsed ? 'p-2' : 'p-4'} border-t border-gray-800 space-y-2`}>
-          <button
-            onClick={toggleTheme}
-            className={`flex items-center ${collapsed ? 'justify-center px-2' : 'gap-3 px-4'} py-3 w-full rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-all duration-200 group`}
-            title={collapsed ? (theme === 'dark' ? 'Modo Claro' : 'Modo Escuro') : (theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro')}
-          >
-            {theme === 'dark' ? (
-              <Sun size={20} className="text-ciklo-yellow group-hover:rotate-45 transition-transform duration-300 flex-shrink-0" />
-            ) : (
-              <Moon size={20} className="text-blue-400 group-hover:-rotate-12 transition-transform duration-300 flex-shrink-0" />
-            )}
-            {!collapsed && <span className="font-medium">{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>}
-          </button>
-
           <a 
             href="https://wa.me/555432931095" 
             target="_blank" 
