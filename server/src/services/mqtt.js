@@ -531,6 +531,7 @@ const dr164Sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // KVA Controller Poll Sequence (K30XTe / K30XL / Eclipse)
 // Uses register addresses in the 12000+ range
 const KVA_POLL_SEQUENCE = [
+    { startAddress: 10001, quantity: 8, fn: 4 },   // Registros estáticos: ID Produto, Versão, Número de Série, Horímetro Manutenção
     { startAddress: 12001, quantity: 7 },   // Horímetro + Falhas + Avisos + Status LEDs
     { startAddress: 12011, quantity: 15 },  // Rede + GMG Tensões LL + Correntes + Potências + FP
     { startAddress: 12027, quantity: 7 },   // RPM + Temp + Pressão + Combustível + Bateria
@@ -2097,6 +2098,11 @@ export const initMqttService = (io) => {
                 kvaResults.forEach(res => {
                     if (res.ok && res.decoded) {
                         const d = res.decoded;
+
+                        if (d.block === 'KVA_STATIC_10001') {
+                            const persisted = currentGeneratorsState[deviceId]?.data || {};
+                            unifiedData.serialNumber = d.serialNumber ?? persisted.serialNumber ?? null;
+                        }
 
                         if (d.block === 'KVA_STATUS_12001') {
                             unifiedData.totalHours = d.totalHours;
