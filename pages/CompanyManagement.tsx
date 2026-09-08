@@ -201,9 +201,17 @@ const CompanyManagement: React.FC = () => {
     }
   };
 
+  // Extrai só a parte YYYY-MM-DD de qualquer formato que o Postgres mande
+  // ("2026-10-07", "2026-10-07T03:00:00.000Z", etc.). Retorna '' se inválido.
+  const toDateOnly = (raw: string | null | undefined): string => {
+    if (!raw || raw === 'null') return '';
+    const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : '';
+  };
+
   const handleOpenSubscription = (company: Company) => {
     setSubscriptionTarget(company);
-    setSubscriptionDate(company.subscription_expires_at || '');
+    setSubscriptionDate(toDateOnly(company.subscription_expires_at));
     setSubscriptionAddDays('30');
     setSubscriptionError(null);
     setSubscriptionSuccess(false);
@@ -226,7 +234,7 @@ const CompanyManagement: React.FC = () => {
       if (res.ok) {
         const updated = await res.json();
         setSubscriptionTarget(prev => (prev ? { ...prev, subscription_expires_at: updated.subscription_expires_at } : prev));
-        setSubscriptionDate(updated.subscription_expires_at || '');
+        setSubscriptionDate(toDateOnly(updated.subscription_expires_at));
         setSubscriptionSuccess(true);
         await fetchCompanies();
       } else {
@@ -524,8 +532,8 @@ const CompanyManagement: React.FC = () => {
                   </td>
                   <td className="p-4 text-center">
                     {(() => {
-                      const exp = c.subscription_expires_at;
-                      const hasValidDate = exp && exp !== 'null' && !isNaN(new Date(exp + 'T00:00:00').getTime());
+                      const dateOnly = toDateOnly(c.subscription_expires_at);
+                      const hasValidDate = !!dateOnly;
                       if (!hasValidDate) return (
                         <button
                           type="button"
@@ -537,7 +545,7 @@ const CompanyManagement: React.FC = () => {
                         </button>
                       );
                       const today = new Date(); today.setHours(0,0,0,0);
-                      const expiry = new Date(exp + 'T00:00:00');
+                      const expiry = new Date(dateOnly + 'T00:00:00');
                       const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / 86400000);
                       const expired = diffDays < 0;
                       const warning = !expired && diffDays <= 7;
@@ -614,9 +622,12 @@ const CompanyManagement: React.FC = () => {
             <p className="text-sm text-gray-400 mb-5">
               Expira em:{' '}
               <span className="font-bold text-white">
-                {subscriptionTarget.subscription_expires_at
-                  ? new Date(subscriptionTarget.subscription_expires_at + 'T00:00:00').toLocaleDateString('pt-BR')
-                  : '—'}
+                {(() => {
+                  const d = toDateOnly(subscriptionTarget.subscription_expires_at);
+                  if (!d) return '—';
+                  const parsed = new Date(d + 'T00:00:00');
+                  return isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString('pt-BR');
+                })()}
               </span>
             </p>
 
