@@ -121,39 +121,20 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
           )}
         </div>
 
-        {/* User info - clickable to profile */}
-        {!collapsed ? (
+        {/* Credits indicator (only when applicable) — name/role moved to "Meu Perfil" */}
+        {!collapsed && creditsStyle && (
           <div className="border-b border-gray-800">
-            <NavLink to="/profile" className="block p-4 pb-2 group">
-              <div className="flex items-center gap-3 p-3 bg-ciklo-dark rounded-lg border border-gray-700 group-hover:border-ciklo-orange/40 transition-all duration-200">
-                <div className="w-8 h-8 rounded-full bg-ciklo-orange flex items-center justify-center text-xs font-bold text-black flex-shrink-0">
-                  {user?.name.charAt(0)}
-                </div>
-                <div className="overflow-hidden flex-1">
-                  <p className="text-sm font-medium text-white truncate group-hover:text-ciklo-orange transition-colors">{user?.name}</p>
-                  <p className="text-xs text-gray-400 truncate capitalize">{user?.role.toLowerCase()}</p>
-                </div>
-              </div>
-            </NavLink>
-            {creditsStyle && (
-              <div className={`mx-4 mb-4 px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center justify-between ${creditsStyle}`}>
-                <span className="flex items-center gap-1.5"><CreditCard size={14} /> Créditos</span>
-                <span className="font-bold">{credits}</span>
-              </div>
-            )}
+            <div className={`mx-4 my-3 px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center justify-between ${creditsStyle}`}>
+              <span className="flex items-center gap-1.5"><CreditCard size={14} /> Créditos</span>
+              <span className="font-bold">{credits}</span>
+            </div>
           </div>
-        ) : (
+        )}
+        {collapsed && creditsStyle && (
           <div className="border-b border-gray-800">
-            <NavLink to="/profile" className="p-3 flex justify-center group">
-              <div className="w-9 h-9 rounded-full bg-ciklo-orange flex items-center justify-center text-xs font-bold text-black transition-all" title={`${user?.name} - Meu Perfil`}>
-                {user?.name.charAt(0)}
-              </div>
-            </NavLink>
-            {creditsStyle && (
-              <div className={`mx-2 mb-3 px-1 py-1 rounded-lg border text-[10px] font-bold text-center ${creditsStyle}`} title={`${credits} créditos restantes`}>
-                {credits}
-              </div>
-            )}
+            <div className={`mx-2 my-3 px-1 py-1 rounded-lg border text-[10px] font-bold text-center ${creditsStyle}`} title={`${credits} créditos restantes`}>
+              {credits}
+            </div>
           </div>
         )}
 
