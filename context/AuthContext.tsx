@@ -169,9 +169,9 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
             current.emailAlerts !== updatedUser.emailAlerts ||
             JSON.stringify(current.assignedGeneratorIds || []) !== JSON.stringify(updatedUser.assignedGeneratorIds || []);
 
-          // Credits change on their own daily, silently -> don't show the
-          // "syncing permissions" overlay for a plain credit-count update.
-          const creditsChanged = current && current.companyCredits !== updatedUser.companyCredits;
+          // Subscription expiry can change silently (admin renewal) -> don't show the
+          // "syncing permissions" overlay for a plain expiry-date update.
+          const subscriptionChanged = current && current.subscriptionExpiresAt !== updatedUser.subscriptionExpiresAt;
 
           if (permissionChanged) {
             if (!current) {
@@ -192,7 +192,7 @@ export const AuthProvider = ({ children }: PropsWithChildren<{}>) => {
                 setIsSyncing(false);
               }, 800);
             }
-          } else if (creditsChanged) {
+          } else if (subscriptionChanged) {
             setUser(updatedUser);
           }
         }

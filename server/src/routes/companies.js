@@ -123,20 +123,48 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// PATCH /api/companies/:id/credits - PROTECTED (Admin Only) - Add credits to a company (e.g. plan renewal)
-router.patch('/:id/credits', async (req, res) => {
+// PATCH /api/companies/:id/subscription - PROTECTED (Admin Only) - Set subscription expiry date
+router.patch('/:id/subscription', async (req, res) => {
     if (req.user.role !== 'ADMIN') {
-        return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem adicionar créditos.' });
+        return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem alterar a assinatura.' });
     }
     const { id } = req.params;
-    const amount = Number(req.body.amount);
-    if (!Number.isFinite(amount) || amount === 0) {
-        return res.status(400).json({ message: 'Quantidade de créditos inválida.' });
+    const { expiresAt, addDays } = req.body;
+
+    let newExpiresAt;
+    if (expiresAt) {
+        // Direct date set (YYYY-MM-DD)
+        const parsed = new Date(expiresAt + 'T00:00:00');
+        if (isNaN(parsed.getTime())) {
+            return res.status(400).json({ message: 'Data de expiração inválida.' });
+        }
+        newExpiresAt = expiresAt;
+    } else if (addDays && Number.isFinite(Number(addDays)) && Number(addDays) !== 0) {
+        // Extend/reduce by N days from current expiry (or today if null)
+        const days = Number(addDays);
+        const result = await pool.query(
+            `SELECT subscription_expires_at FROM companies WHERE id = $1`,
+            [id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Empresa não encontrada.' });
+        }
+        const currentExpiry = result.rows[0].subscription_expires_at;
+        const baseDate = currentExpiry ? new Date(currentExpiry) : new Date();
+        // If current expiry is in the past, extend from today instead
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const effectiveBase = baseDate < today ? today : baseDate;
+        effectiveBase.setDate(effectiveBase.getDate() + days);
+        newExpiresAt = effectiveBase.toISOString().slice(0, 10);
+    } else {
+        return res.status(400).json({ message: 'Informe expiresAt (YYYY-MM-DD) ou addDays (número).' });
     }
+
     try {
         const result = await pool.query(
-            'UPDATE companies SET credits = GREATEST(0, credits + $1) WHERE id = $2 RETURNING *',
-            [amount, id]
+            'UPDATE companies SET subscription_expires_at = $1::date WHERE id = $2 RETURNING *',
+            [newExpiresAt, id]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Empresa não encontrada.' });
@@ -144,17 +172,17 @@ router.patch('/:id/credits', async (req, res) => {
         const company = result.rows[0];
         logAudit({
             user: req.user,
-            action: amount >= 0 ? 'company.credits.add' : 'company.credits.remove',
+            action: 'company.subscription.update',
             targetType: 'company',
             targetId: id,
             targetLabel: company.name,
-            details: { amount, newBalance: company.credits },
+            details: { newExpiresAt },
             ip: req.ip,
         });
         res.json(company);
     } catch (err) {
-        console.error('Update company credits error:', err);
-        res.status(500).json({ message: 'Erro ao atualizar créditos da empresa.' });
+        console.error('Update company subscription error:', err);
+        res.status(500).json({ message: 'Erro ao atualizar assinatura da empresa.' });
     }
 });
 

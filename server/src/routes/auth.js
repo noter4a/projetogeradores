@@ -306,7 +306,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT u.id, u.name, u.email, u.role, u.assigned_generators, u.company_id, u.phone, u.whatsapp_alerts, u.email_alerts, u.two_factor_enabled,
-                    c.credits AS company_credits
+                    c.subscription_expires_at AS company_subscription_expires_at
              FROM users u
              LEFT JOIN companies c ON c.id = u.company_id
              WHERE u.id = $1`,
@@ -323,7 +323,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
             role: user.role,
             assignedGeneratorIds: user.assigned_generators || [],
             companyId: user.company_id,
-            companyCredits: user.company_id ? Number(user.company_credits) : null,
+            subscriptionExpiresAt: user.company_id ? (user.company_subscription_expires_at || null) : null,
             phone: user.phone,
             whatsappAlerts: user.whatsapp_alerts,
             emailAlerts: user.email_alerts,

@@ -36,15 +36,18 @@ import { ThemeProvider } from './context/ThemeContext';
 import { OperatorModeProvider } from './context/OperatorModeContext';
 import { useIsMobile } from './hooks/useIsMobile';
 import SocketConnectionBanner from './components/ui/SocketConnectionBanner';
-import CreditsWarningBanner from './components/ui/CreditsWarningBanner';
+import SubscriptionWarningBanner from './components/ui/SubscriptionWarningBanner';
 import WhatsAppFab from './components/WhatsAppFab';
 
-// ADMIN is never blocked. Users with no company (companyCredits is null/undefined)
+// ADMIN is never blocked. Users with no company (subscriptionExpiresAt is null/undefined)
 // are not gated either — the gate only applies once a user belongs to a company.
-const hasCredits = (user: { role: UserRole; companyCredits?: number | null } | null) => {
+const hasActiveSubscription = (user: { role: UserRole; subscriptionExpiresAt?: string | null } | null) => {
   if (!user || user.role === UserRole.ADMIN) return true;
-  if (user.companyCredits === null || user.companyCredits === undefined) return true;
-  return user.companyCredits > 0;
+  if (user.subscriptionExpiresAt === null || user.subscriptionExpiresAt === undefined) return true;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(user.subscriptionExpiresAt + 'T00:00:00');
+  return expiry >= today;
 };
 
 // Sessão agora é validada via cookie httpOnly de forma assíncrona no mount
@@ -64,7 +67,7 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (!hasCredits(user)) {
+  if (!hasActiveSubscription(user)) {
     return <Navigate to="/no-credits" replace />;
   }
 
@@ -77,7 +80,7 @@ const NoCreditsRoute = ({ children }: { children?: React.ReactNode }) => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  if (hasCredits(user)) {
+  if (hasActiveSubscription(user)) {
     return <Navigate to="/" replace />;
   }
   return <>{children}</>;
@@ -110,7 +113,7 @@ const SalesRoute = ({ children }: { children?: React.ReactNode }) => {
     return <Navigate to="/" replace />;
   }
 
-  if (!hasCredits(user)) {
+  if (!hasActiveSubscription(user)) {
     return <Navigate to="/no-credits" replace />;
   }
 
@@ -129,7 +132,7 @@ const MonitoringRoute = ({ children }: { children?: React.ReactNode }) => {
     return <Navigate to="/sales/clients" replace />;
   }
 
-  if (!hasCredits(user)) {
+  if (!hasActiveSubscription(user)) {
     return <Navigate to="/no-credits" replace />;
   }
 
@@ -203,7 +206,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
         </header>
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 bg-ciklo-black">
-          <CreditsWarningBanner />
+          <SubscriptionWarningBanner />
           {children}
         </main>
       </div>
@@ -225,7 +228,7 @@ const Layout = ({ children }: { children?: React.ReactNode }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible w-full">
         <main className="flex-1 overflow-x-hidden overflow-y-auto print:overflow-visible bg-ciklo-black print:bg-white p-6 print:p-0">
-          <CreditsWarningBanner />
+          <SubscriptionWarningBanner />
           {children}
         </main>
       </div>

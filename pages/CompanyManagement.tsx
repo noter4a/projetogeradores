@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useGenerators } from '../context/GeneratorContext';
 import { useUsers } from '../context/UserContext';
 import { Company, User, UserRole } from '../types';
-import { Building, Plus, Trash2, Edit, Check, X, Server, CreditCard, Search, Users as UsersIcon, Pencil } from 'lucide-react';
+import { Building, Plus, Trash2, Edit, Check, X, Server, Calendar, Search, Users as UsersIcon, Pencil } from 'lucide-react';
 import { normalizeSearch as normalize } from '../utils/formatters';
 
 const roleLabel = (role: UserRole) =>
@@ -39,10 +39,11 @@ const CompanyManagement: React.FC = () => {
   const [userPickerOpen, setUserPickerOpen] = useState(false);
   const userPickerRef = useRef<HTMLDivElement>(null);
 
-  // Credits management modal state
-  const [creditsTarget, setCreditsTarget] = useState<Company | null>(null);
-  const [creditsAmount, setCreditsAmount] = useState('30');
-  const [creditsSaving, setCreditsSaving] = useState(false);
+  // Subscription expiry management modal state
+  const [subscriptionTarget, setSubscriptionTarget] = useState<Company | null>(null);
+  const [subscriptionDate, setSubscriptionDate] = useState('');
+  const [subscriptionAddDays, setSubscriptionAddDays] = useState('30');
+  const [subscriptionSaving, setSubscriptionSaving] = useState(false);
 
   const fetchCompanies = async () => {
     if (!user) return;
@@ -198,38 +199,37 @@ const CompanyManagement: React.FC = () => {
     }
   };
 
-  const handleOpenCredits = (company: Company) => {
-    setCreditsTarget(company);
-    setCreditsAmount('10');
+  const handleOpenSubscription = (company: Company) => {
+    setSubscriptionTarget(company);
+    setSubscriptionDate(company.subscription_expires_at || '');
+    setSubscriptionAddDays('30');
   };
 
-  // amount > 0 adiciona, amount < 0 remove. O modal permanece aberto e o saldo
-  // é atualizado ao vivo com o retorno do servidor, para permitir vários ajustes.
-  const handleAddCredits = async (amount: number) => {
-    if (!creditsTarget || !user || !Number.isFinite(amount) || amount === 0) return;
-    setCreditsSaving(true);
+  const handleUpdateSubscription = async (payload: { expiresAt?: string; addDays?: number }) => {
+    if (!subscriptionTarget || !user) return;
+    setSubscriptionSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/companies/${creditsTarget.id}/credits`, {
+      const res = await fetch(`/api/companies/${subscriptionTarget.id}/subscription`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const updated = await res.json();
-        setCreditsTarget(prev => (prev ? { ...prev, credits: updated.credits } : prev));
+        setSubscriptionTarget(prev => (prev ? { ...prev, subscription_expires_at: updated.subscription_expires_at } : prev));
         await fetchCompanies();
       } else {
         const errData = await res.json();
-        setError(errData.message || 'Erro ao atualizar créditos.');
+        setError(errData.message || 'Erro ao atualizar assinatura.');
       }
     } catch (err) {
-      console.error('Error updating credits:', err);
-      setError('Erro de rede ao atualizar créditos.');
+      console.error('Error updating subscription:', err);
+      setError('Erro de rede ao atualizar assinatura.');
     } finally {
-      setCreditsSaving(false);
+      setSubscriptionSaving(false);
     }
   };
 
@@ -487,7 +487,7 @@ const CompanyManagement: React.FC = () => {
                 <th className="p-4 pl-6">ID</th>
                 <th className="p-4">Nome da Empresa</th>
                 <th className="p-4">Data de Criação</th>
-                <th className="p-4 text-center">Créditos</th>
+                <th className="p-4 text-center">Assinatura</th>
                 <th className="p-4 text-center">Ações</th>
               </tr>
             </thead>
@@ -509,23 +509,32 @@ const CompanyManagement: React.FC = () => {
                     {c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '-'}
                   </td>
                   <td className="p-4 text-center">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenCredits(c);
-                      }}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all hover:brightness-125 ${
-                        (c.credits ?? 0) <= 0
-                          ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                          : (c.credits ?? 0) <= 7
-                          ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
-                          : 'bg-green-500/10 border-green-500/30 text-green-400'
-                      }`}
-                      title="Gerenciar créditos"
-                    >
-                      <CreditCard size={14} /> {c.credits ?? 0}
-                    </button>
+                    {(() => {
+                      const exp = c.subscription_expires_at;
+                      if (!exp) return <span className="text-xs text-gray-500">—</span>;
+                      const today = new Date(); today.setHours(0,0,0,0);
+                      const expiry = new Date(exp + 'T00:00:00');
+                      const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / 86400000);
+                      const expired = diffDays < 0;
+                      const warning = !expired && diffDays <= 7;
+                      const fmt = expiry.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleOpenSubscription(c); }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all hover:brightness-125 ${
+                            expired
+                              ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                              : warning
+                              ? 'bg-orange-500/10 border-orange-500/30 text-orange-400'
+                              : 'bg-green-500/10 border-green-500/30 text-green-400'
+                          }`}
+                          title="Gerenciar assinatura"
+                        >
+                          <Calendar size={14} /> {fmt}
+                        </button>
+                      );
+                    })()}
                   </td>
                   <td className="p-4 text-center">
                     <div className="flex items-center justify-center gap-1">
@@ -567,84 +576,85 @@ const CompanyManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Credits Management Modal */}
-      {creditsTarget && (
+      {/* Subscription Management Modal */}
+      {subscriptionTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setCreditsTarget(null)}
+          onClick={() => setSubscriptionTarget(null)}
         >
           <div
             className="bg-ciklo-card border border-gray-800 rounded-xl p-6 w-full max-w-sm animate-in fade-in slide-in-from-bottom-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-white mb-1">Créditos — {creditsTarget.name}</h3>
+            <h3 className="text-lg font-bold text-white mb-1">Assinatura — {subscriptionTarget.name}</h3>
             <p className="text-sm text-gray-400 mb-5">
-              Saldo atual: <span className="font-bold text-white">{creditsTarget.credits ?? 0}</span> créditos
+              Expira em:{' '}
+              <span className="font-bold text-white">
+                {subscriptionTarget.subscription_expires_at
+                  ? new Date(subscriptionTarget.subscription_expires_at + 'T00:00:00').toLocaleDateString('pt-BR')
+                  : '—'}
+              </span>
             </p>
 
-            {/* Quantidade + botões de adicionar / remover */}
-            {(() => {
-              const qty = Math.max(0, Math.floor(Math.abs(Number(creditsAmount) || 0)));
-              const saldo = creditsTarget.credits ?? 0;
-              return (
-                <>
-                  <label className="block text-sm text-gray-400 mb-1.5">Quantidade</label>
-                  <div className="flex items-stretch gap-2 mb-3 h-12">
-                    <button
-                      type="button"
-                      disabled={creditsSaving || qty === 0}
-                      onClick={() => handleAddCredits(-qty)}
-                      title="Remover créditos"
-                      className="w-12 shrink-0 flex items-center justify-center bg-red-600 hover:bg-red-500 text-white text-2xl leading-none rounded-lg disabled:opacity-40 transition-colors"
-                    >
-                      −
-                    </button>
-                    <input
-                      type="number"
-                      min="1"
-                      value={creditsAmount}
-                      onChange={(e) => setCreditsAmount(e.target.value)}
-                      className="flex-1 min-w-0 bg-ciklo-black border border-gray-700 rounded-lg text-center text-white text-xl font-bold focus:border-ciklo-orange outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <button
-                      type="button"
-                      disabled={creditsSaving || qty === 0}
-                      onClick={() => handleAddCredits(qty)}
-                      title="Adicionar créditos"
-                      className="w-12 shrink-0 flex items-center justify-center bg-green-600 hover:bg-green-500 text-white text-2xl leading-none rounded-lg disabled:opacity-40 transition-colors"
-                    >
-                      +
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-4">
-                    {qty > 0 ? (
-                      <>Resultado: <span className="text-green-400 font-medium">{saldo + qty}</span> ao adicionar · <span className="text-red-400 font-medium">{Math.max(0, saldo - qty)}</span> ao remover</>
-                    ) : (
-                      'Informe uma quantidade e use + para adicionar ou − para remover.'
-                    )}
-                  </p>
+            {/* Definir data exata */}
+            <label className="block text-sm text-gray-400 mb-1.5">Definir data de expiração</label>
+            <div className="flex items-stretch gap-2 mb-4">
+              <input
+                type="date"
+                value={subscriptionDate}
+                onChange={(e) => setSubscriptionDate(e.target.value)}
+                className="flex-1 min-w-0 bg-ciklo-black border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm focus:border-ciklo-orange outline-none"
+              />
+              <button
+                type="button"
+                disabled={subscriptionSaving || !subscriptionDate}
+                onClick={() => handleUpdateSubscription({ expiresAt: subscriptionDate })}
+                className="shrink-0 px-4 py-2.5 bg-ciklo-orange hover:bg-ciklo-orange/80 text-black text-sm font-bold rounded-lg disabled:opacity-40 transition-colors"
+              >
+                Salvar
+              </button>
+            </div>
 
-                  {/* Atalhos rápidos */}
-                  <div className="flex gap-2">
-                    {[10, 30, 60].map(n => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => setCreditsAmount(String(n))}
-                        className="flex-1 py-1.5 text-xs font-bold rounded-lg border border-gray-700 text-gray-300 hover:border-ciklo-orange hover:text-ciklo-orange transition-colors"
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              );
-            })()}
+            {/* Estender por N dias */}
+            <label className="block text-sm text-gray-400 mb-1.5">Ou estender por dias</label>
+            <div className="flex items-stretch gap-2 mb-3">
+              <input
+                type="number"
+                min="1"
+                value={subscriptionAddDays}
+                onChange={(e) => setSubscriptionAddDays(e.target.value)}
+                className="flex-1 min-w-0 bg-ciklo-black border border-gray-700 rounded-lg text-center text-white text-lg font-bold focus:border-ciklo-orange outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <button
+                type="button"
+                disabled={subscriptionSaving || !Number(subscriptionAddDays)}
+                onClick={() => handleUpdateSubscription({ addDays: Number(subscriptionAddDays) })}
+                className="shrink-0 px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-bold rounded-lg disabled:opacity-40 transition-colors"
+              >
+                + Dias
+              </button>
+            </div>
+
+            {/* Atalhos rápidos */}
+            <div className="flex gap-2">
+              {[7, 30, 90, 365].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setSubscriptionAddDays(String(n))}
+                  className="flex-1 py-1.5 text-xs font-bold rounded-lg border border-gray-700 text-gray-300 hover:border-ciklo-orange hover:text-ciklo-orange transition-colors"
+                >
+                  {n}d
+                </button>
+              ))}
+            </div>
+
+            {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
 
             <div className="flex justify-end mt-5">
               <button
                 type="button"
-                onClick={() => setCreditsTarget(null)}
+                onClick={() => setSubscriptionTarget(null)}
                 className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
               >
                 Fechar

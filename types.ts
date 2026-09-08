@@ -13,6 +13,8 @@ export interface Company {
   created_at?: string;
   credits?: number;
   last_credit_debit_date?: string;
+  /** Data de expiração da assinatura (YYYY-MM-DD). null = sem restrição / admin. */
+  subscription_expires_at?: string | null;
   /** Keys ("CONTROLLER:Nome do Aviso") dos Avisos habilitados — opt-in, vazio por padrão */
   enabled_warnings?: string[];
 }
@@ -43,8 +45,8 @@ export interface User {
   assignedGeneratorIds?: string[];
   companyId?: number;
   companyName?: string;
-  /** Remaining credits of the user's company; null when the user has no company (e.g. ADMIN) */
-  companyCredits?: number | null;
+  /** Subscription expiry date (YYYY-MM-DD) of the user's company; null when the user has no company (e.g. ADMIN) */
+  subscriptionExpiresAt?: string | null;
 }
 
 export enum GeneratorStatus {

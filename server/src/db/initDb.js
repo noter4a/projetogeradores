@@ -16,12 +16,30 @@ const initDb = async (retries = 15, delay = 5000) => {
                 );
             `);
 
-            // Migration: Add credit system columns to companies
+            // Migration: Add credit system columns to companies (legacy — kept for backward compat)
             try {
                 await client.query("ALTER TABLE companies ADD COLUMN IF NOT EXISTS credits INTEGER NOT NULL DEFAULT 30");
                 await client.query("ALTER TABLE companies ADD COLUMN IF NOT EXISTS last_credit_debit_date DATE NOT NULL DEFAULT CURRENT_DATE");
             } catch (e) {
                 console.log("Migration companies.credits already applied or failed:", e.message);
+            }
+
+            // Migration: Add subscription expiry date (replaces credit-based gating)
+            try {
+                await client.query("ALTER TABLE companies ADD COLUMN IF NOT EXISTS subscription_expires_at DATE");
+                // One-time migration: convert existing credits to expiry date
+                // credits > 0 → expires_at = today + credits days
+                // credits = 0 → expires_at = yesterday (blocked)
+                await client.query(`
+                    UPDATE companies
+                    SET subscription_expires_at = CASE
+                        WHEN credits > 0 THEN CURRENT_DATE + (credits || ' days')::interval
+                        ELSE CURRENT_DATE - INTERVAL '1 day'
+                    END
+                    WHERE subscription_expires_at IS NULL
+                `);
+            } catch (e) {
+                console.log("Migration companies.subscription_expires_at already applied or failed:", e.message);
             }
 
             // Migration: quais Avisos (severidade separada de Falha) a empresa quer

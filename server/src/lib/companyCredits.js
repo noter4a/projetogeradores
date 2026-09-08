@@ -1,6 +1,6 @@
 import pool from '../db.js';
 
-// --- CREDIT SYSTEM: daily debit reconciliation (fixed Brasília midnight cutoff) ---
+// --- SUBSCRIPTION EXPIRY SYSTEM ---
 // Brasília has used a fixed UTC-3 offset with no DST since 2019, so a plain
 // 3-hour subtraction from UTC is enough to derive the correct calendar date.
 export function getBrasiliaDateString() {
@@ -8,26 +8,23 @@ export function getBrasiliaDateString() {
     return brasilia.toISOString().slice(0, 10);
 }
 
-// Debits 1 credit per elapsed Brasília day since each company's last debit.
-// Uses a date-diff UPDATE (not a fixed decrement) so it self-heals after any
-// server downtime spanning multiple midnights, and is idempotent within the
-// same day since the WHERE clause only matches companies already behind.
+// Legacy: kept for backward compat but no longer debits credits.
+// The subscription model uses subscription_expires_at instead.
 export async function reconcileCompanyCredits() {
     try {
         const today = getBrasiliaDateString();
+        // Log companies whose subscription has expired (for monitoring)
         const result = await pool.query(
-            `UPDATE companies
-             SET credits = GREATEST(0, credits - ($1::date - last_credit_debit_date)),
-                 last_credit_debit_date = $1::date
-             WHERE last_credit_debit_date < $1::date
-             RETURNING id, name, credits`,
+            `SELECT id, name, subscription_expires_at
+             FROM companies
+             WHERE subscription_expires_at IS NOT NULL AND subscription_expires_at < $1::date`,
             [today]
         );
         if (result.rows.length > 0) {
-            console.log(`Credit reconciliation (${today}): debited ${result.rows.length} company(ies) -`,
-                result.rows.map(r => `${r.name}=${r.credits}`).join(', '));
+            console.log(`Subscription check (${today}): ${result.rows.length} company(ies) expired -`,
+                result.rows.map(r => `${r.name} (expired ${r.subscription_expires_at})`).join(', '));
         }
     } catch (e) {
-        console.error('Credit reconciliation error:', e.message);
+        console.error('Subscription reconciliation error:', e.message);
     }
 }

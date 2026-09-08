@@ -16,14 +16,14 @@ const NoCredits: React.FC = () => {
         </div>
 
         <div className="bg-ciklo-card border border-gray-800 rounded-2xl p-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="text-xl font-bold text-white mb-2">Créditos Esgotados</h2>
+          <h2 className="text-xl font-bold text-white mb-2">Assinatura Expirada</h2>
           <p className="text-gray-400 text-sm mb-6">
-            Os créditos da sua empresa acabaram e o acesso ao painel foi suspenso.
-            Entre em contato para renovar o plano e continuar monitorando seus geradores.
+            A assinatura da sua empresa expirou e o acesso ao painel foi suspenso.
+            Entre em contato para renovar e continuar monitorando seus geradores.
           </p>
 
           <a
-            href="https://wa.me/555432931095?text=Ol%C3%A1%2C%20preciso%20renovar%20os%20cr%C3%A9ditos%20do%20meu%20plano%20no%20sistema%20Ciklo."
+            href="https://wa.me/555432931095?text=Ol%C3%A1%2C%20preciso%20renovar%20a%20assinatura%20do%20meu%20plano%20no%20sistema%20Ciklo."
             target="_blank"
             rel="noopener noreferrer"
             className="w-full inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3.5 rounded-lg transition-colors duration-200"
