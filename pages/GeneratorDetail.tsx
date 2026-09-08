@@ -7,7 +7,6 @@ import { useGenerators, getSocket } from '../context/GeneratorContext';
 
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useOperatorMode } from '../context/OperatorModeContext';
-import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorGeneratorPanel from '../components/OperatorGeneratorPanel';
 import MobileControlBar from '../components/ui/MobileControlBar';
 import PullToRefreshIndicator from '../components/ui/PullToRefreshIndicator';
@@ -800,7 +799,6 @@ const GeneratorDetail: React.FC = () => {
 
       {isMobile && (
         <div className="rounded-2xl border border-gray-800 bg-ciklo-card p-4 space-y-3">
-          <OperatorModeToggle />
           <div>
             <h1 className="text-lg font-bold text-white font-mono leading-tight">{gen.name}</h1>
             <p className="text-xs text-gray-400 mt-1">{gen.model} • {gen.operationMode || 'AUTO'}</p>

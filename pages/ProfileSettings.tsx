@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User as UserIcon, Mail, Phone, Lock, Eye, EyeOff, Check, AlertCircle, Shield, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { useOperatorMode } from '../context/OperatorModeContext';
+import { User as UserIcon, Mail, Phone, Lock, Eye, EyeOff, Check, AlertCircle, Shield, ShieldCheck, Sun, Moon, HardHat } from 'lucide-react';
 
 const ProfileSettings: React.FC = () => {
   const { user, updateProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { operatorMode, toggleOperatorMode } = useOperatorMode();
 
   // Form state
   const [name, setName] = useState(user?.name || '');
@@ -363,34 +365,66 @@ const ProfileSettings: React.FC = () => {
         </div>
       </form>
 
-      {/* Appearance Card */}
+      {/* Preferences Card — Aparência + Modo Simplificado */}
       <div className="bg-ciklo-card border border-gray-800 rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-3">
           {theme === 'dark' ? <Moon size={20} className="text-ciklo-orange" /> : <Sun size={20} className="text-ciklo-orange" />}
-          <h3 className="text-white font-bold">Aparência</h3>
+          <h3 className="text-white font-bold">Preferências</h3>
         </div>
-        <div className="p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <p className="text-sm text-gray-300 font-medium">Tema da interface</p>
-              <p className="text-xs text-gray-500 mt-1">
-                Alterne entre o modo claro e escuro. A preferência é salva neste navegador.
-              </p>
+        <div className="divide-y divide-gray-800">
+          {/* Tema */}
+          <div className="p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-sm text-gray-300 font-medium">Tema da interface</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Alterne entre o modo claro e escuro. A preferência é salva neste navegador.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'bg-ciklo-orange' : 'bg-gray-700'}`}
+                title={theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
+              >
+                <span className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform flex items-center justify-center ${theme === 'dark' ? 'translate-x-7' : 'translate-x-1'}`}>
+                  {theme === 'dark' ? <Moon size={12} className="text-ciklo-orange" /> : <Sun size={12} className="text-yellow-500" />}
+                </span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'bg-ciklo-orange' : 'bg-gray-700'}`}
-              title={theme === 'dark' ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'}
-            >
-              <span className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform flex items-center justify-center ${theme === 'dark' ? 'translate-x-7' : 'translate-x-1'}`}>
-                {theme === 'dark' ? <Moon size={12} className="text-ciklo-orange" /> : <Sun size={12} className="text-yellow-500" />}
-              </span>
-            </button>
+            <p className={`text-xs mt-3 font-medium ${theme === 'dark' ? 'text-ciklo-orange' : 'text-gray-500'}`}>
+              {theme === 'dark' ? '● Modo Escuro' : '○ Modo Claro'}
+            </p>
           </div>
-          <p className={`text-xs mt-3 font-medium ${theme === 'dark' ? 'text-ciklo-orange' : 'text-gray-500'}`}>
-            {theme === 'dark' ? '● Modo Escuro' : '○ Modo Claro'}
-          </p>
+
+          {/* Modo Simplificado */}
+          <div className="p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-sm text-gray-300 font-medium flex items-center gap-2">
+                  <HardHat size={14} className="text-ciklo-orange" />
+                  Modo Simplificado
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Exibe uma visão resumida dos geradores no painel, ideal para operadores em campo. A escolha vale para todas as telas de monitoramento.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleOperatorMode}
+                className={`relative w-14 h-8 rounded-full transition-colors shrink-0 ${operatorMode ? 'bg-ciklo-orange' : 'bg-gray-700'}`}
+                title={operatorMode ? 'Desativar Modo Simplificado' : 'Ativar Modo Simplificado'}
+                aria-checked={operatorMode}
+              >
+                <span className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform flex items-center justify-center ${operatorMode ? 'translate-x-7' : 'translate-x-1'}`}>
+                  <HardHat size={12} className={operatorMode ? 'text-ciklo-orange' : 'text-gray-500'} />
+                </span>
+              </button>
+            </div>
+            <p className={`text-xs mt-3 font-medium ${operatorMode ? 'text-ciklo-orange' : 'text-gray-500'}`}>
+              {operatorMode ? '● Ativado' : '○ Desativado'}
+            </p>
+          </div>
         </div>
       </div>
 

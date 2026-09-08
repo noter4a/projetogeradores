@@ -7,7 +7,6 @@ import { useOperatorMode } from '../context/OperatorModeContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import { Zap, Fuel, Activity, MapPin, ChevronRight, Clock, AlertTriangle, Radio, Search, X, Building, ArrowLeft, Layers } from 'lucide-react';
-import OperatorModeToggle from '../components/ui/OperatorModeToggle';
 import OperatorDashboardCard from '../components/OperatorDashboardCard';
 import PullToRefreshIndicator from '../components/ui/PullToRefreshIndicator';
 import GeneratorCardSkeleton from '../components/ui/GeneratorCardSkeleton';
@@ -161,14 +160,13 @@ const Dashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} statusText={statusText} />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <OperatorModeToggle />
-        {showOperatorUi && (
+      {showOperatorUi && (
+        <div className="flex items-center gap-2">
           <span className="text-xs text-ciklo-orange font-semibold bg-ciklo-orange/10 border border-ciklo-orange/30 px-2 py-1 rounded-lg">
             Interface de Visualização Simplificada
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {!showOperatorUi && (
         <div className="rounded-xl border border-gray-800 bg-ciklo-card p-4">
