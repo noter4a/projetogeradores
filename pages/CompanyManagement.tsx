@@ -212,6 +212,7 @@ const CompanyManagement: React.FC = () => {
     try {
       const res = await fetch(`/api/companies/${subscriptionTarget.id}/subscription`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
