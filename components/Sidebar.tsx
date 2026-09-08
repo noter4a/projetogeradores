@@ -121,23 +121,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
           )}
         </div>
 
-        {/* Credits indicator (only when applicable) — name/role moved to "Meu Perfil" */}
-        {!collapsed && creditsStyle && (
-          <div className="border-b border-gray-800">
-            <div className={`mx-4 my-3 px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center justify-between ${creditsStyle}`}>
-              <span className="flex items-center gap-1.5"><CreditCard size={14} /> Créditos</span>
-              <span className="font-bold">{credits}</span>
-            </div>
-          </div>
-        )}
-        {collapsed && creditsStyle && (
-          <div className="border-b border-gray-800">
-            <div className={`mx-2 my-3 px-1 py-1 rounded-lg border text-[10px] font-bold text-center ${creditsStyle}`} title={`${credits} créditos restantes`}>
-              {credits}
-            </div>
-          </div>
-        )}
-
         {/* Navigation */}
         <nav className={`flex-1 ${collapsed ? 'p-2' : 'p-4'} space-y-1 overflow-y-auto`}>
           {user?.role !== UserRole.ORCAMENTOS && (
