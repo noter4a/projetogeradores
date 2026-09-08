@@ -44,6 +44,8 @@ const CompanyManagement: React.FC = () => {
   const [subscriptionDate, setSubscriptionDate] = useState('');
   const [subscriptionAddDays, setSubscriptionAddDays] = useState('30');
   const [subscriptionSaving, setSubscriptionSaving] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [subscriptionSuccess, setSubscriptionSuccess] = useState(false);
 
   const fetchCompanies = async () => {
     if (!user) return;
@@ -203,12 +205,15 @@ const CompanyManagement: React.FC = () => {
     setSubscriptionTarget(company);
     setSubscriptionDate(company.subscription_expires_at || '');
     setSubscriptionAddDays('30');
+    setSubscriptionError(null);
+    setSubscriptionSuccess(false);
   };
 
   const handleUpdateSubscription = async (payload: { expiresAt?: string; addDays?: number }) => {
     if (!subscriptionTarget || !user) return;
     setSubscriptionSaving(true);
-    setError(null);
+    setSubscriptionError(null);
+    setSubscriptionSuccess(false);
     try {
       const res = await fetch(`/api/companies/${subscriptionTarget.id}/subscription`, {
         method: 'PATCH',
@@ -221,14 +226,22 @@ const CompanyManagement: React.FC = () => {
       if (res.ok) {
         const updated = await res.json();
         setSubscriptionTarget(prev => (prev ? { ...prev, subscription_expires_at: updated.subscription_expires_at } : prev));
+        setSubscriptionDate(updated.subscription_expires_at || '');
+        setSubscriptionSuccess(true);
         await fetchCompanies();
       } else {
-        const errData = await res.json();
-        setError(errData.message || 'Erro ao atualizar assinatura.');
+        let msg = 'Erro ao atualizar assinatura.';
+        try {
+          const errData = await res.json();
+          msg = errData.message || msg;
+        } catch {
+          msg = `Servidor respondeu ${res.status}. Verifique se a API foi rebuildada.`;
+        }
+        setSubscriptionError(msg);
       }
     } catch (err) {
       console.error('Error updating subscription:', err);
-      setError('Erro de rede ao atualizar assinatura.');
+      setSubscriptionError('Erro de rede ao atualizar assinatura.');
     } finally {
       setSubscriptionSaving(false);
     }
@@ -660,7 +673,17 @@ const CompanyManagement: React.FC = () => {
               ))}
             </div>
 
-            {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
+            {subscriptionError && (
+              <div className="mt-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-xs text-red-400 font-medium">{subscriptionError}</p>
+              </div>
+            )}
+
+            {subscriptionSuccess && (
+              <div className="mt-3 px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <p className="text-xs text-green-400 font-medium">✓ Assinatura atualizada com sucesso!</p>
+              </div>
+            )}
 
             <div className="flex justify-end mt-5">
               <button
