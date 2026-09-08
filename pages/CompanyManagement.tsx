@@ -512,9 +512,19 @@ const CompanyManagement: React.FC = () => {
                   <td className="p-4 text-center">
                     {(() => {
                       const exp = c.subscription_expires_at;
-                      if (!exp) return <span className="text-xs text-gray-500">—</span>;
+                      if (!exp) return (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleOpenSubscription(c); }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all hover:brightness-125 bg-gray-800 border-gray-700 text-gray-400"
+                          title="Definir assinatura"
+                        >
+                          <Calendar size={14} /> Definir
+                        </button>
+                      );
                       const today = new Date(); today.setHours(0,0,0,0);
                       const expiry = new Date(exp + 'T00:00:00');
+                      if (isNaN(expiry.getTime())) return <span className="text-xs text-gray-500">—</span>;
                       const diffDays = Math.ceil((expiry.getTime() - today.getTime()) / 86400000);
                       const expired = diffDays < 0;
                       const warning = !expired && diffDays <= 7;
