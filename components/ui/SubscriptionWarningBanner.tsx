@@ -4,15 +4,25 @@ import { useAuth } from '../../context/AuthContext';
 
 const WARNING_DAYS = 7;
 
+// Extrai só YYYY-MM-DD de qualquer formato do Postgres
+const toDateOnly = (raw: string | null | undefined): string => {
+  if (!raw || raw === 'null') return '';
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : '';
+};
+
 const SubscriptionWarningBanner: React.FC = () => {
   const { user } = useAuth();
   const expiresAt = user?.subscriptionExpiresAt;
 
   if (!expiresAt) return null;
 
+  const dateOnly = toDateOnly(expiresAt);
+  if (!dateOnly) return null;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const expiry = new Date(expiresAt + 'T00:00:00');
+  const expiry = new Date(dateOnly + 'T00:00:00');
   const diffMs = expiry.getTime() - today.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 

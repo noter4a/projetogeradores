@@ -41,12 +41,21 @@ import WhatsAppFab from './components/WhatsAppFab';
 
 // ADMIN is never blocked. Users with no company (subscriptionExpiresAt is null/undefined)
 // are not gated either — the gate only applies once a user belongs to a company.
+// Extrai só YYYY-MM-DD de qualquer formato do Postgres ("2026-09-30", "2026-09-30T03:00:00.000Z", etc.)
+const toDateOnly = (raw: string | null | undefined): string => {
+  if (!raw || raw === 'null') return '';
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : '';
+};
+
 const hasActiveSubscription = (user: { role: UserRole; subscriptionExpiresAt?: string | null } | null) => {
   if (!user || user.role === UserRole.ADMIN) return true;
   if (user.subscriptionExpiresAt === null || user.subscriptionExpiresAt === undefined) return true;
+  const dateOnly = toDateOnly(user.subscriptionExpiresAt);
+  if (!dateOnly) return true; // se não conseguir parsear, não bloqueia
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const expiry = new Date(user.subscriptionExpiresAt + 'T00:00:00');
+  const expiry = new Date(dateOnly + 'T00:00:00');
   return expiry >= today;
 };
 
