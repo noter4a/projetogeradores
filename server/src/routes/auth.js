@@ -92,8 +92,14 @@ router.post('/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        // 1. Check if user exists
-        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        // 1. Check if user exists (join companies for subscription_expires_at)
+        const result = await pool.query(
+            `SELECT u.*, c.subscription_expires_at AS company_subscription_expires_at
+             FROM users u
+             LEFT JOIN companies c ON c.id = u.company_id
+             WHERE u.email = $1`,
+            [email]
+        );
         if (result.rows.length === 0) {
             console.log('User not found:', email);
             logAudit({
@@ -162,6 +168,7 @@ router.post('/login', loginLimiter, async (req, res) => {
                 role: user.role,
                 assignedGeneratorIds: user.assigned_generators || [],
                 companyId: user.company_id,
+                subscriptionExpiresAt: user.company_id ? (user.company_subscription_expires_at || null) : null,
                 phone: user.phone,
                 whatsappAlerts: user.whatsapp_alerts,
                 emailAlerts: user.email_alerts
@@ -183,7 +190,13 @@ router.post('/verify-2fa', otpLimiter, async (req, res) => {
         if (!result.ok) {
             return res.status(401).json({ message: result.error });
         }
-        const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [result.userId]);
+        const userResult = await pool.query(
+            `SELECT u.*, c.subscription_expires_at AS company_subscription_expires_at
+             FROM users u
+             LEFT JOIN companies c ON c.id = u.company_id
+             WHERE u.id = $1`,
+            [result.userId]
+        );
         if (userResult.rows.length === 0) {
             return res.status(401).json({ message: 'Usuário não encontrado.' });
         }
@@ -209,6 +222,7 @@ router.post('/verify-2fa', otpLimiter, async (req, res) => {
                 role: user.role,
                 assignedGeneratorIds: user.assigned_generators || [],
                 companyId: user.company_id,
+                subscriptionExpiresAt: user.company_id ? (user.company_subscription_expires_at || null) : null,
                 phone: user.phone,
                 whatsappAlerts: user.whatsapp_alerts,
                 emailAlerts: user.email_alerts,
@@ -392,8 +406,15 @@ router.put('/profile', authenticateToken, async (req, res) => {
         values.push(req.user.id);
         await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${paramIndex}`, values);
 
-        // Return updated user data
-        const updatedResult = await pool.query('SELECT id, name, email, role, assigned_generators, company_id, phone, whatsapp_alerts, email_alerts, two_factor_enabled FROM users WHERE id = $1', [req.user.id]);
+        // Return updated user data (join companies for subscription_expires_at)
+        const updatedResult = await pool.query(
+            `SELECT u.id, u.name, u.email, u.role, u.assigned_generators, u.company_id, u.phone, u.whatsapp_alerts, u.email_alerts, u.two_factor_enabled,
+                    c.subscription_expires_at AS company_subscription_expires_at
+             FROM users u
+             LEFT JOIN companies c ON c.id = u.company_id
+             WHERE u.id = $1`,
+            [req.user.id]
+        );
         const updatedUser = updatedResult.rows[0];
 
         res.json({
@@ -403,6 +424,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
             role: updatedUser.role,
             assignedGeneratorIds: updatedUser.assigned_generators || [],
             companyId: updatedUser.company_id,
+            subscriptionExpiresAt: updatedUser.company_id ? (updatedUser.company_subscription_expires_at || null) : null,
             phone: updatedUser.phone,
             whatsappAlerts: updatedUser.whatsapp_alerts,
             emailAlerts: updatedUser.email_alerts,

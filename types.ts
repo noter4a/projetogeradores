@@ -11,8 +11,6 @@ export interface Company {
   id: number;
   name: string;
   created_at?: string;
-  credits?: number;
-  last_credit_debit_date?: string;
   /** Data de expiração da assinatura (YYYY-MM-DD). null = sem restrição / admin. */
   subscription_expires_at?: string | null;
   /** Keys ("CONTROLLER:Nome do Aviso") dos Avisos habilitados — opt-in, vazio por padrão */
