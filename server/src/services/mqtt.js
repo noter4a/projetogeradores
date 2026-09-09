@@ -530,13 +530,24 @@ const dr164Sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // KVA Controller Poll Sequence (K30XTe / K30XL / Eclipse)
 // Uses register addresses in the 12000+ range
-const KVA_POLL_SEQUENCE = [
-    { startAddress: 10001, quantity: 8, fn: 4 },   // Registros estáticos: ID Produto, Versão, Número de Série, Horímetro Manutenção
+// KVA static registers: try fn=4 (Input Registers) first; if the gateway
+// returns a Modbus exception, the per-device fallback map switches to fn=3
+// (Holding Registers) on subsequent cycles. Some KVA firmwares expose the
+// same addresses via both function codes.
+const kvaStaticFn = new Map(); // deviceId -> 3 | 4 (default 4)
+const KVA_POLL_SEQUENCE_BASE = [
     { startAddress: 12001, quantity: 7 },   // Horímetro + Falhas + Avisos + Status LEDs
     { startAddress: 12011, quantity: 15 },  // Rede + GMG Tensões LL + Correntes + Potências + FP
     { startAddress: 12027, quantity: 7 },   // RPM + Temp + Pressão + Combustível + Bateria
     { startAddress: 12043, quantity: 6 },   // Tensões Fase-Neutro (Rede + GMG)
 ];
+function getKvaPollSequence(deviceId) {
+    const fn = kvaStaticFn.get(deviceId) ?? 4;
+    return [
+        { startAddress: 10001, quantity: 8, fn },  // Registros estáticos: ID Produto, Versão, Número de Série
+        ...KVA_POLL_SEQUENCE_BASE,
+    ];
+}
 
 // DSE4501 GenComm poll sequence — see server/src/data/dse4501-map.js
 const DSE_POLL_SEQUENCE = DSE4501_POLL_SEQUENCE;
@@ -716,7 +727,7 @@ async function pollDR164Device(device) {
     const isCummins = isCumminsController(device.controller);
     const isSgc420 = isSgc420Controller(device.controller);
     const isAgc150 = isAgc150Controller(device.controller);
-    const pollSequence = isKva ? KVA_POLL_SEQUENCE
+    const pollSequence = isKva ? getKvaPollSequence(device.id)
         : (isDse ? DSE_POLL_SEQUENCE
         : (isCummins ? CUMMINS_POLL_SEQUENCE : getPollSequenceForController(device.controller)));
     const controllerLabel = isKva ? 'KVA' : (isDse ? 'DSE' : (isCummins ? 'CUMMINS' : controllerProfileLabel(device.controller)));
@@ -1154,7 +1165,7 @@ async function pollDr164FeedbackStep(device, label) {
 
     const isKva = device.controller === 'kva' || device.controller === 'kvar';
     const isDse = device.controller === 'dse';
-    const pollSequence = isKva ? KVA_POLL_SEQUENCE
+    const pollSequence = isKva ? getKvaPollSequence(device.id)
         : (isDse ? DSE_POLL_SEQUENCE
         : (isCumminsController(device.controller) ? CUMMINS_POLL_SEQUENCE : getPollSequenceForController(device.controller)));
     const req = pollSequence[0];
@@ -2095,6 +2106,14 @@ export const initMqttService = (io) => {
                 // ========================================
                 // KVA Controller Data Mapping
                 // ========================================
+                // Fallback: se o bloco estático (10001) falhou com exceção Modbus,
+                // troca fn de 4 para 3 (Holding Registers) no próximo ciclo.
+                const staticFailed = kvaResults.some(r => !r.ok && r.index === 0);
+                if (staticFailed && (kvaStaticFn.get(deviceId) ?? 4) === 4) {
+                    kvaStaticFn.set(deviceId, 3);
+                    console.log(`[KVA] ${deviceId}: static block failed with fn=4, switching to fn=3 (Holding Registers) for next cycle`);
+                }
+
                 kvaResults.forEach(res => {
                     if (res.ok && res.decoded) {
                         const d = res.decoded;

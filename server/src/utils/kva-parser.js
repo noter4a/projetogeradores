@@ -90,16 +90,18 @@ function decodeBitmap(value, defs) {
 export function decodeKvaByBlock(slaveId, fn, startAddress, regs) {
     console.log(`[KVA-PARSER] Rx Slave: ${slaveId}, Fn: ${fn}, Addr: ${startAddress}, Len: ${regs.length}`);
 
-    // ---- Block 0: Registros Estáticos (10001-10008, 8 regs, fn=4 Input Registers) ----
+    // ---- Block 0: Registros Estáticos (10001-10008, 8 regs) ----
     // 10001=ID Produto, 10002=Versão, 10003=Número de Série, 10004=Reservado,
     // 10005=Horímetro Manutenção, 10006=Dia, 10007=Mês, 10008=Ano Manutenção
+    // NOTA: o manual diz Input Registers (fn=4), mas alguns firmwares mapeiam
+    // como Holding Registers (fn=3). Aceitamos ambos.
     if (startAddress === 10001 && regs.length >= 3) {
         const productId = u16(regs, 0);    // 10001
         const version = u16(regs, 1);      // 10002
         const serialRaw = u16(regs, 2);    // 10003 — Número de Série (u16 numérico)
         const serialNumber = serialRaw > 0 ? String(serialRaw) : null;
 
-        console.log(`[KVA-PARSER] Static: ProductID=${productId}, Version=${version}, Serial=${serialNumber}`);
+        console.log(`[KVA-PARSER] Static (fn=${fn}): ProductID=${productId}, Version=${version}, Serial=${serialNumber}, raw_regs=[${regs.join(',')}]`);
 
         return {
             block: 'KVA_STATIC_10001',
