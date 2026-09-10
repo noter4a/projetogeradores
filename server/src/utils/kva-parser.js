@@ -79,6 +79,43 @@ function decodeBitmap(value, defs) {
     return active;
 }
 
+/**
+ * Formata o número de série do controlador KVA no padrão oficial exibido no visor físico.
+ * Exemplo real: "K30E200-000817" (Eclipse 2.00, serial 817 com 6 dígitos).
+ * Mapeia os modelos conhecidos (Eclipse 2.00, K30XL 3.00, K30XTe 8.10) por ProductID.
+ */
+function formatKvaSerialNumber(productId, version, serialRaw) {
+    if (!serialRaw || serialRaw <= 0) return null;
+
+    const serialPadded = String(serialRaw).padStart(6, '0');
+
+    // Mapeamento dos identificadores de produto da KVA (conforme firmware/visor)
+    let modelPrefix = '';
+    switch (productId) {
+        case 4:
+            // Eclipse 2.00: display mostra "K30E200-000817"
+            modelPrefix = 'K30E200';
+            break;
+        case 3:
+            // K30XTe 8.10: display mostra "K30XTE810-..."
+            modelPrefix = 'K30XTE810';
+            break;
+        case 2:
+            // K30XL 3.00: display mostra "K30XL300-..."
+            modelPrefix = 'K30XL300';
+            break;
+        case 1:
+            // K30 legado
+            modelPrefix = 'K30';
+            break;
+        default:
+            modelPrefix = productId ? `K30-${productId}` : 'K30';
+            break;
+    }
+
+    return `${modelPrefix}-${serialPadded}`;
+}
+
 // ========================================
 // Block Decoder
 // ========================================
@@ -99,15 +136,16 @@ export function decodeKvaByBlock(slaveId, fn, startAddress, regs) {
         const productId = u16(regs, 0);    // 10001
         const version = u16(regs, 1);      // 10002
         const serialRaw = u16(regs, 2);    // 10003 — Número de Série (u16 numérico)
-        const serialNumber = serialRaw > 0 ? String(serialRaw) : null;
+        const serialNumber = formatKvaSerialNumber(productId, version, serialRaw);
 
-        console.log(`[KVA-PARSER] Static (fn=${fn}): ProductID=${productId}, Version=${version}, Serial=${serialNumber}, raw_regs=[${regs.join(',')}]`);
+        console.log(`[KVA-PARSER] Static (fn=${fn}): ProductID=${productId}, Version=${version}, SerialRaw=${serialRaw} -> SerialFormatted=${serialNumber}, raw_regs=[${regs.join(',')}]`);
 
         return {
             block: 'KVA_STATIC_10001',
             productId,
             version,
             serialNumber,
+            serialRaw,
         };
     }
 
