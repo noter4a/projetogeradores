@@ -254,28 +254,60 @@ async function persistAlarmChannel(resolvedGenId, resolvedGenName, code, message
     }
 }
 
+// Cache de identidade e contexto de geradores (evita bater no banco com SELECT a cada
+// mensagem MQTT recebida, reduzindo drasticamente a carga do PostgreSQL).
+const GENERATOR_CONTEXT_CACHE_TTL_MS = 300000; // 5 minutos
+const generatorContextCache = new Map(); // key (deviceId, id, ip, connectionName) -> { data, expiresAt }
+
+export function invalidateGeneratorCache(key) {
+    if (key) {
+        generatorContextCache.delete(key);
+    } else {
+        generatorContextCache.clear();
+    }
+}
+
 // Resolve a identidade "oficial" do gerador (id/nome no banco + empresa) a
 // partir do deviceId do MQTT (que pode ser o IP/nome de conexão, não o id do
-// banco). Chamada uma vez por mensagem, o resultado é reaproveitado pelo
-// filtro de Avisos e pelas duas chamadas de persistAlarmChannel (Falha e
-// Aviso) — evita resolver a mesma coisa 2-3x por mensagem.
+// banco). Utiliza cache em memória com TTL de 5 minutos.
 async function resolveGeneratorContext(deviceId) {
+    if (!deviceId) return { resolvedGenId: deviceId, resolvedGenName: deviceId, companyId: null };
+
+    const cached = generatorContextCache.get(deviceId);
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.data;
+    }
+
     try {
         const result = await pool.query(
-            "SELECT id, name, company_id FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1 LIMIT 1",
+            "SELECT id, name, company_id, connection_info FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1 LIMIT 1",
             [deviceId]
         );
         if (result.rows.length > 0) {
-            return {
-                resolvedGenId: result.rows[0].id,
-                resolvedGenName: result.rows[0].name,
-                companyId: result.rows[0].company_id,
+            const row = result.rows[0];
+            const data = {
+                resolvedGenId: row.id,
+                resolvedGenName: row.name,
+                companyId: row.company_id,
             };
+            const expiresAt = Date.now() + GENERATOR_CONTEXT_CACHE_TTL_MS;
+
+            // Indexa por todos os identificadores conhecidos do gerador
+            generatorContextCache.set(deviceId, { data, expiresAt });
+            if (row.id) generatorContextCache.set(row.id, { data, expiresAt });
+            if (row.connection_info?.ip) generatorContextCache.set(row.connection_info.ip, { data, expiresAt });
+            if (row.connection_info?.connectionName) generatorContextCache.set(row.connection_info.connectionName, { data, expiresAt });
+
+            return data;
         }
     } catch (err) {
         console.error('[MQTT] Failed to resolve generator context:', err.message);
     }
-    return { resolvedGenId: deviceId, resolvedGenName: deviceId, companyId: null };
+
+    const fallbackData = { resolvedGenId: deviceId, resolvedGenName: deviceId, companyId: null };
+    // Cache de curta duração para IDs desconhecidos (30s) para evitar queries contínuas
+    generatorContextCache.set(deviceId, { data: fallbackData, expiresAt: Date.now() + 30000 });
+    return fallbackData;
 }
 
 // Cache das configurações de Avisos por empresa (evita bater no banco a cada
@@ -2648,20 +2680,8 @@ export const initMqttService = (io) => {
 
                                 const mainsTransitioned = wasMainsPresent !== mainsPresentNow;
                                 if (mainsTransitioned) {
-                                    let resolvedGenId = deviceId;
-                                    let resolvedGenName = deviceId;
-                                    try {
-                                        const resGen = await pool.query(
-                                            "SELECT id, name FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1 LIMIT 1",
-                                            [deviceId]
-                                        );
-                                        if (resGen.rows.length > 0) {
-                                            resolvedGenId = resGen.rows[0].id;
-                                            resolvedGenName = resGen.rows[0].name;
-                                        }
-                                    } catch (err) {
-                                        console.error('[MQTT] Failed to resolve Generator ID for mains notify:', err.message);
-                                    }
+                                    const resolvedGenId = genContext.resolvedGenId || deviceId;
+                                    const resolvedGenName = genContext.resolvedGenName || deviceId;
 
                                     if (!mainsPresentNow) {
                                         const reason = dseMainsFailedAlarmActive
@@ -2790,8 +2810,8 @@ export const initMqttService = (io) => {
                                 safeFloat(unifiedData.mainsVoltageL3),
                                 safeFloat(unifiedData.mainsFrequency),
                                 unifiedData.status || null,
-                                // ID to match
-                                deviceId,
+                                // ID to match (usando o id resolvido para acelerar o UPDATE via index scan na PK)
+                                genContext.resolvedGenId || deviceId,
                                 safeRound(unifiedData.voltageL12),
                                 safeRound(unifiedData.voltageL23),
                                 safeRound(unifiedData.voltageL31),
@@ -2810,13 +2830,8 @@ export const initMqttService = (io) => {
                             // --- INSERT HISTORICAL READING (for Charts) ---
                             if (unifiedData.activePower !== undefined || unifiedData.activePowerTotal !== undefined) {
                                 try {
-                                    // Resolve the real generator ID for readings
-                                    let readingGenId = deviceId;
-                                    const genLookup = await pool.query(
-                                        "SELECT id FROM generators WHERE id = $1 OR connection_info->>'ip' = $1 OR connection_info->>'connectionName' = $1 LIMIT 1",
-                                        [deviceId]
-                                    );
-                                    if (genLookup.rows.length > 0) readingGenId = genLookup.rows[0].id;
+                                    // Utiliza o ID já resolvido em genContext, economizando queries constantes no banco
+                                    const readingGenId = genContext.resolvedGenId || deviceId;
 
                                     await pool.query(
                                         `INSERT INTO generator_readings (generator_id, active_power, mains_active_power, rpm, frequency, voltage_l1, current_l1, fuel_level, engine_temp)
@@ -2866,6 +2881,9 @@ export const initMqttService = (io) => {
 
     updatePollingList = async () => {
         try {
+            // Limpa o cache de lookup de geradores para refletir qualquer edição imediatamente
+            invalidateGeneratorCache();
+
             const res = await pool.query("SELECT connection_info FROM generators");
             const allRows = res.rows
                 .filter(row => row.connection_info && row.connection_info.ip);
