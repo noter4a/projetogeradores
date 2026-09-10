@@ -28,6 +28,19 @@ html.light {
 }
 
 /* ========================================
+   RESTORE TAILWIND V3 BUTTON BEHAVIOR
+   (Tailwind v4 removed cursor:pointer from buttons)
+   ======================================== */
+button,
+[role="button"] {
+  cursor: pointer;
+}
+button:disabled,
+[role="button"]:disabled {
+  cursor: default;
+}
+
+/* ========================================
    DARK MODE (Default)
    ======================================== */
 body {
