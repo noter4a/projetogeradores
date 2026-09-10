@@ -458,10 +458,10 @@ const ProfileSettings: React.FC = () => {
                   setSaving2fa(false);
                 }
               }}
-              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 disabled:opacity-50 ${user?.twoFactorEnabled ? 'bg-green-500' : 'bg-gray-700'}`}
+              className={`relative w-14 h-8 rounded-full transition-colors shrink-0 overflow-hidden disabled:opacity-50 ${user?.twoFactorEnabled ? 'bg-green-500' : 'bg-gray-700'}`}
               title={user?.twoFactorEnabled ? 'Desativar 2FA' : 'Ativar 2FA'}
             >
-              <span className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${user?.twoFactorEnabled ? 'translate-x-7' : 'translate-x-1'}`} />
+              <span className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${user?.twoFactorEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
           </div>
           <p className={`text-xs mt-3 font-medium ${user?.twoFactorEnabled ? 'text-green-400' : 'text-gray-500'}`}>
