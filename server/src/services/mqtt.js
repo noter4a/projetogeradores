@@ -356,6 +356,17 @@ function computeWarningCodeAndMessage(filteredNames) {
 
 const notifyUsersAboutMainsFailure = async (clientPool, generatorId, generatorName) => {
     try {
+        // Registra o evento de queda de rede no histórico (código 9999) para compor relatórios de confiabilidade
+        try {
+            await clientPool.query(
+                `INSERT INTO alarm_history (generator_id, alarm_code, alarm_message, alarm_type)
+                 VALUES ($1, 9999, 'Falha de rede elétrica (queda de energia da concessionária)', 'AVISO')`,
+                [generatorId]
+            );
+        } catch (dbErr) {
+            console.error('[MQTT] Failed recording mains failure to alarm_history:', dbErr.message);
+        }
+
         const res = await clientPool.query(
             `SELECT u.phone FROM users u
              LEFT JOIN generators g ON g.company_id = u.company_id
@@ -372,6 +383,18 @@ const notifyUsersAboutMainsFailure = async (clientPool, generatorId, generatorNa
 
 const notifyUsersMainsRestored = async (clientPool, generatorId, generatorName) => {
     try {
+        // Conclui o evento de queda de rede marcando o end_time com o instante de retorno
+        try {
+            await clientPool.query(
+                `UPDATE alarm_history 
+                 SET end_time = NOW() 
+                 WHERE generator_id = $1 AND alarm_code = 9999 AND end_time IS NULL`,
+                [generatorId]
+            );
+        } catch (dbErr) {
+            console.error('[MQTT] Failed resolving mains failure in alarm_history:', dbErr.message);
+        }
+
         const res = await clientPool.query(
             `SELECT u.phone FROM users u
              LEFT JOIN generators g ON g.company_id = u.company_id

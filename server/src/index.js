@@ -21,6 +21,7 @@ import controlRoutes from './routes/control.js';
 import authRoutes from './routes/auth.js';
 import generatorsRoutes from './routes/generators.js';
 import companyWarningsRoutes from './routes/companyWarnings.js';
+import reportsRoutes from './routes/reports.js';
 import { reconcileCompanyCredits } from './lib/companyCredits.js';
 import { logAudit } from './lib/audit.js';
 import { AUTH_COOKIE_NAME, authenticateToken, requireRole } from './middleware/auth.js';
@@ -151,6 +152,7 @@ app.use('/api/audit', authenticateToken, auditLogRoutes);
 app.use('/api/control', authenticateToken, controlRoutes);
 app.use('/api/generators', authenticateToken, generatorsRoutes);
 app.use('/api/company-warnings', authenticateToken, companyWarningsRoutes);
+app.use('/api/reports', authenticateToken, reportsRoutes);
 
 // FIX #8: Alarm Routes protegidas com autenticação
 app.use('/api/alarms', authenticateToken, alarmRoutes);
