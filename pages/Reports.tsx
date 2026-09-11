@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useGenerators } from '../context/GeneratorContext';
 import {
   FileText,
   Printer,
@@ -105,6 +106,8 @@ const MONTH_NAMES = [
 ];
 
 const Reports: React.FC = () => {
+  const { generators, isLoading: isGensLoading } = useGenerators();
+
   // Inicializa com o mês atual
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const d = new Date();
@@ -113,7 +116,15 @@ const Reports: React.FC = () => {
 
   const [selectedGenId, setSelectedGenId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<MonthlyReportResponse | null>(null);
+
+  // Auto-seleciona o primeiro gerador do contexto se ainda não houver seleção
+  useEffect(() => {
+    if (!selectedGenId && generators.length > 0) {
+      setSelectedGenId(generators[0].id);
+    }
+  }, [generators, selectedGenId]);
 
   // Campos de Responsável Técnico persistidos no localStorage
   const [techName, setTechName] = useState(() => localStorage.getItem('ciklo_report_tech_name') || '');
@@ -136,22 +147,32 @@ const Reports: React.FC = () => {
   // Carrega relatório da API
   const fetchReport = async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (selectedGenId) params.set('generatorId', selectedGenId);
       if (selectedMonth) params.set('month', selectedMonth);
 
       const res = await fetch(`/api/reports/monthly?${params.toString()}`);
-      if (res.ok) {
-        const data: MonthlyReportResponse = await res.json();
-        setReport(data);
-        // Seleciona o primeiro gerador se ainda não houver seleção
-        if (!selectedGenId && data.generator) {
-          setSelectedGenId(data.generator.id);
-        }
+      if (!res.ok) {
+        let errorMsg = `Erro na API (${res.status} ${res.statusText})`;
+        try {
+          const errData = await res.json();
+          if (errData.message) errorMsg = errData.message;
+        } catch {}
+        throw new Error(errorMsg);
       }
-    } catch (err) {
+
+      const data: MonthlyReportResponse = await res.json();
+      setReport(data);
+
+      // Sincroniza gerador selecionado se ainda vazio
+      if (!selectedGenId && data.generator) {
+        setSelectedGenId(data.generator.id);
+      }
+    } catch (err: any) {
       console.error('Falha ao carregar relatório mensal:', err);
+      setError(err?.message || 'Erro ao conectar à API de relatórios.');
     } finally {
       setLoading(false);
     }
@@ -245,13 +266,30 @@ const Reports: React.FC = () => {
               onChange={(e) => setSelectedGenId(e.target.value)}
               className="w-full bg-ciklo-black border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:border-ciklo-orange outline-none"
             >
-              {report?.generatorsList.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name} ({g.model || 'GMG'} - {g.powerKva} kVA)
-                </option>
-              ))}
-              {report?.generatorsList.length && report.generatorsList.length > 1 && (
-                <option value="all">Todos os Geradores (Frota Consolidada)</option>
+              {report?.generatorsList && report.generatorsList.length > 0 ? (
+                <>
+                  {report.generatorsList.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} ({g.model || 'GMG'} - {g.powerKva} kVA)
+                    </option>
+                  ))}
+                  {report.generatorsList.length > 1 && (
+                    <option value="all">Todos os Geradores (Frota Consolidada)</option>
+                  )}
+                </>
+              ) : generators.length > 0 ? (
+                <>
+                  {generators.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} ({g.model || 'GMG'} - {g.powerKVA} kVA)
+                    </option>
+                  ))}
+                  {generators.length > 1 && (
+                    <option value="all">Todos os Geradores (Frota Consolidada)</option>
+                  )}
+                </>
+              ) : (
+                <option value="">Nenhum gerador disponível</option>
               )}
             </select>
           </div>
@@ -317,6 +355,22 @@ const Reports: React.FC = () => {
         <div className="p-12 text-center text-gray-400 bg-ciklo-card rounded-xl border border-gray-800">
           <div className="w-8 h-8 border-2 border-ciklo-orange border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           Carregando dados operacionais e calculando métricas do mês...
+        </div>
+      ) : error ? (
+        <div className="p-8 text-center bg-ciklo-card rounded-xl border border-red-800/60 max-w-xl mx-auto space-y-4">
+          <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+            <AlertTriangle size={24} />
+          </div>
+          <div>
+            <h3 className="text-white font-bold text-base mb-1">Não foi possível gerar o relatório</h3>
+            <p className="text-gray-400 text-sm">{error}</p>
+          </div>
+          <button
+            onClick={fetchReport}
+            className="px-4 py-2 bg-ciklo-orange hover:bg-orange-600 text-white rounded-lg font-medium text-sm transition-colors inline-flex items-center gap-2 cursor-pointer"
+          >
+            <RotateCcw size={16} /> Tentar Novamente
+          </button>
         </div>
       ) : report ? (
         <div className="report-container max-w-[210mm] mx-auto bg-white text-gray-900 rounded-xl shadow-2xl overflow-hidden border border-gray-200 print:border-none print:shadow-none print:rounded-none">

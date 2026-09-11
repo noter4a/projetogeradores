@@ -28,9 +28,11 @@ router.get('/monthly', async (req, res) => {
         const year = parseInt(yearStr, 10);
         const monthNum = parseInt(monthStr, 10);
 
-        // Define limites do período (início e término do mês)
-        const startDate = new Date(Date.UTC(year, monthNum - 1, 1, 0, 0, 0));
-        const endDate = new Date(Date.UTC(year, monthNum, 1, 0, 0, 0));
+        // Define limites do período de forma segura (strings ISO para evitar distorção de fuso horário)
+        const startDate = `${yearStr}-${monthStr}-01 00:00:00`;
+        const nextMonth = monthNum === 12 ? 1 : monthNum + 1;
+        const nextYear = monthNum === 12 ? year + 1 : year;
+        const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01 00:00:00`;
         const daysInMonth = new Date(year, monthNum, 0).getDate();
 
         // 1. Busca os geradores acessíveis ao usuário
@@ -46,23 +48,32 @@ router.get('/monthly', async (req, res) => {
         const genParams = [];
 
         // Filtro por permissões de usuário
-        if (req.user.role !== 'ADMIN') {
-            if (req.user.companyId != null) {
+        const userRole = (req.user?.role || '').toUpperCase();
+        if (userRole !== 'ADMIN') {
+            if (req.user?.companyId != null) {
                 genParams.push(req.user.companyId);
                 genQuery += ` WHERE g.company_id = $${genParams.length}`;
-            } else if (Array.isArray(req.user.assignedGenerators) && req.user.assignedGenerators.length > 0) {
-                genParams.push(req.user.assignedGenerators);
-                genQuery += ` WHERE g.id = ANY($${genParams.length})`;
             } else {
-                return res.json({
-                    reportPeriod: { month, startDate, endDate, daysInMonth },
-                    generator: null,
-                    generatorsList: [],
-                    kpis: getEmptyKpis(),
-                    dailyOperation: [],
-                    mainsOutages: [],
-                    alarms: []
-                });
+                // Caso o token não tenha companyId, checa se há geradores atribuídos no banco
+                const uRes = await pool.query('SELECT assigned_generators, company_id FROM users WHERE id = $1', [req.user?.id]);
+                const uRow = uRes.rows[0];
+                if (uRow?.company_id != null) {
+                    genParams.push(uRow.company_id);
+                    genQuery += ` WHERE g.company_id = $${genParams.length}`;
+                } else if (Array.isArray(uRow?.assigned_generators) && uRow.assigned_generators.length > 0) {
+                    genParams.push(uRow.assigned_generators);
+                    genQuery += ` WHERE g.id = ANY($${genParams.length})`;
+                } else {
+                    return res.json({
+                        reportPeriod: { month, year, monthNum, startDate, endDate, daysInMonth },
+                        generator: null,
+                        generatorsList: [],
+                        kpis: getEmptyKpis(),
+                        dailyOperation: [],
+                        mainsOutages: [],
+                        alarms: []
+                    });
+                }
             }
         }
 
@@ -72,7 +83,7 @@ router.get('/monthly', async (req, res) => {
 
         if (accessibleGenerators.length === 0) {
             return res.json({
-                reportPeriod: { month, startDate, endDate, daysInMonth },
+                reportPeriod: { month, year, monthNum, startDate, endDate, daysInMonth },
                 generator: null,
                 generatorsList: [],
                 kpis: getEmptyKpis(),
@@ -122,11 +133,10 @@ router.get('/monthly', async (req, res) => {
                 ROUND(COALESCE(AVG(active_power) FILTER (WHERE active_power > 1), 0)::numeric, 2) as avg_power_kw,
                 ROUND(COALESCE(MAX(active_power), 0)::numeric, 2) as peak_power_kw,
                 ROUND(COALESCE(SUM(active_power * 15.0 / 3600.0) FILTER (WHERE active_power > 1), 0)::numeric, 2) as total_kwh,
-                ROUND(COALESCE(AVG(engine_temp) FILTER (WHERE engine_temp > 0), 0)::numeric, 1) as avg_temp,
-                ROUND(COALESCE(AVG(battery_voltage) FILTER (WHERE battery_voltage > 0), 0)::numeric, 1) as avg_battery
+                ROUND(COALESCE(AVG(engine_temp) FILTER (WHERE engine_temp > 0), 0)::numeric, 1) as avg_temp
             FROM generator_readings
             WHERE generator_id = ANY($1)
-              AND recorded_at >= $2 AND recorded_at < $3
+              AND recorded_at >= $2::timestamp AND recorded_at < $3::timestamp
             GROUP BY day_date
             ORDER BY day_date ASC
         `;
@@ -135,7 +145,12 @@ router.get('/monthly', async (req, res) => {
         // 3. Monta a série diária (preenche todos os dias do mês de 1 até N)
         const dailyMap = new Map();
         readingsResult.rows.forEach(r => {
-            const d = new Date(r.day_date).toISOString().split('T')[0];
+            let d = r.day_date;
+            if (d instanceof Date) {
+                d = d.toISOString().split('T')[0];
+            } else if (typeof d === 'string') {
+                d = d.split('T')[0];
+            }
             dailyMap.set(d, r);
         });
 
@@ -187,7 +202,7 @@ router.get('/monthly', async (req, res) => {
 
         // 4. Consulta quedas de rede da concessionária (alarm_history onde alarm_code = 9999 ou alarme de rede)
         const mainsOutagesQuery = `
-            SELECT
+            SELECT DISTINCT ON (a.id, a.start_time)
                 a.id,
                 a.generator_id,
                 COALESCE(g.name, a.generator_id) as generator_name,
@@ -196,11 +211,11 @@ router.get('/monthly', async (req, res) => {
                 a.end_time,
                 ROUND(EXTRACT(EPOCH FROM (COALESCE(a.end_time, NOW()) - a.start_time))::numeric, 0) as duration_seconds
             FROM alarm_history a
-            LEFT JOIN generators g ON a.generator_id = g.id OR a.generator_id = g.connection_info->>'ip'
+            LEFT JOIN generators g ON a.generator_id = g.id OR (g.connection_info->>'ip' IS NOT NULL AND g.connection_info->>'ip' != '' AND a.generator_id = g.connection_info->>'ip')
             WHERE a.generator_id = ANY($1)
               AND (a.alarm_code = 9999 OR a.alarm_message ILIKE '%rede%' OR a.alarm_message ILIKE '%concessionária%')
-              AND a.start_time >= $2 AND a.start_time < $3
-            ORDER BY a.start_time DESC
+              AND a.start_time >= $2::timestamp AND a.start_time < $3::timestamp
+            ORDER BY a.start_time DESC, a.id DESC
         `;
         const mainsOutagesResult = await pool.query(mainsOutagesQuery, [aliasesArray, startDate, endDate]);
         const mainsOutages = mainsOutagesResult.rows.map(r => ({
@@ -219,7 +234,7 @@ router.get('/monthly', async (req, res) => {
 
         // 5. Consulta Falhas e Alarmes gerais ocorridos no período
         const alarmsQuery = `
-            SELECT
+            SELECT DISTINCT ON (a.id, a.start_time)
                 a.id,
                 a.generator_id,
                 COALESCE(g.name, a.generator_id) as generator_name,
@@ -233,12 +248,12 @@ router.get('/monthly', async (req, res) => {
                 a.acknowledged_at,
                 ROUND(EXTRACT(EPOCH FROM (COALESCE(a.end_time, NOW()) - a.start_time))::numeric, 0) as duration_seconds
             FROM alarm_history a
-            LEFT JOIN generators g ON a.generator_id = g.id OR a.generator_id = g.connection_info->>'ip'
+            LEFT JOIN generators g ON a.generator_id = g.id OR (g.connection_info->>'ip' IS NOT NULL AND g.connection_info->>'ip' != '' AND a.generator_id = g.connection_info->>'ip')
             WHERE a.generator_id = ANY($1)
               AND a.alarm_code != 9999
-              AND NOT (a.alarm_message ILIKE '%rede%' OR a.alarm_message ILIKE '%concessionária%')
-              AND a.start_time >= $2 AND a.start_time < $3
-            ORDER BY a.start_time DESC
+              AND NOT (COALESCE(a.alarm_message, '') ILIKE '%rede%' OR COALESCE(a.alarm_message, '') ILIKE '%concessionária%')
+              AND a.start_time >= $2::timestamp AND a.start_time < $3::timestamp
+            ORDER BY a.start_time DESC, a.id DESC
             LIMIT 100
         `;
         const alarmsResult = await pool.query(alarmsQuery, [aliasesArray, startDate, endDate]);
@@ -260,7 +275,9 @@ router.get('/monthly', async (req, res) => {
         // 6. Estimativa de consumo de diesel (Norma ABNT / ISO 8528)
         // Consumo médio padrão industrial: ~0.26 litros por kWh gerado.
         // Se rodou horas em vazio ou potência baixa: mínimo de 0.08 * kVA * horas.
-        const nominalKva = selectedGenerator?.power_kva ? parseFloat(selectedGenerator.power_kva) : 150;
+        const nominalKva = selectedGenerator?.power_kva 
+            ? parseFloat(selectedGenerator.power_kva) 
+            : accessibleGenerators.reduce((acc, g) => acc + (parseFloat(g.power_kva) || 0), 0) || 150;
         let estimatedDieselLiters = 0;
 
         if (totalEnergyKwh > 0) {
@@ -338,7 +355,7 @@ router.get('/monthly', async (req, res) => {
 
     } catch (err) {
         console.error('[REPORTS] Error generating monthly report:', err);
-        res.status(500).json({ message: 'Erro ao gerar relatório mensal.' });
+        res.status(500).json({ message: err.message || 'Erro ao gerar relatório mensal.' });
     }
 });
 
