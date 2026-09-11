@@ -29,6 +29,7 @@ import pool from '../db.js';
 import { buildWarningKey } from '../data/warning-catalog.js';
 import { sendAlarmEmail, sendWarningEmail } from './email.js';
 import { sendAlarmWhatsApp, sendAlarmResolvedWhatsApp } from './whatsapp.js';
+import { decryptObject } from '../lib/crypto.js';
 
 const notifyUsersAboutAlarm = async (clientPool, generatorId, generatorName, alarmCode, alarmMessage) => {
     try {
@@ -2909,6 +2910,10 @@ export const initMqttService = (io) => {
 
             const res = await pool.query("SELECT connection_info FROM generators");
             const allRows = res.rows
+                .map(row => ({
+                    ...row,
+                    connection_info: row.connection_info ? decryptObject(row.connection_info) : null
+                }))
                 .filter(row => row.connection_info && row.connection_info.ip);
 
             // Separate modem (default) vs DR164 devices
@@ -2929,7 +2934,9 @@ export const initMqttService = (io) => {
             const newModemDevices = modemRows.map(row => ({
                 id: row.connection_info.ip,
                 slaveId: parseInt(row.connection_info.slaveId) || 1,
-                controller: (row.connection_info.controller || 'deif').toLowerCase()
+                controller: (row.connection_info.controller || 'deif').toLowerCase(),
+                controllerPin: row.connection_info.controllerPin || null,
+                password: row.connection_info.password || null
             }));
 
             const currentIds = new Set(devicesToPoll.map(d => d.id));
@@ -2952,6 +2959,8 @@ export const initMqttService = (io) => {
                 controller: (row.connection_info.controller || '').toLowerCase(),
                 agc150Profile: row.connection_info.agc150Profile || 'gen',
                 pollingPaused: row.connection_info.pollingPaused === true,
+                controllerPin: row.connection_info.controllerPin || null,
+                password: row.connection_info.password || null
             }));
 
             const prevDr164Ids = new Set(dr164Devices.map(d => d.id));

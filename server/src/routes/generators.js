@@ -6,6 +6,7 @@ import { requireRole } from '../middleware/auth.js';
 import { assertGeneratorControlAccess, assertGeneratorReadAccess } from '../lib/accessControl.js';
 import { logAudit } from '../lib/audit.js';
 import { getIo } from '../lib/socket.js';
+import { encryptObject, decryptObject } from '../lib/crypto.js';
 
 const router = express.Router();
 
@@ -182,12 +183,17 @@ router.post('/', requireRole('ADMIN'), async (req, res) => {
             port: gen.port,
             slaveId: gen.slaveId,
             deviceType: gen.deviceType || 'modem',
+            ...(gen.controllerPin ? { controllerPin: gen.controllerPin } : {}),
+            ...(gen.password ? { password: gen.password } : {}),
+            ...(gen.modemPassword ? { modemPassword: gen.modemPassword } : {}),
             ...(gen.agc150Profile ? { agc150Profile: gen.agc150Profile } : {}),
         };
 
+        const secureConnectionInfo = encryptObject(connectionInfo);
+
         await pool.query(
             "INSERT INTO generators (id, name, location, model, power_kva, status, connection_info, company_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-            [gen.id, gen.name, gen.location, gen.model, gen.powerKVA, gen.status || 'STOPPED', JSON.stringify(connectionInfo), gen.companyId || null]
+            [gen.id, gen.name, gen.location, gen.model, gen.powerKVA, gen.status || 'STOPPED', JSON.stringify(secureConnectionInfo), gen.companyId || null]
         );
 
         // Instantly reload MQTT polling configurations and notify clients
@@ -226,9 +232,11 @@ router.put('/:id', requireRole('ADMIN'), async (req, res) => {
         // Preserve the polling pause flag (managed by the dedicated /polling endpoint)
         // so editing a generator here doesn't accidentally re-enable reads.
         const existing = await pool.query("SELECT connection_info FROM generators WHERE id=$1", [id]);
-        const existingPaused = existing.rows[0]?.connection_info?.pollingPaused === true;
+        const existingRow = existing.rows[0]?.connection_info || {};
+        const existingDecrypted = decryptObject(existingRow);
+        const existingPaused = existingRow?.pollingPaused === true;
         const pollingPaused = typeof gen.pollingPaused === 'boolean' ? gen.pollingPaused : existingPaused;
-        const existingGps = existing.rows[0]?.connection_info?.gps; // GPS is reported by the modem, not the form
+        const existingGps = existingRow?.gps; // GPS is reported by the modem, not the form
 
         const connectionInfo = {
             connectionName: gen.connectionName,
@@ -238,14 +246,19 @@ router.put('/:id', requireRole('ADMIN'), async (req, res) => {
             port: gen.port,
             slaveId: gen.slaveId,
             deviceType: gen.deviceType || 'modem',
+            ...(gen.controllerPin ? { controllerPin: gen.controllerPin } : (existingDecrypted.controllerPin ? { controllerPin: existingDecrypted.controllerPin } : {})),
+            ...(gen.password ? { password: gen.password } : (existingDecrypted.password ? { password: existingDecrypted.password } : {})),
+            ...(gen.modemPassword ? { modemPassword: gen.modemPassword } : (existingDecrypted.modemPassword ? { modemPassword: existingDecrypted.modemPassword } : {})),
             ...(gen.agc150Profile ? { agc150Profile: gen.agc150Profile } : {}),
             ...(pollingPaused ? { pollingPaused: true } : {}),
             ...(existingGps ? { gps: existingGps } : {}),
         };
 
+        const secureConnectionInfo = encryptObject(connectionInfo);
+
         await pool.query(
             "UPDATE generators SET name=$1, location=$2, model=$3, power_kva=$4, status=$5, connection_info=$6, company_id=$7 WHERE id=$8",
-            [gen.name, gen.location, gen.model, gen.powerKVA, gen.status, JSON.stringify(connectionInfo), gen.companyId || null, id]
+            [gen.name, gen.location, gen.model, gen.powerKVA, gen.status, JSON.stringify(secureConnectionInfo), gen.companyId || null, id]
         );
 
         // Instantly reload MQTT polling configurations and notify clients

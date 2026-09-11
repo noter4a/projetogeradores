@@ -28,6 +28,7 @@ import { AUTH_COOKIE_NAME, authenticateToken, requireRole } from './middleware/a
 import { assertGeneratorControlAccess } from './lib/accessControl.js';
 import { setIo } from './lib/socket.js';
 import initDb from './db/initDb.js';
+import { getMasterKey } from './lib/crypto.js';
 
 dotenv.config();
 
@@ -169,6 +170,12 @@ app.use('/api/*', (req, res) => {
 
 // Start Server
 httpServer.listen(PORT, async () => {
+    try {
+        getMasterKey();
+        console.log('[CRYPTO] ✅ Módulo de Criptografia AES-256-GCM ativo.');
+    } catch (cryptoErr) {
+        console.error('[CRYPTO] ❌ Falha ao inicializar chaves criptográficas:', cryptoErr.message);
+    }
     await initDb();
     await reconcileCompanyCredits();
     // Re-check every 10 minutes so the midnight Brasília cutoff is applied promptly
